@@ -1,0 +1,9 @@
+tmp/
+data/
+*.db
+__pycache__/
+*.pyc
+*.egg-info/
+.env
+dist/
+build/

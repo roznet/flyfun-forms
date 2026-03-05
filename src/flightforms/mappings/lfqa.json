@@ -1,0 +1,23 @@
+{
+  "icao": "LFQA",
+  "label": "Préavis Douane (Reims Prunay)",
+  "template": "lfqa_customs.docx",
+  "type": "docx",
+  "version": "1.0",
+  "time_reference": "local",
+  "time_zone": "Europe/Paris",
+  "max_crew": 10,
+  "max_passengers": 20,
+  "send_to": "codt-metz@douane.finances.gouv.fr",
+  "checkbox_on": "X",
+  "date_format": "%d/%m/%Y",
+  "default_observations": "Rien à déclarer",
+  "has_connecting_flight": false,
+  "extra_fields": [],
+  "required_fields": {
+    "flight": ["origin", "destination", "departure_date", "departure_time_utc", "arrival_date", "arrival_time_utc"],
+    "aircraft": ["registration", "type"],
+    "crew": ["first_name", "last_name", "nationality", "id_number"],
+    "passengers": ["first_name", "last_name", "nationality", "id_number"]
+  }
+}

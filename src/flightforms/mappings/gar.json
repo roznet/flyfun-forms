@@ -1,0 +1,57 @@
+{
+  "icao_prefix": "EG",
+  "label": "General Aviation Report (GAR)",
+  "template": "gar_template.xlsx",
+  "type": "xlsx",
+  "version": "6.7",
+  "time_reference": "utc",
+  "max_crew": 8,
+  "max_passengers": 20,
+  "has_connecting_flight": true,
+  "date_format": "DD/MM/YYYY",
+  "time_format": "HH:MM:SS",
+  "extra_fields": [
+    {"key": "reason_for_visit", "label": "Reason for visit", "type": "text"}
+  ],
+  "required_fields": {
+    "flight": ["origin", "destination", "departure_date", "departure_time_utc", "arrival_date", "arrival_time_utc"],
+    "aircraft": ["registration", "type", "owner", "usual_base", "owner_address"],
+    "crew": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex", "place_of_birth"],
+    "passengers": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex", "place_of_birth"]
+  },
+  "header_map": {
+    "direction": "A2",
+    "arrival_icao": "A3",
+    "arrival_date": "C3",
+    "arrival_time": "E3",
+    "owner": "G3",
+    "contact": "I3",
+    "departure_icao": "A4",
+    "departure_date": "C4",
+    "departure_time": "E4",
+    "registration": "A5",
+    "aircraft_type": "C5",
+    "captain_surname": "E5",
+    "usual_base": "G5",
+    "reason_for_visit": "A6",
+    "responsible_address": "C6"
+  },
+  "crew_start_row": 9,
+  "crew_max": 8,
+  "pax_start_row": 20,
+  "pax_max": 20,
+  "person_columns": {
+    "id_type": "A",
+    "id_type_other": "B",
+    "id_issuing_country": "C",
+    "id_number": "D",
+    "last_name": "E",
+    "first_name": "F",
+    "sex": "G",
+    "dob": "H",
+    "place_of_birth": "I",
+    "nationality": "J",
+    "id_expiry": "K",
+    "address": "L"
+  }
+}
