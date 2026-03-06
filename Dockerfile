@@ -1,13 +1,25 @@
 FROM python:3.13-slim
 
+# Non-root user (UID 2000 to match infra convention)
 RUN groupadd -g 2000 app && useradd -u 2000 -g app -m app
 
 WORKDIR /app
 
-COPY pyproject.toml .
-RUN pip install --no-cache-dir -e . 2>/dev/null || pip install --no-cache-dir .
+# Install flyfun-common from GitHub (must come before app deps for layer caching)
+RUN pip install --no-cache-dir "flyfun-common @ git+https://github.com/roznet/flyfun-common.git@main"
 
+# Install app dependencies (copy pyproject first for layer caching)
+COPY pyproject.toml .
+RUN mkdir -p src/flightforms && \
+    touch src/flightforms/__init__.py && \
+    pip install --no-cache-dir -e . && \
+    rm -rf src/flightforms
+
+# Copy application source
 COPY src/ src/
+
+# Create data directory
+RUN mkdir -p /app/data && chown app:app /app/data
 
 ENV ENVIRONMENT=production
 ENV DATA_DIR=/app/data
@@ -18,6 +30,7 @@ EXPOSE 8030
 
 USER app
 
-HEALTHCHECK --interval=30s --timeout=5s CMD python -c "from urllib.request import urlopen; urlopen('http://127.0.0.1:8030/health')"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8030/health')"
 
-CMD ["python", "-m", "uvicorn", "flightforms.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8030"]
+CMD ["uvicorn", "flightforms.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8030"]

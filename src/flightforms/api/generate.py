@@ -5,7 +5,8 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from ..airport_resolver import AirportResolver
-from ..db.deps import current_user_id, get_db
+from flyfun_common.db import current_user_id, get_db
+
 from ..db.models import Usage
 from ..fillers.docx_filler import fill_docx
 from ..fillers.french_customs_filler import fill_french_customs

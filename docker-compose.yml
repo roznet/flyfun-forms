@@ -10,8 +10,8 @@ services:
       - ENVIRONMENT=production
     volumes:
       - ${HOST_DATA_DIR:-./data}:/app/data
-      - ./src/flightforms/templates:/app/src/flightforms/templates
-      - ./src/flightforms/mappings:/app/src/flightforms/mappings
+      - ./src/flightforms/templates:/app/src/flightforms/templates:ro
+      - ./src/flightforms/mappings:/app/src/flightforms/mappings:ro
     networks:
       - shared-services
     deploy:

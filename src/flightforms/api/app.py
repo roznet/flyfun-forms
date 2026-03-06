@@ -1,4 +1,4 @@
-"""FastAPI app factory — mirrors flyfun-weather pattern."""
+"""FastAPI app factory — uses flyfun-common for auth and user management."""
 
 import logging
 import os
@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from flyfun_common.auth import create_auth_router, get_jwt_secret, is_dev_mode
+from flyfun_common.db import SessionLocal, ensure_dev_user, get_engine, init_shared_db
 from starlette.middleware.sessions import SessionMiddleware
 
 from ..airport_resolver import AirportResolver
-from ..db.engine import ensure_dev_user, init_db, is_dev
+from ..db.models import AppBase
 from ..registry import MappingRegistry
 from . import airports, generate, validate
 
@@ -24,9 +26,14 @@ _AIRPORTS_DB = os.environ.get("AIRPORTS_DB", "")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
-    if is_dev():
-        ensure_dev_user()
+    init_shared_db()
+    AppBase.metadata.create_all(get_engine())
+    if is_dev_mode():
+        session = SessionLocal()
+        try:
+            ensure_dev_user(session)
+        finally:
+            session.close()
     logger.info("FlightForms API started (env=%s)", os.environ.get("ENVIRONMENT", "development"))
     yield
 
@@ -35,20 +42,23 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="FlightForms API",
         version="0.1.0",
-        docs_url="/docs" if is_dev() else None,
+        docs_url="/docs" if is_dev_mode() else None,
         redoc_url=None,
         lifespan=lifespan,
     )
 
-    # Middleware
+    # SessionMiddleware required for OAuth state roundtrip
     app.add_middleware(
         SessionMiddleware,
-        secret_key=os.environ.get("JWT_SECRET", "dev-secret-not-for-production"),
+        secret_key=get_jwt_secret(),
     )
 
-    if is_dev():
+    if is_dev_mode():
         from starlette.middleware.cors import CORSMiddleware
         app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+    # Mount shared auth router (Google/Apple OAuth, /auth/me, /auth/logout)
+    app.include_router(create_auth_router(), tags=["auth"])
 
     # Initialize registry and resolver
     registry = MappingRegistry(_MAPPINGS_DIR, _TEMPLATES_DIR)

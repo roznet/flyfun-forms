@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..db.deps import current_user_id
+from flyfun_common.db import current_user_id
 from ..registry import MappingRegistry
 from ..validation import validate_request
 from .models import GenerateRequest, ValidateResponse

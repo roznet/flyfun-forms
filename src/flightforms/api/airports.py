@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..airport_resolver import PREFIX_COUNTRIES, AirportResolver
-from ..db.deps import current_user_id
+from flyfun_common.db import current_user_id
 from ..registry import MappingRegistry
 from .models import AirportDetail, AirportInfo, AirportsResponse, FormInfo, PrefixInfo
 
