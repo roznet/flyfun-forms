@@ -16,8 +16,8 @@
   "required_fields": {
     "flight": ["origin", "destination", "departure_date", "departure_time_utc", "arrival_date", "arrival_time_utc"],
     "aircraft": ["registration", "type", "owner", "usual_base", "owner_address"],
-    "crew": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex", "place_of_birth"],
-    "passengers": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex", "place_of_birth"]
+    "crew": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex"],
+    "passengers": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex"]
   },
   "header_map": {
     "direction": "A2",

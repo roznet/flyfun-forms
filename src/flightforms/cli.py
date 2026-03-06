@@ -110,8 +110,8 @@ def _resolve_person(name: str, people_db: dict, role_hint: str = "") -> dict:
     }
 
 
-def _api_call(base_url: str, method: str, path: str, body: dict | None = None, api_key: str = "") -> bytes:
-    """Make an API call."""
+def _api_call(base_url: str, method: str, path: str, body: dict | None = None, api_key: str = "", raw_response: bool = False):
+    """Make an API call. If raw_response=True, return (bytes, response) tuple."""
     url = f"{base_url}{path}"
     data = json.dumps(body).encode() if body else None
     headers = {"Content-Type": "application/json"}
@@ -120,11 +120,28 @@ def _api_call(base_url: str, method: str, path: str, body: dict | None = None, a
     req = Request(url, data=data, headers=headers, method=method)
     try:
         resp = urlopen(req)
-        return resp.read()
+        content = resp.read()
+        if raw_response:
+            return content, resp
+        return content
     except HTTPError as e:
         error_body = e.read().decode()
         print(f"Error {e.code}: {error_body}", file=sys.stderr)
         sys.exit(1)
+
+
+def _filename_from_response(resp, fallback_stem: str) -> str:
+    """Extract filename from Content-Disposition header, or build from fallback + content type."""
+    cd = resp.headers.get("Content-Disposition", "")
+    if 'filename="' in cd:
+        return cd.split('filename="')[1].rstrip('"')
+    # Fallback: infer extension from Content-Type
+    ct = resp.headers.get("Content-Type", "")
+    if "spreadsheet" in ct or "xlsx" in ct:
+        return f"{fallback_stem}.xlsx"
+    if "wordprocessing" in ct or "docx" in ct:
+        return f"{fallback_stem}.docx"
+    return f"{fallback_stem}.pdf"
 
 
 def cmd_generate(args):
@@ -180,18 +197,13 @@ def cmd_generate(args):
 
         flatten = "flatten=true" if args.flatten else ""
         path = f"/generate?{flatten}" if flatten else "/generate"
-        content = _api_call(base_url, "POST", path, body, api_key)
+        content, resp = _api_call(base_url, "POST", path, body, api_key, raw_response=True)
 
         # Determine output path
         if args.output:
             out_path = args.output
         else:
-            ext_map = {"pdf_acroform": "pdf", "pdf_acroform_french": "pdf", "docx": "docx", "xlsx": "xlsx"}
-            ext = "pdf"  # default
-            for f in airport_info["forms"]:
-                if f["id"] == form_id:
-                    break
-            out_path = f"{args.departure_date}_{args.airport}_{form_id}.{ext}"
+            out_path = _filename_from_response(resp, f"{args.departure_date}_{args.airport}_{form_id}")
 
         with open(out_path, "wb") as f:
             f.write(content)
@@ -279,8 +291,8 @@ def cmd_trip(args):
                     "connecting_flight": connecting,
                 }
 
-                content = _api_call(base_url, "POST", "/generate", body, api_key)
-                filename = f"{dates[i]}_{airport}_{form['id']}.pdf"
+                content, resp = _api_call(base_url, "POST", "/generate", body, api_key, raw_response=True)
+                filename = _filename_from_response(resp, f"{dates[i]}_{airport}_{form['id']}")
                 out_path = output_dir / filename
                 with open(out_path, "wb") as f:
                     f.write(content)
