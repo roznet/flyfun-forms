@@ -1,5 +1,7 @@
 FROM python:3.13-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
 # Non-root user (UID 2000 to match infra convention)
 RUN groupadd -g 2000 app && useradd -u 2000 -g app -m app
 
