@@ -162,9 +162,9 @@ forms.flyfun.aero (Caddy, auto-TLS)
 | Component | Choice | Notes |
 |-----------|--------|-------|
 | API framework | FastAPI + uvicorn | Same as flyfun-weather |
-| Auth | authlib (Google + Apple OAuth) | Google flow same as flyfun-weather; add Apple for App Store |
-| Sessions | JWT (HS256) in httpOnly cookie | Same pattern as flyfun-weather |
-| Database | SQLAlchemy (SQLite dev / MySQL prod) | Same as flyfun-weather |
+| Auth | flyfun-common (Google + Apple OAuth) | Shared auth across all flyfun services via SSO |
+| Sessions | JWT (HS256) in httpOnly cookie | Cross-subdomain SSO via `.flyfun.aero` cookie |
+| Database | SQLAlchemy (SQLite dev / MySQL prod) | Shared `users`/`api_tokens` tables from flyfun-common |
 | Migrations | Alembic | Same as flyfun-weather |
 | Form filling | pypdf, python-docx, openpyxl | Specific to this project |
 | Containerization | Docker (python:3.13-slim) | Same as flyfun-weather |
@@ -175,35 +175,27 @@ forms.flyfun.aero (Caddy, auto-TLS)
 - HTTPS only in production (Caddy auto-TLS). HTTP allowed only for local development/testing
 - **Sign in with Apple / Google:** authlib OAuth flow, same pattern as flyfun-weather's Google OAuth. Apple OAuth added for App Store requirement (must offer Apple sign-in if any third-party sign-in is offered). Both flows: redirect → consent → callback → JWT cookie
 - **Users table (MySQL):** stores user ID, provider (apple/google), provider_sub, display name, approved flag, created_at. No passwords, minimal PII (just what the OAuth provider gives). Auto-approved on signup; admin can revoke
-- **Rate limiting per user:** request counts tracked in `usage` table (persistent, for analytics) + in-memory sliding window counters (for enforcement, e.g. 60 requests/minute)
-- **CLI auth:** static API key (same as flyfun-weather's `wb_` token pattern). Server accepts both JWT cookies (iOS) and Bearer API key (CLI)
+- **Rate limiting per user:** request counts tracked in `usage` table (persistent, for analytics) + in-memory sliding window counters (for enforcement, e.g. 60 requests/minute). Not yet implemented
+- **CLI auth:** `ff_` prefixed API tokens, SHA256-hashed in `api_tokens` table (via flyfun-common). Created via `python -m flightforms.manage create-token`. Server accepts both JWT cookies (iOS/web) and Bearer `ff_` tokens (CLI)
 - **Dev mode:** `ENVIRONMENT=development` → auth middleware auto-injects dev user, no login needed. SQLite instead of MySQL. Same pattern as flyfun-weather
 - No request body logging, no PII retention — form data is processed in memory and never written to disk
 - Request payload size limit (reject abnormally large payloads)
 
 **Database Schema (SQLAlchemy — SQLite dev / MySQL prod):**
 
-### users
+### Shared tables (from flyfun-common)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | VARCHAR(36) PK | UUID |
-| provider | VARCHAR(20) | `google`, `apple`, or `api` (CLI) |
-| provider_sub | VARCHAR(255) UNIQUE | OAuth subject ID |
-| email | VARCHAR(255) NULL | From OAuth profile (optional) |
-| display_name | VARCHAR(255) | |
-| approved | BOOLEAN DEFAULT TRUE | Admin can revoke |
-| created_at | DATETIME | |
-| last_login_at | DATETIME | |
+`users`, `api_tokens`, `user_preferences`, `cost_ledger` — see [flyfun-common db.md](https://github.com/roznet/flyfun-common) for schema. Shared across all flyfun services.
 
-### usage
+### usage (app-specific)
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | INT AUTO_INCREMENT PK | |
-| user_id | VARCHAR(36) FK | |
+| user_id | VARCHAR(64) | References users.id |
 | endpoint | VARCHAR(50) | `generate`, `airports`, etc. |
 | airport_icao | VARCHAR(4) NULL | Which airport form was generated |
+| form_id | VARCHAR(50) NULL | Which form was generated |
 | timestamp | DATETIME | |
 
 Lightweight — just enough for rate limiting and basic analytics (which airports/forms are most used).
@@ -415,31 +407,35 @@ Accepts the same request body as `/generate` but does not produce a form. Return
 ```
 src/flightforms/
 ├── api/
-│   ├── app.py                # FastAPI app, lifespan (DB init), CORS
-│   ├── auth.py               # OAuth login/callback/logout (Apple + Google), JWT cookie
-│   ├── auth_config.py        # JWT secret, dev mode detection, admin emails
+│   ├── app.py                # FastAPI app, lifespan, mounts flyfun-common auth router
+│   ├── models.py             # Pydantic request/response models
 │   ├── generate.py           # POST /generate endpoint
 │   ├── validate.py           # POST /validate endpoint (dry-run validation)
 │   └── airports.py           # GET /airports, GET /airports/{icao}
 ├── db/
-│   ├── models.py             # SQLAlchemy ORM (User, Usage)
-│   ├── engine.py             # Singleton engine, init_db(), dev user
-│   └── deps.py               # FastAPI deps: get_db(), current_user_id()
+│   ├── __init__.py           # Re-exports from flyfun-common + app models
+│   ├── models.py             # App-specific: AppBase, Usage (shared tables from flyfun-common)
+│   ├── engine.py             # Shim → flyfun_common.db.engine
+│   └── deps.py               # Shim → flyfun_common.db.deps
+├── cli.py                    # CLI client (generate, trip, airports commands)
+├── manage.py                 # Management commands (create-token, list-tokens)
+├── registry.py               # MappingRegistry: discovers mappings from JSON files
+├── airport_resolver.py       # Airport name/country resolution via euro_aip
+├── validation.py             # Shared validation logic for /generate and /validate
 ├── templates/                # Form template files
 │   ├── lsgs_immigration.pdf
-│   ├── french_customs.pdf    # Shared: LFRG, LFAC, LFOH
-│   ├── lfrd_customs.pdf
+│   ├── french_customs.pdf    # Shared: LFRG, LFAC, LFOH (and any LF* via prefix)
 │   ├── lfqa_customs.docx
 │   └── gar_template.xlsx
 ├── mappings/                 # Field mapping configs (JSON)
 │   ├── lsgs.json
-│   ├── french_customs.json
-│   ├── lfrd.json
-│   ├── lfqa.json
-│   └── gar.json
+│   ├── french_customs.json   # icao_prefix: "LF" (country-level fallback)
+│   ├── lfqa.json             # Exact match overrides LF* fallback
+│   └── gar.json              # icao_prefix: "EG" (country-level fallback)
 └── fillers/                  # Form filling logic
-    ├── pdf_filler.py         # pypdf-based AcroForm filler
-    ├── docx_filler.py        # python-docx filler
+    ├── pdf_filler.py         # Generic pypdf AcroForm filler (LSGS)
+    ├── french_customs_filler.py  # French customs-specific PDF filler
+    ├── docx_filler.py        # python-docx filler (LFQA)
     └── xlsx_filler.py        # openpyxl filler (GAR)
 ```
 
@@ -698,26 +694,29 @@ The app fetches `/airports` to know which airports have forms and `/airports/{ic
 
 ## Implementation Plan
 
-### Phase 1: API + CLI (get it working)
-1. Build FastAPI server with `/generate` and `/validate` endpoints
-2. Implement PDF AcroForm filler (LSGS + French customs + LFRD) with optional `?flatten=true`
-3. Implement DOCX filler (LFQA) — fallback to PDF if too fragile
-4. Implement XLSX filler (GAR)
-5. Create field mapping JSONs for each airport (with version, timezone, default_observations)
-6. Add `/airports` and `/airports/{icao}` discovery endpoints (names from airports.db / euro_aip)
-7. Build CLI client with people CSV lookup (static API key auth)
-8. Dev mode: SQLite, auth bypass, local HTTP — same pattern as flyfun-weather
-9. Deploy to Digital Ocean: Docker + Caddy (forms.flyfun.aero), shared MySQL, volume-mount templates/mappings
+### Phase 1: API + CLI (get it working) — DONE
+1. ✅ Build FastAPI server with `/generate` and `/validate` endpoints
+2. ✅ Implement PDF AcroForm filler (LSGS + French customs) with optional `?flatten=true`
+3. ✅ Implement DOCX filler (LFQA)
+4. ✅ Implement XLSX filler (GAR)
+5. ✅ Create field mapping JSONs (lsgs, french_customs with LF* prefix, lfqa, gar with EG* prefix)
+6. ✅ Add `/airports` and `/airports/{icao}` discovery endpoints (names from airports.db / euro_aip)
+7. ✅ Build CLI client with people CSV lookup + `generate`, `trip`, `airports` commands
+8. ✅ Dev mode: SQLite, auth bypass, local HTTP
 
-### Phase 2: Auth + Multi-user
-1. Add Google OAuth via authlib (same flow as flyfun-weather)
-2. Add Apple OAuth via authlib (required for App Store — more complex, test thoroughly)
-3. SQLAlchemy users + usage tables, Alembic migrations
-4. JWT cookie sessions, API key fallback for CLI
-5. Per-user rate limiting (in-memory + usage table for analytics)
-6. Add `trip` command to CLI for multi-leg form generation (handles connecting flights, multiple forms per airport)
-7. Collect/create fillable AcroForm templates for remaining airports (LFQB, EGJB, EIWT — manual Acrobat work)
-8. Add extra_fields support to mappings and fillers
+### Phase 2: Auth + Multi-user — MOSTLY DONE (via flyfun-common)
+1. ✅ Google + Apple OAuth (via flyfun-common shared auth router)
+2. ✅ Cross-subdomain SSO (`flyfun_auth` cookie on `.flyfun.aero`)
+3. ✅ Shared users/api_tokens tables (flyfun-common), app-specific usage table
+4. ✅ JWT cookie sessions + `ff_` hashed API token fallback for CLI
+5. ✅ Token management script (`python -m flightforms.manage create-token`)
+6. ✅ Trip command with connecting flights and multiple forms per airport
+7. ✅ Extra fields support in mappings and fillers
+8. ⬜ Deploy to Digital Ocean (Dockerfile, Caddy config ready — not yet deployed)
+9. ⬜ Per-user rate limiting (not yet implemented)
+10. ⬜ Alembic migrations (not yet set up)
+11. ⬜ LFRD template (different layout from generic French customs — needs mapping)
+12. ⬜ Remaining airport templates: LFQB, EGJB, EIWT (manual Acrobat work)
 
 ### Phase 3: iOS App
 1. SwiftData models (Person, Aircraft, Flight, Trip) + CloudKit sync (prototype Person sync early to validate)
@@ -733,33 +732,33 @@ The app fetches `/airports` to know which airports have forms and `/airports/{ic
 Same workflow as flyfun-weather:
 ```bash
 # First time
+git clone git@github.com:roznet/flyfun-forms.git && cd flyfun-forms/main
+cp .env.sample .env  # edit with real values (same JWT_SECRET, DATABASE_URL as weather)
 docker compose up -d --build
-docker exec flightforms alembic upgrade head
+docker exec flightforms python -m flightforms.manage create-token --email you@example.com
 cp deploy/forms.flyfun.aero.caddy /etc/caddy/sites-enabled/
 caddy reload --config /etc/caddy/Caddyfile
 
 # Updates
 git pull && docker compose up -d --build
-# If new migrations: docker exec flightforms alembic upgrade head
 ```
 
 Port 8030 (avoids conflicts: 8000=maps, 8002=mcp, 8010=boarding, 8020=weather).
 
-**Environment variables:**
+**Environment variables (from flyfun-common — shared with flyfun-weather):**
 
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `ENVIRONMENT` | No (default: development) | `production` for Docker/MySQL |
-| `DATABASE_URL` | Prod only | MySQL connection string |
-| `JWT_SECRET` | Prod only | HS256 signing key |
-| `GOOGLE_CLIENT_ID` | Prod only | Google OAuth |
-| `GOOGLE_CLIENT_SECRET` | Prod only | Google OAuth |
+| `DATABASE_URL` | Prod only | MySQL connection string (same DB as weather) |
+| `JWT_SECRET` | Prod only | HS256 signing key (same as weather for SSO) |
+| `GOOGLE_CLIENT_ID` | Prod only | Google OAuth (same as weather) |
+| `GOOGLE_CLIENT_SECRET` | Prod only | Google OAuth (same as weather) |
 | `APPLE_CLIENT_ID` | Prod only | Apple OAuth (Services ID) |
 | `APPLE_TEAM_ID` | Prod only | Apple Developer Team ID |
 | `APPLE_KEY_ID` | Prod only | Apple Sign-In private key ID |
 | `APPLE_PRIVATE_KEY` | Prod only | Apple Sign-In private key (PEM) |
-| `API_KEY` | No | Static key for CLI auth |
-| `ADMIN_EMAILS` | Prod only | Comma-separated admin emails |
+| `AIRPORTS_DB` | No | Path to airports.db for name resolution |
 
 ## Design Decisions
 
@@ -823,12 +822,14 @@ The API always accepts times in UTC. Each mapping config declares whether the fo
 
 This keeps the API simple (always UTC) while handling forms that expect local time (some French customs forms use local time).
 
-### Authentication: Sign in with Apple / Google
-Same auth pattern as [flyfun-weather](~/Developer/public/flyfun-weather/main/designs/multi-user-deployment.md): authlib OAuth flow → JWT cookie. Google OAuth is identical to the existing flyfun-weather implementation. Apple OAuth is added for App Store compliance (Apple requires it when any third-party sign-in is offered).
+### Authentication: flyfun-common shared auth
+All auth is provided by [flyfun-common](https://github.com/roznet/flyfun-common): Google + Apple OAuth, JWT sessions, `ff_` API tokens, cross-subdomain SSO. The app mounts `create_auth_router()` and uses `current_user_id()` dependency — no custom auth code.
 
-The server maintains a **users table** (same schema pattern as flyfun-weather) with: UUID, provider, provider_sub, display name, approved flag. Auto-approved on signup; admin can revoke. A **usage table** logs each `/generate` call for rate limiting and analytics.
+Shared **users** and **api_tokens** tables live in the same database as flyfun-weather. A user who logs in on `weather.flyfun.aero` gets a `flyfun_auth` cookie on `.flyfun.aero` that works on `forms.flyfun.aero` automatically.
 
-**Rate limiting** uses both in-memory sliding window counters (for enforcement) and the persistent usage table (for analytics — which airports/forms are most popular). The CLI uses a static API key; the server accepts both JWT cookies and Bearer API keys.
+For CLI auth, API tokens are created via `python -m flightforms.manage create-token` and stored as SHA256 hashes. The CLI sends the raw `ff_...` token as a Bearer header.
+
+An app-specific **usage** table logs each `/generate` call for analytics (which airports/forms are most popular).
 
 ### Server is form-generation only
 The server's primary responsibility is generating filled forms. The only persistent state is the users table (no PII, just provider IDs). It never sends emails, never stores form data or request bodies. All sending (email, AirDrop, share sheet), saving (to files, cloud storage), and exporting is entirely the client's responsibility. The `send_to` field in airport metadata is informational — the client uses it to pre-populate the email recipient, but the server never touches it.
@@ -839,8 +840,8 @@ The iOS app requires network connectivity to generate forms. There are no mature
 ### DOCX filler: try first, fallback to PDF
 The python-docx filler (LFQA) appends runs and fills table cells. DOCX formatting can be fragile — fonts/styles may not be perfectly preserved. If this proves too complex or unreliable for a given template, the fallback is to recreate the form as a fillable AcroForm PDF and use the PDF filler instead.
 
-### Apple OAuth deferred to Phase 2
-Apple Sign-In is required for App Store compliance but adds significant complexity (JWT client secret generation, identity token only sent on first auth). Google OAuth alone is sufficient for Phase 1 (API + CLI). Apple OAuth is implemented in Phase 2 alongside multi-user support, before the iOS app goes to the App Store in Phase 3.
+### Apple OAuth via flyfun-common
+Apple Sign-In (required for App Store compliance) is handled by flyfun-common's auth router, which supports both the web OAuth flow (form_post redirect) and native iOS identity token validation (`POST /auth/apple/token`). No custom implementation needed in this app.
 
 ## Testing
 
