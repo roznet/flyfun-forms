@@ -2,9 +2,11 @@ import Foundation
 
 struct FormService {
     let baseURL: URL
+    let jwt: String?
 
     enum FormError: LocalizedError {
         case notAuthenticated
+        case unauthorized
         case serverError(Int, String)
         case networkError(Error)
 
@@ -12,6 +14,8 @@ struct FormService {
             switch self {
             case .notAuthenticated:
                 return "Not signed in. Please sign in to generate forms."
+            case .unauthorized:
+                return "Session expired. Please sign in again."
             case .serverError(let code, let message):
                 return "Server error (\(code)): \(message)"
             case .networkError(let error):
@@ -23,7 +27,9 @@ struct FormService {
     // Fetches form details for an airport
     func airportDetail(icao: String) async throws -> AirportDetailResponse {
         let url = baseURL.appendingPathComponent("airports/\(icao)")
-        let (data, _) = try await URLSession.shared.data(from: url)
+        var request = URLRequest(url: url)
+        applyAuth(&request)
+        let (data, _) = try await URLSession.shared.data(for: request)
         return try JSONDecoder().decode(AirportDetailResponse.self, from: data)
     }
 
@@ -38,10 +44,15 @@ struct FormService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)
+        applyAuth(&urlRequest)
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw FormError.networkError(URLError(.badServerResponse))
+        }
+
+        if httpResponse.statusCode == 401 {
+            throw FormError.unauthorized
         }
 
         guard httpResponse.statusCode == 200 else {
@@ -55,5 +66,11 @@ struct FormService {
             } ?? "\(request.airport)_\(request.form).pdf"
 
         return (data, filename)
+    }
+
+    private func applyAuth(_ request: inout URLRequest) {
+        if let jwt {
+            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+        }
     }
 }

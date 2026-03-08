@@ -3,11 +3,7 @@ import SwiftUI
 // MARK: - API Configuration
 
 enum APIConfig {
-    #if DEBUG
-    static let baseURL = URL(string: "http://localhost:8030")!
-    #else
     static let baseURL = URL(string: "https://forms.flyfun.aero")!
-    #endif
 }
 
 // MARK: - Environment Keys

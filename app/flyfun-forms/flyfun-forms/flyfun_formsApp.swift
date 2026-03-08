@@ -3,6 +3,7 @@ import SwiftData
 
 @main
 struct flyfun_formsApp: App {
+    @State private var appState = AppState()
     let catalog = AirportCatalog(baseURL: APIConfig.baseURL)
 
     var sharedModelContainer: ModelContainer = {
@@ -27,11 +28,22 @@ struct flyfun_formsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.airportCatalog, catalog)
-                .task {
-                    await catalog.sync()
+            Group {
+                if appState.isAuthenticated {
+                    ContentView()
+                        .environment(\.airportCatalog, catalog)
+                        .task(id: appState.jwt) {
+                            catalog.jwt = appState.jwt
+                            await catalog.sync()
+                        }
+                } else {
+                    LoginView()
                 }
+            }
+            .environment(appState)
+            .onOpenURL { url in
+                appState.handleAuthCallback(url: url)
+            }
         }
         .modelContainer(sharedModelContainer)
     }

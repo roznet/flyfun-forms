@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
         TabView {
             Tab("People", systemImage: "person.2") {
@@ -19,6 +21,19 @@ struct ContentView: View {
             Tab("Flights", systemImage: "arrow.triangle.swap") {
                 NavigationStack {
                     FlightsListView()
+                }
+            }
+
+            Tab("Settings", systemImage: "gear") {
+                NavigationStack {
+                    Form {
+                        Section {
+                            Button("Sign Out", role: .destructive) {
+                                appState.logout()
+                            }
+                        }
+                    }
+                    .navigationTitle("Settings")
                 }
             }
         }

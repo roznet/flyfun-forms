@@ -9,6 +9,7 @@ final class AirportCatalog {
     private(set) var isLoading = false
 
     private let baseURL: URL
+    var jwt: String?
     private let cacheFileURL: URL
 
     init(baseURL: URL) {
@@ -48,7 +49,11 @@ final class AirportCatalog {
 
         let url = baseURL.appendingPathComponent("airports")
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            var request = URLRequest(url: url)
+            if let jwt {
+                request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+            }
+            let (data, _) = try await URLSession.shared.data(for: request)
             let response = try JSONDecoder().decode(AirportCatalogResponse.self, from: data)
             airports = response.airports
             prefixes = response.prefixes

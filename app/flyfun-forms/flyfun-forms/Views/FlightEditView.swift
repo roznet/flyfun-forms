@@ -6,6 +6,19 @@ struct FlightEditView: View {
     @Query(sort: \Aircraft.registration) private var allAircraft: [Aircraft]
     @Query(sort: \Person.lastName) private var allPeople: [Person]
     @Environment(\.airportCatalog) private var catalog
+    @Environment(AppState.self) private var appState
+
+    @State private var isGenerating = false
+    @State private var generatingForm: String?
+    @State private var errorMessage: String?
+    @State private var showingError = false
+    @State private var shareItem: ShareableFile?
+    private let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 
     var body: some View {
         Form {
@@ -89,14 +102,12 @@ struct FlightEditView: View {
 
                     if !destForms.isEmpty {
                         ForEach(destForms, id: \.self) { form in
-                            Label("\(flight.destinationICAO) — \(form) (arrival)",
-                                  systemImage: "doc.text")
+                            formButton(airport: flight.destinationICAO, form: form, label: "arrival")
                         }
                     }
                     if !originForms.isEmpty {
                         ForEach(originForms, id: \.self) { form in
-                            Label("\(flight.originICAO) — \(form) (departure)",
-                                  systemImage: "doc.text")
+                            formButton(airport: flight.originICAO, form: form, label: "departure")
                         }
                     }
                     if destForms.isEmpty && originForms.isEmpty {
@@ -110,6 +121,110 @@ struct FlightEditView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") {}
+        } message: {
+            Text(errorMessage ?? "Unknown error")
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(items: [item.url])
+        }
+    }
+
+    @ViewBuilder
+    private func formButton(airport: String, form: String, label: String) -> some View {
+        Button {
+            Task { await generateForm(airport: airport, form: form) }
+        } label: {
+            HStack {
+                Label("\(airport) — \(form) (\(label))", systemImage: "doc.text")
+                Spacer()
+                if generatingForm == "\(airport)_\(form)" {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.down.circle")
+                        .foregroundStyle(.blue)
+                }
+            }
+        }
+        .disabled(isGenerating)
+    }
+
+    private func generateForm(airport: String, form: String) async {
+        isGenerating = true
+        generatingForm = "\(airport)_\(form)"
+        defer {
+            isGenerating = false
+            generatingForm = nil
+        }
+
+        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        let request = buildRequest(airport: airport, form: form)
+        do {
+            let (data, filename) = try await formService.generate(request: request, flatten: true)
+            let tempDir = FileManager.default.temporaryDirectory
+            let fileURL = tempDir.appendingPathComponent(filename)
+            try data.write(to: fileURL)
+            shareItem = ShareableFile(url: fileURL)
+        } catch {
+            errorMessage = error.localizedDescription
+            showingError = true
+        }
+    }
+
+    private func buildRequest(airport: String, form: String) -> GenerateRequest {
+        let flightPayload = FlightPayload(
+            origin: flight.originICAO,
+            destination: flight.destinationICAO,
+            departureDate: dateFmt.string(from: flight.departureDate),
+            departureTimeUtc: flight.departureTimeUTC,
+            arrivalDate: dateFmt.string(from: flight.arrivalDate),
+            arrivalTimeUtc: flight.arrivalTimeUTC,
+            nature: flight.nature,
+            contact: flight.contact
+        )
+
+        let aircraftPayload: AircraftPayload
+        if let ac = flight.aircraft {
+            aircraftPayload = AircraftPayload(
+                registration: ac.registration,
+                type: ac.type,
+                owner: ac.owner,
+                ownerAddress: ac.ownerAddress,
+                isAirplane: ac.isAirplane,
+                usualBase: ac.usualBase
+            )
+        } else {
+            aircraftPayload = AircraftPayload(registration: "", type: "")
+        }
+
+        let crewPayloads = flight.crewList.map { personPayload($0) }
+        let paxPayloads = flight.passengerList.map { personPayload($0) }
+
+        return GenerateRequest(
+            airport: airport,
+            form: form,
+            flight: flightPayload,
+            aircraft: aircraftPayload,
+            crew: crewPayloads,
+            passengers: paxPayloads,
+            observations: flight.observations
+        )
+    }
+
+    private func personPayload(_ p: Person) -> PersonPayload {
+        PersonPayload(
+            firstName: p.firstName,
+            lastName: p.lastName,
+            dob: p.dateOfBirth.map { dateFmt.string(from: $0) },
+            nationality: p.nationality,
+            idNumber: p.idNumber,
+            idType: p.idType,
+            idIssuingCountry: p.idIssuingCountry,
+            idExpiry: p.idExpiry.map { dateFmt.string(from: $0) },
+            sex: p.sex,
+            placeOfBirth: p.placeOfBirth
+        )
     }
 
     private var availablePeople: [Person] {
@@ -118,3 +233,40 @@ struct FlightEditView: View {
         return allPeople.filter { !crewIDs.contains($0.persistentModelID) && !paxIDs.contains($0.persistentModelID) }
     }
 }
+
+// MARK: - Share helpers
+
+struct ShareableFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+#if os(iOS)
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#else
+struct ShareSheet: View {
+    let items: [Any]
+
+    var body: some View {
+        if let url = items.first as? URL {
+            VStack(spacing: 16) {
+                Text("Form generated")
+                    .font(.headline)
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+        }
+    }
+}
+#endif
