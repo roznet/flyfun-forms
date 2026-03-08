@@ -52,6 +52,11 @@ struct FlightEditView: View {
             Section("Crew") {
                 ForEach(flight.crewList) { person in
                     Text(person.displayName)
+                        .swipeActions {
+                            Button("Remove", role: .destructive) {
+                                flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
+                            }
+                        }
                 }
                 Menu("Add Crew") {
                     ForEach(availablePeople) { person in
@@ -67,6 +72,11 @@ struct FlightEditView: View {
             Section("Passengers") {
                 ForEach(flight.passengerList) { person in
                     Text(person.displayName)
+                        .swipeActions {
+                            Button("Remove", role: .destructive) {
+                                flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
+                            }
+                        }
                 }
                 Menu("Add Passenger") {
                     ForEach(availablePeople) { person in

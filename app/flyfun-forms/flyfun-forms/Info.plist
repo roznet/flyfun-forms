@@ -9,7 +9,7 @@
 			<string>net.ro-z.flyfun-forms</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>flyfun</string>
+				<string>flyfunforms</string>
 			</array>
 		</dict>
 	</array>

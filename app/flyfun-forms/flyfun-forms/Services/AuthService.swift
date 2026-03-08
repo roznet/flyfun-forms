@@ -25,7 +25,10 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
     func signIn(baseURL: URL, provider: String = "google") async throws -> String {
         let loginURL = baseURL.appendingPathComponent("auth/login/\(provider)")
         var components = URLComponents(url: loginURL, resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "platform", value: "ios")]
+        components.queryItems = [
+            URLQueryItem(name: "platform", value: "ios"),
+            URLQueryItem(name: "scheme", value: "flyfunforms"),
+        ]
 
         guard let url = components.url else { throw URLError(.badURL) }
         Self.logger.info("Starting OAuth flow (\(provider)) to \(url)")
@@ -33,7 +36,7 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(
                 url: url,
-                callback: .customScheme("flyfun")
+                callback: .customScheme("flyfunforms")
             ) { url, error in
                 if let error {
                     continuation.resume(throwing: error)

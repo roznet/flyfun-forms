@@ -1,6 +1,8 @@
 import Foundation
+import OSLog
 
 struct FormService {
+    private static let logger = Logger(subsystem: "net.ro-z.flyfun-forms", category: "FormService")
     let baseURL: URL
     let jwt: String?
 
@@ -43,8 +45,13 @@ struct FormService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.httpBody = try JSONEncoder().encode(request)
+        let body = try JSONEncoder().encode(request)
+        urlRequest.httpBody = body
         applyAuth(&urlRequest)
+
+        if let bodyStr = String(data: body, encoding: .utf8) {
+            Self.logger.debug("POST /generate body: \(bodyStr)")
+        }
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -52,11 +59,13 @@ struct FormService {
         }
 
         if httpResponse.statusCode == 401 {
+            Self.logger.error("401 Unauthorized from \(url)")
             throw FormError.unauthorized
         }
 
         guard httpResponse.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            Self.logger.error("Server error \(httpResponse.statusCode) from \(url): \(message)")
             throw FormError.serverError(httpResponse.statusCode, message)
         }
 

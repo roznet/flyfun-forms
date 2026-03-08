@@ -26,7 +26,7 @@ final class AppState {
 
     func handleAuthCallback(url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              components.scheme == "flyfun",
+              components.scheme == "flyfunforms",
               components.host == "auth",
               let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
               !token.isEmpty

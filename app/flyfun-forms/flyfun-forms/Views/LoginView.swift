@@ -64,7 +64,7 @@ struct LoginView: View {
         defer { isSigningIn = false }
         do {
             let token = try await authService.signIn(baseURL: APIConfig.baseURL, provider: provider)
-            let callbackURL = URL(string: "flyfun://auth/callback?token=\(token)")!
+            let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)")!
             appState.handleAuthCallback(url: callbackURL)
         } catch {
             if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
