@@ -1,0 +1,14 @@
+{
+  "airports": [
+    {"icao": "LSGS", "name": "Sion", "forms": ["immigration"]},
+    {"icao": "LFAC", "name": "Le Touquet", "forms": ["customs"]},
+    {"icao": "LFRG", "name": "Deauville", "forms": ["customs"]},
+    {"icao": "LFOH", "name": "Le Havre", "forms": ["customs"]},
+    {"icao": "LFRD", "name": "Dinard", "forms": ["customs"]},
+    {"icao": "LFQA", "name": "Reims Prunay", "forms": ["customs"]}
+  ],
+  "prefixes": [
+    {"prefix": "EG", "country": "United Kingdom", "forms": ["gar"]},
+    {"prefix": "LF", "country": "France", "forms": ["customs"]}
+  ]
+}

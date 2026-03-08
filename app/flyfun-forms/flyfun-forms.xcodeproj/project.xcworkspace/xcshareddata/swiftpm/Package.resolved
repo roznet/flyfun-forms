@@ -1,0 +1,51 @@
+{
+  "originHash" : "2ba513be37b3dcdedddf23eacd5698b5c12cf1b77fffc0976db1e45c47b07e3a",
+  "pins" : [
+    {
+      "identity" : "fmdb",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ccgus/fmdb",
+      "state" : {
+        "revision" : "1227a3fa2b9916bfd75fe380eb45cd210e69e251",
+        "version" : "2.7.12"
+      }
+    },
+    {
+      "identity" : "geomagnetism",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/roznet/Geomagnetism",
+      "state" : {
+        "revision" : "74049c87ab58b6e004342a64de2884c60b0c4734",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "kdtree",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Bersaelor/KDTree.git",
+      "state" : {
+        "revision" : "35d14064d48d92a0c2c1215b93a3118f558b2e6b",
+        "version" : "1.4.2"
+      }
+    },
+    {
+      "identity" : "rzflight",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/roznet/rzflight",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9e8fd8e94262130c6ad4deae909b0a285af075d4"
+      }
+    },
+    {
+      "identity" : "rzutils",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/roznet/rzutils",
+      "state" : {
+        "branch" : "master",
+        "revision" : "4e50bb30e2180da4707e61a65e38c1268f316261"
+      }
+    }
+  ],
+  "version" : 3
+}
