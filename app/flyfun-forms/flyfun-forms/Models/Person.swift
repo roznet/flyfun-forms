@@ -13,6 +13,7 @@ final class Person {
     var idExpiry: Date?
     var sex: String?
     var placeOfBirth: String?
+    var address: String?
     var isUsualCrew: Bool = false
 
     var documents: [TravelDocument]?

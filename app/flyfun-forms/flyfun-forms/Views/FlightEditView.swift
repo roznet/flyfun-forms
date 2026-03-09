@@ -14,6 +14,8 @@ struct FlightEditView: View {
     @State private var errorMessage: String?
     @State private var showingError = false
     @State private var previewURL: URL?
+    @State private var formDetails: [String: [FormInfo]] = [:]  // icao -> forms
+    @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]  // "airport_form" -> values
     private let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -106,26 +108,12 @@ struct FlightEditView: View {
                 .lineLimit(2...4)
             }
 
-            if !flight.originICAO.isEmpty && !flight.destinationICAO.isEmpty {
-                Section("Available Forms") {
-                    let destForms = catalog.formsForAirport(icao: flight.destinationICAO)
-                    let originForms = catalog.formsForAirport(icao: flight.originICAO)
-
-                    if !destForms.isEmpty {
-                        ForEach(destForms, id: \.self) { form in
-                            formButton(airport: flight.destinationICAO, form: form, label: "arrival")
-                        }
-                    }
-                    if !originForms.isEmpty {
-                        ForEach(originForms, id: \.self) { form in
-                            formButton(airport: flight.originICAO, form: form, label: "departure")
-                        }
-                    }
-                    if destForms.isEmpty && originForms.isEmpty {
-                        Text("No forms required for this route")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            // Dynamic form sections per airport
+            if !flight.destinationICAO.isEmpty {
+                formSection(airport: flight.destinationICAO, direction: "arrival")
+            }
+            if !flight.originICAO.isEmpty {
+                formSection(airport: flight.originICAO, direction: "departure")
             }
         }
         .navigationTitle(flight.displayName)
@@ -138,25 +126,139 @@ struct FlightEditView: View {
             Text(errorMessage ?? "Unknown error")
         }
         .quickLookPreview($previewURL)
+        .onChange(of: flight.originICAO) { fetchFormDetails(icao: flight.originICAO) }
+        .onChange(of: flight.destinationICAO) { fetchFormDetails(icao: flight.destinationICAO) }
+        .onAppear {
+            fetchFormDetails(icao: flight.originICAO)
+            fetchFormDetails(icao: flight.destinationICAO)
+        }
     }
 
     @ViewBuilder
-    private func formButton(airport: String, form: String, label: String) -> some View {
-        Button {
-            Task { await generateForm(airport: airport, form: form) }
-        } label: {
-            HStack {
-                Label("\(airport) — \(form) (\(label))", systemImage: "doc.text")
-                Spacer()
-                if generatingForm == "\(airport)_\(form)" {
-                    ProgressView()
-                } else {
-                    Image(systemName: "arrow.down.circle")
-                        .foregroundStyle(.blue)
+    private func formSection(airport: String, direction: String) -> some View {
+        let forms = formDetails[airport] ?? []
+        if !forms.isEmpty {
+            ForEach(forms) { formInfo in
+                Section("\(airport) — \(formInfo.label) (\(direction))") {
+                    // Extra fields for this form
+                    extraFieldsView(airport: airport, formInfo: formInfo)
+
+                    // Generate button
+                    Button {
+                        Task { await generateForm(airport: airport, form: formInfo.id) }
+                    } label: {
+                        HStack {
+                            Label("Generate", systemImage: "doc.text")
+                            Spacer()
+                            if generatingForm == "\(airport)_\(formInfo.id)" {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "arrow.down.circle")
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                    }
+                    .disabled(isGenerating)
                 }
             }
         }
-        .disabled(isGenerating)
+    }
+
+    @ViewBuilder
+    private func extraFieldsView(airport: String, formInfo: FormInfo) -> some View {
+        let formKey = "\(airport)_\(formInfo.id)"
+        ForEach(formInfo.extraFields) { field in
+            switch field.type {
+            case "choice":
+                Picker(field.label, selection: extraFieldBinding(formKey: formKey, fieldKey: field.key, defaultValue: field.options?.first ?? "")) {
+                    ForEach(field.options ?? [], id: \.self) { option in
+                        Text(option).tag(option)
+                    }
+                }
+            case "person":
+                let allPeopleOnFlight = flight.crewList + flight.passengerList
+                Picker(field.label, selection: personExtraFieldBinding(formKey: formKey, fieldKey: field.key, people: allPeopleOnFlight)) {
+                    Text("—").tag("")
+                    ForEach(allPeopleOnFlight) { person in
+                        Text(person.displayName).tag(person.displayName)
+                    }
+                }
+                // Show address of selected person
+                if case .person(let dict) = extraFieldValues[formKey]?[field.key],
+                   !dict.isEmpty {
+                    TextField("Address", text: personAddressBinding(formKey: formKey, fieldKey: field.key))
+                        .foregroundStyle(.secondary)
+                }
+            default: // text
+                TextField(field.label, text: textExtraFieldBinding(formKey: formKey, fieldKey: field.key))
+            }
+        }
+    }
+
+    // MARK: - Extra field bindings
+
+    private func extraFieldBinding(formKey: String, fieldKey: String, defaultValue: String) -> Binding<String> {
+        Binding(
+            get: {
+                if case .text(let val) = extraFieldValues[formKey]?[fieldKey] { return val }
+                return defaultValue
+            },
+            set: { newValue in
+                if extraFieldValues[formKey] == nil { extraFieldValues[formKey] = [:] }
+                extraFieldValues[formKey]?[fieldKey] = .text(newValue)
+            }
+        )
+    }
+
+    private func textExtraFieldBinding(formKey: String, fieldKey: String) -> Binding<String> {
+        extraFieldBinding(formKey: formKey, fieldKey: fieldKey, defaultValue: "")
+    }
+
+    private func personExtraFieldBinding(formKey: String, fieldKey: String, people: [Person]) -> Binding<String> {
+        Binding(
+            get: {
+                if case .person(let dict) = extraFieldValues[formKey]?[fieldKey] { return dict["name"] ?? "" }
+                return ""
+            },
+            set: { newValue in
+                if extraFieldValues[formKey] == nil { extraFieldValues[formKey] = [:] }
+                if let person = people.first(where: { $0.displayName == newValue }) {
+                    extraFieldValues[formKey]?[fieldKey] = .person([
+                        "name": person.displayName,
+                        "address": person.address ?? "",
+                    ])
+                } else {
+                    extraFieldValues[formKey]?[fieldKey] = .person([:])
+                }
+            }
+        )
+    }
+
+    private func personAddressBinding(formKey: String, fieldKey: String) -> Binding<String> {
+        Binding(
+            get: {
+                if case .person(let dict) = extraFieldValues[formKey]?[fieldKey] { return dict["address"] ?? "" }
+                return ""
+            },
+            set: { newValue in
+                if case .person(var dict) = extraFieldValues[formKey]?[fieldKey] {
+                    dict["address"] = newValue
+                    extraFieldValues[formKey]?[fieldKey] = .person(dict)
+                }
+            }
+        )
+    }
+
+    // MARK: - Fetch form details
+
+    private func fetchFormDetails(icao: String) {
+        guard !icao.isEmpty, formDetails[icao] == nil else { return }
+        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        Task {
+            if let detail = try? await formService.airportDetail(icao: icao) {
+                formDetails[icao] = detail.forms
+            }
+        }
     }
 
     private func generateForm(airport: String, form: String) async {
@@ -212,6 +314,9 @@ struct FlightEditView: View {
         }
         let paxPayloads = flight.passengerList.map { personPayload($0, airport: airport) }
 
+        let formKey = "\(airport)_\(form)"
+        let extras = extraFieldValues[formKey]
+
         return GenerateRequest(
             airport: airport,
             form: form,
@@ -219,6 +324,7 @@ struct FlightEditView: View {
             aircraft: aircraftPayload,
             crew: crewPayloads,
             passengers: paxPayloads,
+            extraFields: extras?.isEmpty == false ? extras : nil,
             observations: flight.observations
         )
     }
@@ -236,7 +342,8 @@ struct FlightEditView: View {
             idIssuingCountry: doc?.issuingCountry,
             idExpiry: doc?.expiryDate.map { dateFmt.string(from: $0) },
             sex: p.sex,
-            placeOfBirth: p.placeOfBirth
+            placeOfBirth: p.placeOfBirth,
+            address: p.address
         )
     }
 

@@ -1,7 +1,7 @@
 """Pydantic models for API request/response."""
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Union
 
 
 class FlightData(BaseModel):
@@ -36,6 +36,7 @@ class PersonData(BaseModel):
     id_expiry: Optional[str] = None
     sex: Optional[str] = None
     place_of_birth: Optional[str] = None
+    address: Optional[str] = None
 
 
 class ConnectingFlightData(BaseModel):
@@ -55,7 +56,7 @@ class GenerateRequest(BaseModel):
     crew: list[PersonData]
     passengers: list[PersonData] = []
     connecting_flight: Optional[ConnectingFlightData] = None
-    extra_fields: Optional[dict[str, str]] = None
+    extra_fields: Optional[dict[str, Union[str, dict[str, str]]]] = None
     observations: Optional[str] = None
 
 

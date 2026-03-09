@@ -34,6 +34,11 @@ struct PersonEditView: View {
                     Text("Male").tag("Male")
                     Text("Female").tag("Female")
                 }
+                TextField("Address", text: Binding(
+                    get: { person.address ?? "" },
+                    set: { person.address = $0.isEmpty ? nil : $0 }
+                ), axis: .vertical)
+                .lineLimit(2...3)
             }
 
             Section("Documents") {

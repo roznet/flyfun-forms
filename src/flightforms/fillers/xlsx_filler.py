@@ -74,13 +74,29 @@ def fill_xlsx(
         "aircraft_type": request.aircraft.type,
         "captain_surname": captain,
         "usual_base": request.aircraft.usual_base or "",
-        "reason_for_visit": (request.extra_fields or {}).get("reason_for_visit", ""),
-        "responsible_address": request.aircraft.owner_address or "",
     }
 
     for field_name, cell_ref in header_map.items():
         if field_name in header_values:
             ws[cell_ref] = header_values[field_name]
+
+    # Extra fields (text/choice → header_map cell, person → maps_to cells)
+    for ef in mapping.extra_fields:
+        ef_def = ef if isinstance(ef, dict) else {"key": ef, "type": "text"}
+        key = ef_def["key"]
+        ef_type = ef_def.get("type", "text")
+        value = (request.extra_fields or {}).get(key)
+
+        if ef_type in ("text", "choice"):
+            if key in header_map and value:
+                ws[header_map[key]] = value
+        elif ef_type == "person" and isinstance(value, dict):
+            # Person name → header_map cell if present
+            if key in header_map:
+                ws[header_map[key]] = value.get("name", "")
+            # Sub-fields → maps_to cells
+            for sub_field, cell_ref in ef_def.get("maps_to", {}).items():
+                ws[cell_ref] = value.get(sub_field, "")
 
     # Fill crew
     for i, crew in enumerate(request.crew):

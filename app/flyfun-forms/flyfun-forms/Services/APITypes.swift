@@ -66,8 +66,43 @@ struct ExtraFieldInfo: Codable, Identifiable {
     var key: String
     var label: String
     var type: String
+    var options: [String]?
+    var mapsTo: [String: String]?
 
     var id: String { key }
+
+    enum CodingKeys: String, CodingKey {
+        case key, label, type, options
+        case mapsTo = "maps_to"
+    }
+}
+
+// MARK: - Extra Field Value (supports string and person dict)
+
+enum ExtraFieldValue: Codable {
+    case text(String)
+    case person([String: String])
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .text(let str):
+            try container.encode(str)
+        case .person(let dict):
+            try container.encode(dict)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let str = try? container.decode(String.self) {
+            self = .text(str)
+        } else if let dict = try? container.decode([String: String].self) {
+            self = .person(dict)
+        } else {
+            self = .text("")
+        }
+    }
 }
 
 // MARK: - Generate Request (POST /generate)
@@ -80,7 +115,7 @@ struct GenerateRequest: Codable {
     var crew: [PersonPayload]
     var passengers: [PersonPayload]
     var connectingFlight: FlightPayload?
-    var extraFields: [String: String]?
+    var extraFields: [String: ExtraFieldValue]?
     var observations: String?
 
     enum CodingKeys: String, CodingKey {
@@ -139,6 +174,7 @@ struct PersonPayload: Codable {
     var idExpiry: String?
     var sex: String?
     var placeOfBirth: String?
+    var address: String?
 
     enum CodingKeys: String, CodingKey {
         case function
@@ -151,5 +187,6 @@ struct PersonPayload: Codable {
         case idExpiry = "id_expiry"
         case sex
         case placeOfBirth = "place_of_birth"
+        case address
     }
 }

@@ -60,8 +60,30 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
 
     # Extra fields check
     for ef in mapping.extra_fields:
-        key = ef if isinstance(ef, str) else ef.get("key", "")
-        if key and not (request.extra_fields or {}).get(key):
+        ef_def = ef if isinstance(ef, dict) else {"key": ef, "type": "text"}
+        key = ef_def.get("key", "")
+        ef_type = ef_def.get("type", "text")
+        required = ef_def.get("required", True)
+        if not key or not required:
+            continue
+
+        value = (request.extra_fields or {}).get(key)
+        if not value:
             errors.append(ValidationError(field=f"extra_fields.{key}", error="required for this form"))
+            continue
+
+        if ef_type == "choice":
+            options = ef_def.get("options", [])
+            if options and value not in options:
+                errors.append(ValidationError(
+                    field=f"extra_fields.{key}",
+                    error=f"must be one of: {', '.join(options)}",
+                ))
+        elif ef_type == "person":
+            if not isinstance(value, dict) or not value.get("name"):
+                errors.append(ValidationError(
+                    field=f"extra_fields.{key}",
+                    error="must include at least a name",
+                ))
 
     return errors
