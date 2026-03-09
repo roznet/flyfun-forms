@@ -112,12 +112,11 @@ def fill_french_customs(
 
     # Apply updates
     for page in writer.pages:
-        writer.update_page_form_field_values(page, updates)
+        writer.update_page_form_field_values(page, updates, flatten=flatten)
 
+    # Remove widget annotations after flattening (appearances already baked in)
     if flatten:
-        for page in writer.pages:
-            if "/Annots" in page:
-                del page["/Annots"]
+        writer.remove_annotations(subtypes="/Widget")
 
     output = BytesIO()
     writer.write(output)

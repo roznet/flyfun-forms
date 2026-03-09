@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 import SwiftData
 
@@ -12,7 +13,7 @@ struct FlightEditView: View {
     @State private var generatingForm: String?
     @State private var errorMessage: String?
     @State private var showingError = false
-    @State private var shareItem: ShareableFile?
+    @State private var previewURL: URL?
     private let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -136,9 +137,7 @@ struct FlightEditView: View {
         } message: {
             Text(errorMessage ?? "Unknown error")
         }
-        .sheet(item: $shareItem) { item in
-            ShareSheet(items: [item.url])
-        }
+        .quickLookPreview($previewURL)
     }
 
     @ViewBuilder
@@ -175,7 +174,7 @@ struct FlightEditView: View {
             let tempDir = FileManager.default.temporaryDirectory
             let fileURL = tempDir.appendingPathComponent(filename)
             try data.write(to: fileURL)
-            shareItem = ShareableFile(url: fileURL)
+            previewURL = fileURL
         } catch {
             errorMessage = error.localizedDescription
             showingError = true
@@ -244,39 +243,3 @@ struct FlightEditView: View {
     }
 }
 
-// MARK: - Share helpers
-
-struct ShareableFile: Identifiable {
-    let id = UUID()
-    let url: URL
-}
-
-#if os(iOS)
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-#else
-struct ShareSheet: View {
-    let items: [Any]
-
-    var body: some View {
-        if let url = items.first as? URL {
-            VStack(spacing: 16) {
-                Text("Form generated")
-                    .font(.headline)
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding()
-        }
-    }
-}
-#endif
