@@ -1,0 +1,33 @@
+# flyfun-forms
+
+> GA customs/immigration form generator — FastAPI backend + iOS app + CLI for filling airport-specific PDF/DOCX/XLSX forms with flight and passenger data
+
+Install: `pip install -e .` (Python backend/CLI) or open `app/flyfun-forms/flyfun-forms.xcodeproj` (iOS)
+
+Related: flyfun-common, rzflight
+
+## Modules
+
+### api
+FastAPI backend: form generation, airport discovery, validation. Stateless — receives flight/people data, returns filled forms, never stores PII.
+Key exports: `/generate`, `/validate`, `/airports`, `/airports/{icao}`
+→ Full doc: api.md
+
+### form-system
+Template + mapping + filler architecture. How forms are discovered, configured via JSON mappings, and filled by pluggable fillers (PDF, DOCX, XLSX).
+Key exports: `MappingRegistry`, `PDFFiller`, `DocxFiller`, `XlsxFiller`
+→ Full doc: form-system.md
+
+### ios-app
+SwiftUI app with SwiftData + CloudKit. Manages people, aircraft, flights/trips locally with encrypted sync. Calls backend for form generation.
+Key exports: `AppState`, `FormService`, `AuthService`, Person/Aircraft/Flight/Trip models
+→ Full doc: ios-app.md
+
+### cli
+Command-line client for batch form generation from CSV files. Uses API tokens for auth.
+Key exports: `cli.py` (generate, trip, airports commands)
+→ Full doc: cli.md
+
+### flight_forms_brainstorm
+Original brainstorm and detailed reference notes. Contains GAR XLSX cell layout, template inventory, and implementation status. Not a structured design doc — use for detailed lookup.
+→ Full doc: flight_forms_brainstorm.md
