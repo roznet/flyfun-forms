@@ -207,7 +207,9 @@ struct FlightEditView: View {
             aircraftPayload = AircraftPayload(registration: "", type: "")
         }
 
-        let crewPayloads = flight.crewList.map { personPayload($0) }
+        let crewPayloads = flight.crewList.enumerated().map { (i, p) in
+            personPayload(p, function: i == 0 ? "Pilot" : "Crew")
+        }
         let paxPayloads = flight.passengerList.map { personPayload($0) }
 
         return GenerateRequest(
@@ -221,8 +223,9 @@ struct FlightEditView: View {
         )
     }
 
-    private func personPayload(_ p: Person) -> PersonPayload {
+    private func personPayload(_ p: Person, function: String? = nil) -> PersonPayload {
         PersonPayload(
+            function: function,
             firstName: p.firstName,
             lastName: p.lastName,
             dob: p.dateOfBirth.map { dateFmt.string(from: $0) },

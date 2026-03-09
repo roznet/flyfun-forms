@@ -50,6 +50,10 @@ def fill_pdf(
     is_arrival = request.airport == request.flight.destination
     direction = "inbound" if is_arrival else "outbound"
 
+    # The "remote" airport is the one that isn't request.airport (i.e. the other end)
+    remote_icao = request.flight.origin if is_arrival else request.flight.destination
+    remote_country = airport_resolver.get_country(remote_icao)
+
     # Build values dict for simple fields
     observations = request.observations or mapping.default_observations or ""
     values = {
@@ -59,6 +63,7 @@ def fill_pdf(
         "flight.arrival_time_utc": request.flight.arrival_time_utc,
         "flight.origin": request.flight.origin,
         "flight.destination": request.flight.destination,
+        "flight.remote": remote_icao,
         "flight.contact": request.flight.contact or "",
         "flight.nature": request.flight.nature,
         "flight.observations": observations,
@@ -69,6 +74,7 @@ def fill_pdf(
         "aircraft.owner_address": request.aircraft.owner_address or "",
         "origin.country": airport_resolver.get_country(request.flight.origin),
         "destination.country": airport_resolver.get_country(request.flight.destination),
+        "remote.country": remote_country,
         "passengers.count": str(len(request.passengers)),
         "airport.name": airport_resolver.get_name(request.airport),
     }
