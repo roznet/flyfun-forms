@@ -19,15 +19,26 @@ The project directory on the server is `flyfun-forms`.
 ## Deploy steps
 
 1. Push to remote: `git push origin main`
-2. SSH to the server and deploy:
+2. Check if flyfun-common needs updating (it's installed from git in a cached Docker layer):
    ```
+   # Latest commit on flyfun-common main branch
+   git ls-remote https://github.com/roznet/flyfun-common.git main | cut -f1
+   # Commit hash baked into the deployed container
+   ssh <user>@<server> "docker exec flightforms pip inspect 2>/dev/null | python3 -c \"import sys,json; pkgs=json.load(sys.stdin)['installed']; fc=[p for p in pkgs if p['metadata']['name']=='flyfun-common']; print(fc[0]['direct_url']['vcs_info']['commit_id'] if fc else 'unknown')\""
+   ```
+   If the hashes differ, flyfun-common has changed and Docker's cached layer is stale — use `--no-cache` for the build.
+3. SSH to the server and deploy:
+   ```
+   # If flyfun-common is up to date (normal build):
    ssh <user>@<server> "cd flyfun-forms && git pull && docker compose up -d --build"
+   # If flyfun-common changed (bust the Docker cache):
+   ssh <user>@<server> "cd flyfun-forms && git pull && docker compose build --no-cache && docker compose up -d"
    ```
-3. Wait a few seconds, then verify the health check:
+4. Wait a few seconds, then verify the health check:
    ```
    ssh <user>@<server> "docker inspect --format='{{.State.Health.Status}}' flightforms"
    ```
-4. Also check the endpoint is responding:
+5. Also check the endpoint is responding:
    ```
    curl -s -o /dev/null -w '%{http_code}' https://forms.flyfun.aero/health
    ```
