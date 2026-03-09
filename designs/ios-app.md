@@ -10,26 +10,29 @@ Native iOS/iPadOS/macOS app that lets pilots manage their people database (crew,
 
 ```
 app/flyfun-forms/flyfun-forms/
-├── flyfun_formsApp.swift      # App entry, SwiftData container setup
+├── flyfun_formsApp.swift      # App entry, SwiftData container, migration
 ├── ContentView.swift          # Tab navigation (People, Aircraft, Flights)
 ├── Models/
-│   ├── Person.swift           # @Model: crew/passenger data + passport
+│   ├── Person.swift           # @Model: crew/passenger data
+│   ├── TravelDocument.swift   # @Model: passport/ID card (many per Person)
 │   ├── Aircraft.swift         # @Model: aircraft details
 │   ├── Flight.swift           # @Model: flight leg with relationships
 │   └── Trip.swift             # @Model: multi-leg trip container
 ├── Views/
 │   ├── LoginView.swift        # Google/Apple OAuth sign-in
 │   ├── PeopleListView.swift   # CRUD for people
-│   ├── PersonEditView.swift
+│   ├── PersonEditView.swift   # Person details + document list
 │   ├── AircraftListView.swift
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
 │   └── FlightEditView.swift
 └── Services/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
-    ├── Environment.swift      # APIConfig (base URL per environment)
+    ├── Environment.swift      # APIConfig (base URL, simulator vs device)
     ├── AuthService.swift      # OAuth via ASWebAuthenticationSession
     ├── FormService.swift      # API client for /airports, /generate, /validate
+    ├── DocumentResolver.swift # Picks best document per person + airport region
+    ├── AirportCatalog.swift   # Airport/form discovery with server sync
     └── APITypes.swift         # Codable request/response models
 ```
 
@@ -61,13 +64,28 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md) with iOS-specifi
 
 ### SwiftData Models
 
-**Person:** firstName, lastName, dateOfBirth, nationality, idNumber, idType, idIssuingCountry, idExpiry, sex, placeOfBirth, isUsualCrew (flag for quick crew selection)
+**Person:** firstName, lastName, dateOfBirth, sex, placeOfBirth, isUsualCrew. Has many `TravelDocument`s. Legacy flat id fields (idNumber, idType, etc.) kept for migration only — not used in UI or API calls.
+
+**TravelDocument:** docType (Passport/Identity card/Other), docNumber, issuingCountry (ISO alpha-3), expiryDate. Belongs to Person. Nationality is derived from the selected document's issuingCountry — no person-level nationality.
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
 **Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), trip, legOrder
 
 **Trip:** name, createdAt, legs (→ [Flight]), extraFields (JSON-encoded dict for form-specific fields)
+
+### Document Resolution
+
+A person can have multiple travel documents (e.g., French + UK passport). `DocumentResolver` selects the best one at form generation time based on the target airport:
+
+1. **User override** — if the user previously chose a specific document for this airport prefix, use it (stored in UserDefaults)
+2. **Region match** — ICAO prefix → region (Schengen/UK/other), prefer document issued by a matching country
+3. **Tiebreak** — latest expiry date among matching documents
+4. **Fallback** — single document used directly; no documents → nil
+
+The selected document's `issuingCountry` is sent as `nationality` in the API request.
+
+On first launch after migration, existing Person flat id fields are converted to TravelDocument records automatically.
 
 ## Usage Examples
 
@@ -97,6 +115,8 @@ if appState.isAuthenticated {
 - **ASWebAuthenticationSession:** System-provided OAuth UI. Handles Safari cookie sharing and secure callback. No embedded WebView.
 - **JWT in keychain:** Using RZUtilsSwift's `CodableSecureStorage` for secure, typed token storage.
 - **URL scheme `flyfunforms://`:** For OAuth callback redirect from server back to app.
+- **Multi-document per person:** Real pilots carry multiple passports/IDs. Document selection is automatic per region but overridable. Nationality derived from document, not stored on person.
+- **Simulator vs device base URL:** `#if targetEnvironment(simulator)` switches to `localhost.ro-z.me:8443` for local dev server testing.
 
 ## Gotchas
 
@@ -110,9 +130,11 @@ if appState.isAuthenticated {
 
 - Models, CRUD UI, auth flow, API integration: **complete**
 - CSV import for bulk people entry: **complete**
-- Extra fields dynamic UI: **in progress**
+- Multi-document per person with auto-resolve: **complete**
+- PDF preview via QuickLook: **complete**
+- Extra fields dynamic UI (choice, person, text): **planned**
+- Document override UI (tap to switch per airport): **planned**
 - Share sheet / document handling: **planned**
-- PDF preview: **planned**
 
 ## References
 

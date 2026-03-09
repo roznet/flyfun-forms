@@ -9,6 +9,7 @@ struct flyfun_formsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Person.self,
+            TravelDocument.self,
             Aircraft.self,
             Flight.self,
             Trip.self,
@@ -44,7 +45,34 @@ struct flyfun_formsApp: App {
             .onOpenURL { url in
                 appState.handleAuthCallback(url: url)
             }
+            .task { migrateDocuments() }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// One-time migration: create TravelDocument from legacy flat fields on Person.
+    private func migrateDocuments() {
+        let context = sharedModelContainer.mainContext
+        guard let people = try? context.fetch(FetchDescriptor<Person>()) else { return }
+
+        var migrated = 0
+        for person in people {
+            // Skip if already has documents or no legacy data
+            guard person.documentList.isEmpty, let number = person.idNumber, !number.isEmpty else { continue }
+
+            let doc = TravelDocument(
+                docType: person.idType ?? "Passport",
+                docNumber: number,
+                issuingCountry: person.idIssuingCountry,
+                expiryDate: person.idExpiry
+            )
+            doc.person = person
+            context.insert(doc)
+            migrated += 1
+        }
+
+        if migrated > 0 {
+            try? context.save()
+        }
     }
 }

@@ -118,12 +118,19 @@ struct PeopleCSVImporter {
             person.sex = csv.sex
             person.dateOfBirth = csv.dateOfBirth
             person.nationality = csv.nationality
-            person.idType = csv.idType
-            person.idNumber = csv.idNumber
-            person.idExpiry = csv.idExpiry
-            person.idIssuingCountry = csv.idIssuingCountry
             person.isUsualCrew = csv.isCrew
             context.insert(person)
+
+            if let docNumber = csv.idNumber, !docNumber.isEmpty {
+                let doc = TravelDocument(
+                    docType: csv.idType ?? "Passport",
+                    docNumber: docNumber,
+                    issuingCountry: csv.idIssuingCountry,
+                    expiryDate: csv.idExpiry
+                )
+                doc.person = person
+                context.insert(doc)
+            }
             imported += 1
         }
         return (imported, skipped)

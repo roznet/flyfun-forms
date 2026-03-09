@@ -19,8 +19,8 @@ Key exports: `MappingRegistry`, `PDFFiller`, `DocxFiller`, `XlsxFiller`
 → Full doc: form-system.md
 
 ### ios-app
-SwiftUI app with SwiftData + CloudKit. Manages people, aircraft, flights/trips locally with encrypted sync. Calls backend for form generation.
-Key exports: `AppState`, `FormService`, `AuthService`, Person/Aircraft/Flight/Trip models
+SwiftUI app with SwiftData + CloudKit. Manages people, aircraft, flights/trips locally with encrypted sync. Calls backend for form generation. Multi-document per person with automatic region-based selection.
+Key exports: `AppState`, `FormService`, `DocumentResolver`, Person/TravelDocument/Aircraft/Flight/Trip models
 → Full doc: ios-app.md
 
 ### cli

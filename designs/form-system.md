@@ -76,9 +76,15 @@ src/flightforms/
 ### Direction Derivation
 
 Direction is **never specified by the user** — it's derived:
-- Form airport == flight destination → **arrival** form
-- Form airport == flight origin → **departure** form
+- Form airport == flight destination → **arrival** (inbound)
+- Form airport == flight origin → **departure** (outbound)
 - Connecting flight → both directions shown (for intermediate stops)
+
+The filler also computes `flight.remote` (the airport at the other end) and `remote.country`. Use these in field_map when the form's FROM/TO field should show the remote airport, not origin/destination (e.g., LSGS immigration uses `flight.remote` for the ICAO column).
+
+### PDF Flattening
+
+When `?flatten=true`, the PDF filler uses pypdf's built-in flatten parameter on `update_page_form_field_values(page, updates, flatten=True)` to bake appearance streams into page content, then calls `writer.remove_annotations(subtypes="/Widget")` to strip interactive form widgets. Do NOT just delete `/Annots` — that removes the visual content too.
 
 ## Usage Examples
 

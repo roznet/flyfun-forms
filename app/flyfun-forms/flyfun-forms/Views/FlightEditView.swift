@@ -208,9 +208,9 @@ struct FlightEditView: View {
         }
 
         let crewPayloads = flight.crewList.enumerated().map { (i, p) in
-            personPayload(p, function: i == 0 ? "Pilot" : "Crew")
+            personPayload(p, function: i == 0 ? "Pilot" : "Crew", airport: airport)
         }
-        let paxPayloads = flight.passengerList.map { personPayload($0) }
+        let paxPayloads = flight.passengerList.map { personPayload($0, airport: airport) }
 
         return GenerateRequest(
             airport: airport,
@@ -223,17 +223,18 @@ struct FlightEditView: View {
         )
     }
 
-    private func personPayload(_ p: Person, function: String? = nil) -> PersonPayload {
-        PersonPayload(
+    private func personPayload(_ p: Person, function: String? = nil, airport: String) -> PersonPayload {
+        let doc = DocumentResolver.resolve(person: p, airport: airport)
+        return PersonPayload(
             function: function,
             firstName: p.firstName,
             lastName: p.lastName,
             dob: p.dateOfBirth.map { dateFmt.string(from: $0) },
-            nationality: p.nationality,
-            idNumber: p.idNumber,
-            idType: p.idType,
-            idIssuingCountry: p.idIssuingCountry,
-            idExpiry: p.idExpiry.map { dateFmt.string(from: $0) },
+            nationality: doc?.issuingCountry,
+            idNumber: doc?.docNumber,
+            idType: doc?.docType,
+            idIssuingCountry: doc?.issuingCountry,
+            idExpiry: doc?.expiryDate.map { dateFmt.string(from: $0) },
             sex: p.sex,
             placeOfBirth: p.placeOfBirth
         )

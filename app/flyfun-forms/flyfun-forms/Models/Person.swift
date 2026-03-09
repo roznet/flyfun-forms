@@ -15,12 +15,16 @@ final class Person {
     var placeOfBirth: String?
     var isUsualCrew: Bool = false
 
+    var documents: [TravelDocument]?
+
     // CloudKit inverses
     @Relationship(inverse: \Flight.crew)
     var crewFlights: [Flight]?
 
     @Relationship(inverse: \Flight.passengers)
     var passengerFlights: [Flight]?
+
+    var documentList: [TravelDocument] { documents ?? [] }
 
     var fullName: String { "\(firstName) \(lastName)" }
 
