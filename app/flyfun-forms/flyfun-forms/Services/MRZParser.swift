@@ -1,5 +1,4 @@
 import Foundation
-import RZUtilsSwift
 
 struct MRZScanResult {
     let surname: String
@@ -162,12 +161,9 @@ enum MRZParser {
         let passCheck = checkDigit(passNum)
         let passExpected = digit(l2, 9)
         if passCheck != passExpected {
-            // Try OCR correction (digit→letter substitutions)
             if let corrected = correctField(passNum, expectedCheck: passExpected) {
-                RZSLog.info("MRZ passport corrected: \(passNum) → \(corrected)")
                 passNum = corrected
             } else {
-                RZSLog.info("MRZ passport check FAIL: \(passNum) computed=\(passCheck) expected=\(passExpected)")
                 return nil
             }
         }
@@ -175,28 +171,19 @@ enum MRZParser {
         let dob = substr(l2, 13, 6)
         let dobCheck = checkDigit(dob)
         let dobExpected = digit(l2, 19)
-        guard dobCheck == dobExpected else {
-            RZSLog.info("MRZ DOB check FAIL: \(dob) computed=\(dobCheck) expected=\(dobExpected)")
-            return nil
-        }
+        guard dobCheck == dobExpected else { return nil }
 
         let expiry = substr(l2, 21, 6)
         let expiryCheck = checkDigit(expiry)
         let expiryExpected = digit(l2, 27)
-        guard expiryCheck == expiryExpected else {
-            RZSLog.info("MRZ expiry check FAIL: \(expiry) computed=\(expiryCheck) expected=\(expiryExpected)")
-            return nil
-        }
+        guard expiryCheck == expiryExpected else { return nil }
 
         // Composite check: positions 0-9 + 13-19 + 21-27 + 28-42
         // Use corrected passport number (passNum) + its check digit for positions 0-9
         let compositeInput = passNum + String(substr(l2, 9, 1)) + substr(l2, 13, 7) + substr(l2, 21, 7) + substr(l2, 28, 15)
         let compCheck = checkDigit(compositeInput)
         let compExpected = digit(l2, 43)
-        guard compCheck == compExpected else {
-            RZSLog.info("MRZ composite check FAIL: computed=\(compCheck) expected=\(compExpected)")
-            return nil
-        }
+        guard compCheck == compExpected else { return nil }
 
         // Parse names from line 1
         let (surname, givenNames) = parseNames(String(line1.dropFirst(5)))

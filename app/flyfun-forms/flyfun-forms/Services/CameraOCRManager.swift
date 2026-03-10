@@ -2,9 +2,6 @@
 import AVFoundation
 import Vision
 import SwiftUI
-import RZUtilsSwift
-
-private nonisolated(unsafe) var _debugFrameCounter: Int32 = 0
 
 enum ScanStatus: Equatable {
     case idle
@@ -19,7 +16,6 @@ enum ScanStatus: Equatable {
 final class CameraOCRManager {
     var status: ScanStatus = .idle
     var result: MRZScanResult?
-    var debugLines: [String] = []
 
     let captureSession = AVCaptureSession()
 
@@ -133,25 +129,7 @@ final class CameraOCRManager {
     private nonisolated func handleOCRResults(_ request: VNRequest) {
         guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
 
-        // Collect top candidate for display, but all candidates for MRZ matching
-        let topCandidates = observations.compactMap { $0.topCandidates(1).first?.string }
         let allCandidates = observations.flatMap { $0.topCandidates(3).map(\.string) }
-
-        // Log + update debug overlay every 15th frame
-        let count = OSAtomicIncrement32(&_debugFrameCounter)
-        if count % 15 == 0 {
-            let debugInfo = topCandidates.enumerated().map { "[\($0.offset)] (\($0.element.count)ch) \($0.element)" }
-            if topCandidates.isEmpty {
-                RZSLog.info("MRZ frame \(count): no text detected")
-            } else {
-                for line in debugInfo {
-                    RZSLog.info("MRZ frame \(count): \(line)")
-                }
-            }
-            Task { @MainActor [weak self] in
-                self?.debugLines = debugInfo.isEmpty ? ["(no text detected)"] : debugInfo
-            }
-        }
 
         // Match MRZ lines from ALL candidates (top 3 per observation)
         let mrzLines = allCandidates.filter { line in
@@ -160,27 +138,17 @@ final class CameraOCRManager {
                 || (trimmed.count == 30 && trimmed.range(of: "^[A-Z0-9<]{30}$", options: .regularExpression) != nil)
         }.map { $0.trimmingCharacters(in: .whitespaces) }
 
-        if !mrzLines.isEmpty {
-            RZSLog.info("MRZ candidates: \(mrzLines.joined(separator: " | "))")
-        }
-
         guard !mrzLines.isEmpty else { return }
 
         // Try TD3 (2 lines of 44)
         if let result = tryParseMRZ(mrzLines, lineLength: 44, lineCount: 2) {
-            RZSLog.info("TD3 parsed: \(result.passportNumber)")
             emitResult(result)
             return
         }
         // Try TD1 (3 lines of 30)
         if let result = tryParseMRZ(mrzLines, lineLength: 30, lineCount: 3) {
-            RZSLog.info("TD1 parsed: \(result.passportNumber)")
             emitResult(result)
             return
-        }
-
-        if !mrzLines.isEmpty {
-            RZSLog.warning("MRZ lines found but parse failed — checksum mismatch?")
         }
     }
 

@@ -51,22 +51,6 @@ struct MRZScannerView: View {
                     Spacer()
                 }
 
-                // Debug overlay
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("OCR debug (\(camera.debugLines.count) lines)")
-                            .font(.caption2.bold())
-                        ForEach(Array(camera.debugLines.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(size: 9, design: .monospaced))
-                        }
-                    }
-                    .foregroundStyle(.green)
-                    .padding(8)
-                }
-                .frame(maxHeight: 150)
-                .background(.black.opacity(0.7))
-
                 Spacer()
 
                 statusView
