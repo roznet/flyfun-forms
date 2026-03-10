@@ -13,6 +13,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera is used to scan passport and ID card MRZ codes to auto-fill travel document details.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

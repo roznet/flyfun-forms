@@ -81,6 +81,9 @@ struct PersonEditView: View {
 
 struct DocumentEditView: View {
     @Bindable var document: TravelDocument
+    #if os(iOS)
+    @State private var showScanner = false
+    #endif
 
     var body: some View {
         Form {
@@ -99,8 +102,55 @@ struct DocumentEditView: View {
         .navigationTitle(document.displayLabel)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showScanner = true
+                } label: {
+                    Image(systemName: "doc.text.viewfinder")
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showScanner) {
+            MRZScannerView { result in
+                applyMRZResult(result)
+            }
+        }
         #endif
     }
+
+    #if os(iOS)
+    private func applyMRZResult(_ result: MRZScanResult) {
+        // Always set document fields
+        document.docNumber = result.passportNumber
+        document.issuingCountry = result.issuingCountry
+        document.expiryDate = result.expiryDate
+        document.docType = result.format == .td1 ? "Identity card" : "Passport"
+
+        // Conditionally set person fields (only if empty/nil)
+        guard let person = document.person else { return }
+
+        if person.firstName.isEmpty {
+            person.firstName = result.givenNames
+        }
+        if person.lastName.isEmpty {
+            person.lastName = result.surname
+        }
+        if person.dateOfBirth == nil {
+            person.dateOfBirth = result.dateOfBirth
+        }
+        if person.nationality == nil || person.nationality?.isEmpty == true {
+            person.nationality = result.nationality
+        }
+        if person.sex == nil || person.sex?.isEmpty == true {
+            switch result.gender {
+            case "M": person.sex = "Male"
+            case "F": person.sex = "Female"
+            default: break
+            }
+        }
+    }
+    #endif
 }
 
 // Helper for optional Date bindings with DatePicker
