@@ -15,6 +15,7 @@ private func makeTestContainer() throws -> ModelContainer {
 }
 
 /// Creates a Person with the given documents already attached, inserted into an in-memory context.
+@MainActor
 @discardableResult
 private func makePerson(
     container: ModelContainer,
@@ -57,6 +58,7 @@ struct DocumentResolverTests {
     }
 
     @Test("No documents returns nil")
+    @MainActor
     func noDocuments() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [])
@@ -65,9 +67,10 @@ struct DocumentResolverTests {
     }
 
     @Test("Single document is always returned")
+    @MainActor
     func singleDocument() throws {
         let container = try makeTestContainer()
-        let (person, docs) = makePerson(container: container, documents: [
+        let (person, _) = makePerson(container: container, documents: [
             (type: "Passport", number: "PP-100001", country: "XYZ", expiry: date(2030, 6, 15)),
         ])
         let result = DocumentResolver.resolve(person: person, airport: "LSGS")
@@ -75,9 +78,10 @@ struct DocumentResolverTests {
     }
 
     @Test("Schengen airport prefers Schengen-issued document")
+    @MainActor
     func schengenPreference() throws {
         let container = try makeTestContainer()
-        let (person, docs) = makePerson(container: container, documents: [
+        let (person, _) = makePerson(container: container, documents: [
             (type: "Passport", number: "PP-GBR-001", country: "GBR", expiry: date(2031, 1, 1)),
             (type: "Identity card", number: "ID-FRA-001", country: "FRA", expiry: date(2029, 6, 1)),
         ])
@@ -87,9 +91,10 @@ struct DocumentResolverTests {
     }
 
     @Test("UK airport prefers GBR-issued document")
+    @MainActor
     func ukPreference() throws {
         let container = try makeTestContainer()
-        let (person, docs) = makePerson(container: container, documents: [
+        let (person, _) = makePerson(container: container, documents: [
             (type: "Identity card", number: "ID-FRA-001", country: "FRA", expiry: date(2029, 6, 1)),
             (type: "Passport", number: "PP-GBR-001", country: "GBR", expiry: date(2031, 1, 1)),
         ])
@@ -99,6 +104,7 @@ struct DocumentResolverTests {
     }
 
     @Test("French airport (LF) is Schengen — picks FRA over GBR")
+    @MainActor
     func frenchAirportSchengen() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
@@ -110,6 +116,7 @@ struct DocumentResolverTests {
     }
 
     @Test("No region match falls back to latest expiry")
+    @MainActor
     func noRegionMatchLatestExpiry() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
@@ -122,6 +129,7 @@ struct DocumentResolverTests {
     }
 
     @Test("Region match tiebreak by latest expiry")
+    @MainActor
     func regionMatchTiebreakByExpiry() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
@@ -135,6 +143,7 @@ struct DocumentResolverTests {
     }
 
     @Test("UK airport with no GBR document falls back to latest expiry")
+    @MainActor
     func ukNoGBRFallback() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
@@ -147,6 +156,7 @@ struct DocumentResolverTests {
     }
 
     @Test("Nil expiry dates are sorted last")
+    @MainActor
     func nilExpiryLast() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
@@ -158,6 +168,7 @@ struct DocumentResolverTests {
     }
 
     @Test("Multiple Schengen prefixes recognized")
+    @MainActor
     func multipleSchengenPrefixes() throws {
         let container = try makeTestContainer()
         let (person, _) = makePerson(container: container, documents: [
