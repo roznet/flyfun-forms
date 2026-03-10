@@ -9,6 +9,10 @@ struct FlightEditView: View {
     @Environment(\.airportCatalog) private var catalog
     @Environment(AppState.self) private var appState
 
+    @State private var showAirportPicker = false
+    @State private var showPeoplePicker = false
+    @State private var editingCrew: [Person] = []
+    @State private var editingPassengers: [Person] = []
     @State private var isGenerating = false
     @State private var generatingForm: String?
     @State private var errorMessage: String?
@@ -26,14 +30,20 @@ struct FlightEditView: View {
     var body: some View {
         Form {
             Section("Route") {
-                TextField("Origin (ICAO)", text: $flight.originICAO)
-                    #if os(iOS)
-                    .textInputAutocapitalization(.characters)
-                    #endif
-                TextField("Destination (ICAO)", text: $flight.destinationICAO)
-                    #if os(iOS)
-                    .textInputAutocapitalization(.characters)
-                    #endif
+                Button {
+                    showAirportPicker = true
+                } label: {
+                    HStack {
+                        let origin = flight.originICAO.isEmpty ? "----" : flight.originICAO
+                        let dest = flight.destinationICAO.isEmpty ? "----" : flight.destinationICAO
+                        Text("\(origin)  \(Image(systemName: "arrow.right"))  \(dest)")
+                            .font(.system(.title3, design: .monospaced).bold())
+                        Spacer()
+                        Image(systemName: "pencil")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
 
             Section("Schedule") {
@@ -61,15 +71,13 @@ struct FlightEditView: View {
                             }
                         }
                 }
-                Menu("Add Crew") {
-                    ForEach(availablePeople) { person in
-                        Button(person.displayName) {
-                            if flight.crew == nil { flight.crew = [] }
-                            flight.crew?.append(person)
-                        }
-                    }
+                Button {
+                    editingCrew = flight.crewList
+                    editingPassengers = flight.passengerList
+                    showPeoplePicker = true
+                } label: {
+                    Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
                 }
-                .disabled(availablePeople.isEmpty)
             }
 
             Section("Passengers") {
@@ -81,15 +89,6 @@ struct FlightEditView: View {
                             }
                         }
                 }
-                Menu("Add Passenger") {
-                    ForEach(availablePeople) { person in
-                        Button(person.displayName) {
-                            if flight.passengers == nil { flight.passengers = [] }
-                            flight.passengers?.append(person)
-                        }
-                    }
-                }
-                .disabled(availablePeople.isEmpty)
             }
 
             Section("Flight Details") {
@@ -115,6 +114,19 @@ struct FlightEditView: View {
             if !flight.originICAO.isEmpty {
                 formSection(airport: flight.originICAO, direction: "departure")
             }
+
+            Section("Actions") {
+                Button {
+                    createReturnFlight()
+                } label: {
+                    Label("Create Return Flight", systemImage: "arrow.uturn.left")
+                }
+                Button {
+                    duplicateFlight()
+                } label: {
+                    Label("Duplicate Flight", systemImage: "doc.on.doc")
+                }
+            }
         }
         .navigationTitle(flight.displayName)
         #if os(iOS)
@@ -126,6 +138,12 @@ struct FlightEditView: View {
             Text(errorMessage ?? "Unknown error")
         }
         .quickLookPreview($previewURL)
+        .sheet(isPresented: $showAirportPicker) {
+            AirportPickerView(originICAO: $flight.originICAO, destinationICAO: $flight.destinationICAO)
+        }
+        .sheet(isPresented: $showPeoplePicker, onDismiss: applyPeopleSelection) {
+            PeoplePickerView(selectedCrew: $editingCrew, selectedPassengers: $editingPassengers)
+        }
         .onChange(of: flight.originICAO) { fetchFormDetails(icao: flight.originICAO) }
         .onChange(of: flight.destinationICAO) { fetchFormDetails(icao: flight.destinationICAO) }
         .onAppear {
@@ -351,6 +369,48 @@ struct FlightEditView: View {
         let crewIDs = Set(flight.crewList.map(\.persistentModelID))
         let paxIDs = Set(flight.passengerList.map(\.persistentModelID))
         return allPeople.filter { !crewIDs.contains($0.persistentModelID) && !paxIDs.contains($0.persistentModelID) }
+    }
+
+    // MARK: - People Picker
+
+    private func applyPeopleSelection() {
+        flight.crew = editingCrew.isEmpty ? nil : editingCrew
+        flight.passengers = editingPassengers.isEmpty ? nil : editingPassengers
+    }
+
+    // MARK: - Return / Duplicate
+
+    @Environment(\.modelContext) private var modelContext
+
+    private func createReturnFlight() {
+        let newFlight = Flight()
+        newFlight.originICAO = flight.destinationICAO
+        newFlight.destinationICAO = flight.originICAO
+        newFlight.departureDate = flight.arrivalDate
+        newFlight.arrivalDate = flight.arrivalDate
+        newFlight.aircraft = flight.aircraft
+        newFlight.crew = flight.crew
+        newFlight.passengers = flight.passengers
+        newFlight.nature = flight.nature
+        newFlight.contact = flight.contact
+        modelContext.insert(newFlight)
+    }
+
+    private func duplicateFlight() {
+        let newFlight = Flight()
+        newFlight.originICAO = flight.originICAO
+        newFlight.destinationICAO = flight.destinationICAO
+        newFlight.departureDate = flight.departureDate
+        newFlight.departureTimeUTC = flight.departureTimeUTC
+        newFlight.arrivalDate = flight.arrivalDate
+        newFlight.arrivalTimeUTC = flight.arrivalTimeUTC
+        newFlight.aircraft = flight.aircraft
+        newFlight.crew = flight.crew
+        newFlight.passengers = flight.passengers
+        newFlight.nature = flight.nature
+        newFlight.contact = flight.contact
+        newFlight.observations = flight.observations
+        modelContext.insert(newFlight)
     }
 }
 

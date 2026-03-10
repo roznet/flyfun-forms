@@ -7,10 +7,26 @@ struct PeopleListView: View {
     @Query(sort: \Person.lastName) private var people: [Person]
     @State private var showingImporter = false
     @State private var importResult: ImportResult?
+    @State private var searchText = ""
+    @State private var sortByLastUsed = false
+
+    private var filteredPeople: [Person] {
+        let needle = searchText.lowercased()
+        let filtered = needle.isEmpty ? people : people.filter {
+            $0.firstName.lowercased().contains(needle) ||
+            $0.lastName.lowercased().contains(needle)
+        }
+        if sortByLastUsed {
+            return filtered.sorted {
+                ($0.lastFlightDate ?? .distantPast) > ($1.lastFlightDate ?? .distantPast)
+            }
+        }
+        return filtered
+    }
 
     var body: some View {
         List {
-            ForEach(people) { person in
+            ForEach(filteredPeople) { person in
                 NavigationLink(value: person) {
                     VStack(alignment: .leading) {
                         Text(person.displayName)
@@ -29,14 +45,30 @@ struct PeopleListView: View {
                                     .background(.blue.opacity(0.15))
                                     .clipShape(Capsule())
                             }
+                            if sortByLastUsed, let date = person.lastFlightDate {
+                                Text(date, style: .date)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
             }
             .onDelete(perform: deletePeople)
         }
+        .searchable(text: $searchText, prompt: "Search by name")
         .navigationTitle("People")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    sortByLastUsed.toggle()
+                } label: {
+                    Label(
+                        sortByLastUsed ? "Sort A-Z" : "Sort by Recent",
+                        systemImage: sortByLastUsed ? "textformat.abc" : "clock"
+                    )
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button {
@@ -76,8 +108,9 @@ struct PeopleListView: View {
     }
 
     private func deletePeople(at offsets: IndexSet) {
+        let filtered = filteredPeople
         for index in offsets {
-            modelContext.delete(people[index])
+            modelContext.delete(filtered[index])
         }
     }
 

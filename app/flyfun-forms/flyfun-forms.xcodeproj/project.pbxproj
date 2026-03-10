@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		420D04712F5C09D200664F90 /* RZUtils in Frameworks */ = {isa = PBXBuildFile; productRef = 420D04702F5C09D200664F90 /* RZUtils */; };
 		420D04752F5C09DF00664F90 /* RZUtilsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 420D04742F5C09DF00664F90 /* RZUtilsSwift */; };
+		420D047A2F5C0BA000664F90 /* RZFlight in Frameworks */ = {isa = PBXBuildFile; productRef = 420D047B2F5C0BA000664F90 /* RZFlight */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 			files = (
 				420D04712F5C09D200664F90 /* RZUtils in Frameworks */,
 				420D04752F5C09DF00664F90 /* RZUtilsSwift in Frameworks */,
+				420D047A2F5C0BA000664F90 /* RZFlight in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -142,6 +144,7 @@
 			packageProductDependencies = (
 				420D04702F5C09D200664F90 /* RZUtils */,
 				420D04742F5C09DF00664F90 /* RZUtilsSwift */,
+				420D047B2F5C0BA000664F90 /* RZFlight */,
 			);
 			productName = "flyfun-forms";
 			productReference = 42FD27AE2F5BFFBA00A1BC5A /* flyfun-forms.app */;
@@ -683,6 +686,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 420D044C2F5C001B00664F90 /* XCRemoteSwiftPackageReference "rzutils" */;
 			productName = RZUtilsSwift;
+		};
+		420D047B2F5C0BA000664F90 /* RZFlight */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 420D04792F5C0B9D00664F90 /* XCRemoteSwiftPackageReference "rzflight" */;
+			productName = RZFlight;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

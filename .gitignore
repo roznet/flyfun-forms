@@ -4,6 +4,7 @@ tmp/
 data/
 venv/
 *.db
+!app/flyfun-forms/flyfun-forms/airports.db
 __pycache__/
 *.pyc
 *.egg-info/

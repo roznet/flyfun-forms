@@ -4,6 +4,8 @@ import SwiftData
 struct FlightsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Flight.departureDate, order: .reverse) private var flights: [Flight]
+    @State private var showNewFlightFlow = false
+    @State private var selectedFlight: Flight?
 
     var body: some View {
         List {
@@ -30,14 +32,21 @@ struct FlightsListView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    let flight = Flight()
-                    modelContext.insert(flight)
+                    showNewFlightFlow = true
                 } label: {
                     Label("Add Flight", systemImage: "plus")
                 }
             }
         }
+        .sheet(isPresented: $showNewFlightFlow) {
+            NewFlightFlow { flight in
+                selectedFlight = flight
+            }
+        }
         .navigationDestination(for: Flight.self) { flight in
+            FlightEditView(flight: flight)
+        }
+        .navigationDestination(item: $selectedFlight) { flight in
             FlightEditView(flight: flight)
         }
     }
