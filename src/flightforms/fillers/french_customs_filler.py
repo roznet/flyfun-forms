@@ -58,6 +58,7 @@ def fill_french_customs(
         "observations": observations,
         "owner": request.aircraft.owner or "",
         "flight_number": "",
+        "airline": "",
     }
 
     updates = {}
