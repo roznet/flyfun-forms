@@ -132,6 +132,7 @@ filled_bytes = filler.fill(flight_data, aircraft_data, crew, passengers)
 
 - **Flat PDFs can't be filled:** The filler needs AcroForm fields to target. Non-fillable PDFs must be recreated in Adobe Acrobat with form fields.
 - **XLSX formulas:** openpyxl preserves but doesn't recalculate `COUNTA()` formulas. They update when opened in Excel.
+- **XLSX header_map targets value cells, not label cells:** In templates like GAR, labels are in columns A/C/E/G and values go in the adjacent columns B/D/F/H. The `header_map` must reference the **value** cells (e.g., `B3` not `A3`).
 - **Timezone handling:** Some forms want local time, others UTC. The mapping's `timezone` field controls conversion. If null, times stay UTC.
 - **Field naming conventions:** Crew/passenger fields use indexed names like `crew_0_last_name`, `pax_2_dob`. The index maps to position in the form.
 

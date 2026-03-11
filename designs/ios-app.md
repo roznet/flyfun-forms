@@ -4,7 +4,7 @@
 
 ## Intent
 
-Native iOS/iPadOS/macOS app that lets pilots manage their people database (crew, passengers with passport details), aircraft, and flights — then generate pre-filled customs forms with one tap. PII stays on-device (encrypted SwiftData + CloudKit private DB), only sent transiently to the server for form generation.
+Native iOS/iPadOS/macOS app that lets pilots manage their people database (crew, passengers with passport details), aircraft, and flights — then generate pre-filled customs forms with one tap. PII stays on-device (encrypted SwiftData + CloudKit private DB), only sent transiently to the server for form generation. Data syncs across devices via CloudKit.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ app/flyfun-forms/flyfun-forms/
 ### Data Storage
 
 - **SwiftData** with `ModelContainer` configured for CloudKit sync
-- **CloudKit container:** `iCloud.aero.flyfun.flightforms` (private database)
+- **CloudKit container:** `iCloud.net.ro-z.flyfun-forms` (private database, syncs across iOS + macOS)
 - All PII encrypted at rest by Apple (CloudKit private DB guarantee)
 - Works offline — form generation requires connectivity
 
@@ -116,15 +116,19 @@ if appState.isAuthenticated {
 - **JWT in keychain:** Using RZUtilsSwift's `CodableSecureStorage` for secure, typed token storage.
 - **URL scheme `flyfunforms://`:** For OAuth callback redirect from server back to app.
 - **Multi-document per person:** Real pilots carry multiple passports/IDs. Document selection is automatic per region but overridable. Nationality derived from document, not stored on person.
-- **Simulator vs device base URL:** `#if targetEnvironment(simulator)` switches to `localhost.ro-z.me:8443` for local dev server testing.
+- **Dev vs prod base URL:** `#if targetEnvironment(simulator) || os(macOS)` switches to `localhost.ro-z.me:8443` for local dev server testing. Physical iOS devices use `forms.flyfun.aero`.
 
 ## Gotchas
 
 - CloudKit sync requires iCloud to be enabled on the device and a signed-in Apple ID
+- **CloudKit container must match bundle ID convention:** Container `iCloud.net.ro-z.flyfun-forms` matches bundle `net.ro-z.flyfun-forms`. Using a non-matching name (e.g., `iCloud.aero.flyfun.flightforms`) causes "Invalid bundle ID for container" errors.
 - SwiftData + CloudKit doesn't support unique constraints — deduplication must be handled in code if needed
 - The `isUsualCrew` flag on Person is a UI convenience — it doesn't affect the data model or API
 - Flight relationships to Person are many-to-many (a person can be on multiple flights)
 - Extra fields (form-specific like `reason_for_visit`) are stored as JSON in Trip, not as typed properties
+- **macOS platform guards:** iOS-only APIs need `#if os(iOS)` guards: `.textInputAutocapitalization`, `.listStyle(.insetGrouped)` (use `.inset` on macOS), `.topBarLeading` toolbar placement (use `.navigation`), `.navigationBarTitleDisplayMode`
+- **macOS sheet sizing:** Sheets presented on macOS need explicit `.frame(minWidth:minHeight:)` or they render too small to be usable
+- **macOS sandbox:** Requires `com.apple.security.network.client` entitlement for outbound network (API calls + CloudKit sync)
 
 ## Status
 
@@ -132,7 +136,9 @@ if appState.isAuthenticated {
 - CSV import for bulk people entry: **complete**
 - Multi-document per person with auto-resolve: **complete**
 - PDF preview via QuickLook: **complete**
-- Extra fields dynamic UI (choice, person, text): **planned**
+- Extra fields dynamic UI (choice, person, text): **complete**
+- macOS compilation and CloudKit sync: **complete**
+- Navigate to edit on create (people, aircraft): **complete**
 - Document override UI (tap to switch per airport): **planned**
 - Share sheet / document handling: **planned**
 

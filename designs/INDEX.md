@@ -2,7 +2,7 @@
 
 > GA customs/immigration form generator — FastAPI backend + iOS app + CLI for filling airport-specific PDF/DOCX/XLSX forms with flight and passenger data
 
-Install: `pip install -e .` (Python backend/CLI) or open `app/flyfun-forms/flyfun-forms.xcodeproj` (iOS)
+Install: `pip install -e .` (Python backend/CLI) or open `app/flyfun-forms/flyfun-forms.xcodeproj` (iOS/macOS)
 
 Related: flyfun-common, rzflight
 
@@ -19,7 +19,7 @@ Key exports: `MappingRegistry`, `PDFFiller`, `DocxFiller`, `XlsxFiller`
 → Full doc: form-system.md
 
 ### ios-app
-SwiftUI app with SwiftData + CloudKit. Manages people, aircraft, flights/trips locally with encrypted sync. Calls backend for form generation. Multi-document per person with automatic region-based selection.
+SwiftUI app (iOS/macOS) with SwiftData + CloudKit cross-device sync. Manages people, aircraft, flights/trips locally with encrypted sync. Calls backend for form generation. Multi-document per person with automatic region-based selection.
 Key exports: `AppState`, `FormService`, `DocumentResolver`, Person/TravelDocument/Aircraft/Flight/Trip models
 → Full doc: ios-app.md
 
