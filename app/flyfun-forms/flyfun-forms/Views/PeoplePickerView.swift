@@ -43,6 +43,9 @@ struct PeoplePickerView: View {
                 }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 500, minHeight: 500)
+        #endif
     }
 
     // MARK: - Selected People

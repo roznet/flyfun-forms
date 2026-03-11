@@ -54,10 +54,32 @@ Run: `tmux has-session -t flightforms 2>/dev/null`
 If a session exists:
 1. Check what directory it's running in: `tmux display-message -t flightforms -p '#{pane_current_path}'`
 2. Compare that path to `$PROJECT_ROOT`
-3. **If the directory matches** and the session looks healthy, tell the user:
-   > Dev server already running at https://localhost.ro-z.me:8443 — attach with `tmux attach -t flightforms`
+3. **If the directory matches**, check if non-Python files have changed since the server started. `uvicorn --reload` only watches `.py` files, so JSON mappings and XLSX templates require a manual restart.
 
-   Then stop (no restart needed).
+   Get the server start time (the tmux session creation time):
+   ```bash
+   tmux display-message -t flightforms -p '#{session_created}'
+   ```
+   Then check if any mapping or template files are newer:
+   ```bash
+   find "$PROJECT_ROOT/src/flightforms/mappings" "$PROJECT_ROOT/src/flightforms/templates" \
+     -type f \( -name "*.json" -o -name "*.xlsx" \) \
+     -newer <(ls -la --time-style=+%s) 2>/dev/null
+   ```
+   Or more reliably, use `stat` to compare modification times of those files against the session creation timestamp.
+
+   - **If no non-Python files changed**, tell the user:
+     > Dev server already running at https://localhost.ro-z.me:8443 — attach with `tmux attach -t flightforms`
+     Then stop (no restart needed).
+
+   - **If JSON/XLSX files changed since the server started**, restart the server:
+     ```bash
+     tmux send-keys -t flightforms C-c
+     sleep 1
+     ```
+     Then continue to Step 6 to start fresh in the existing session (skip creating a new tmux session — just send the uvicorn command to the existing pane).
+     Tell the user: "Restarted dev server — JSON mappings/templates changed since last start."
+
 4. **If the directory does NOT match** (e.g., switched worktrees), kill the session:
    ```
    tmux kill-session -t flightforms
@@ -87,7 +109,7 @@ Create a new tmux session running the backend:
 tmux new-session -d -s flightforms -c "$PROJECT_ROOT"
 
 # Run uvicorn with SSL on port 8443 (what the iOS simulator expects)
-tmux send-keys -t flightforms "source $VENV_PATH/bin/activate && ENVIRONMENT=development uvicorn flightforms.api.app:create_app --factory --reload --host 0.0.0.0 --port 8443 --ssl-certfile $SSL_CERT --ssl-keyfile $SSL_KEY" Enter
+tmux send-keys -t flightforms "ENVIRONMENT=development $VENV_PATH/bin/python -m uvicorn flightforms.api.app:create_app --factory --reload --host 0.0.0.0 --port 8443 --ssl-certfile $SSL_CERT --ssl-keyfile $SSL_KEY" Enter
 ```
 
 ## Step 7 — Report to user

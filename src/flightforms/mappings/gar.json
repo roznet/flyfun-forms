@@ -14,7 +14,7 @@
     {"key": "reason_for_visit", "label": "Reason for visit", "type": "choice",
      "options": ["Business", "Pleasure", "Transit", "Other"]},
     {"key": "responsible_person", "label": "Responsible person", "type": "person",
-     "maps_to": {"address": "C6"}}
+     "maps_to": {"address": "D6"}}
   ],
   "required_fields": {
     "flight": ["origin", "destination", "departure_date", "departure_time_utc", "arrival_date", "arrival_time_utc"],
@@ -23,20 +23,20 @@
     "passengers": ["first_name", "last_name", "dob", "id_number", "nationality", "id_type", "id_issuing_country", "id_expiry", "sex"]
   },
   "header_map": {
-    "direction": "A2",
-    "arrival_icao": "A3",
-    "arrival_date": "C3",
-    "arrival_time": "E3",
-    "owner": "G3",
-    "contact": "I3",
-    "departure_icao": "A4",
-    "departure_date": "C4",
-    "departure_time": "E4",
-    "registration": "A5",
-    "aircraft_type": "C5",
-    "captain_surname": "E5",
-    "usual_base": "G5",
-    "reason_for_visit": "A6"
+    "direction": "B2",
+    "arrival_icao": "B3",
+    "arrival_date": "D3",
+    "arrival_time": "F3",
+    "owner": "H3",
+    "contact": "J3",
+    "departure_icao": "B4",
+    "departure_date": "D4",
+    "departure_time": "F4",
+    "registration": "B5",
+    "aircraft_type": "D5",
+    "captain_surname": "F5",
+    "usual_base": "H5",
+    "reason_for_visit": "B6"
   },
   "crew_start_row": 9,
   "crew_max": 8,

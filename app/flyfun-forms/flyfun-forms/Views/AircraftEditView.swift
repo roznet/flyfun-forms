@@ -6,11 +6,11 @@ struct AircraftEditView: View {
     var body: some View {
         Form {
             Section("Aircraft") {
-                TextField("Registration (e.g. N122DR)", text: $aircraft.registration)
+                TextField("Registration", text: $aircraft.registration)
                     #if os(iOS)
                     .textInputAutocapitalization(.characters)
                     #endif
-                TextField("Type (e.g. S22T)", text: $aircraft.type)
+                TextField("Type", text: $aircraft.type)
                     #if os(iOS)
                     .textInputAutocapitalization(.characters)
                     #endif

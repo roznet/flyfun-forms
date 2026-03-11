@@ -4,6 +4,7 @@ import SwiftData
 struct AircraftListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Aircraft.registration) private var aircraft: [Aircraft]
+    @State private var newAircraft: Aircraft?
 
     var body: some View {
         List {
@@ -28,12 +29,16 @@ struct AircraftListView: View {
                 Button {
                     let ac = Aircraft()
                     modelContext.insert(ac)
+                    newAircraft = ac
                 } label: {
                     Label("Add Aircraft", systemImage: "plus")
                 }
             }
         }
         .navigationDestination(for: Aircraft.self) { ac in
+            AircraftEditView(aircraft: ac)
+        }
+        .navigationDestination(item: $newAircraft) { ac in
             AircraftEditView(aircraft: ac)
         }
     }

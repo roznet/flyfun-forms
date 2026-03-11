@@ -36,6 +36,9 @@ struct AirportPickerView: View {
                 }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 500, minHeight: 500)
+        #endif
     }
 
     // MARK: - Route Fields

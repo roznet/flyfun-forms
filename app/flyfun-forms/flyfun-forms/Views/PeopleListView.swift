@@ -9,6 +9,7 @@ struct PeopleListView: View {
     @State private var importResult: ImportResult?
     @State private var searchText = ""
     @State private var sortByLastUsed = false
+    @State private var newPerson: Person?
     #if os(iOS)
     @State private var showingScanSheet = false
     @State private var scanProcessingResult: MRZProcessingResult?
@@ -79,6 +80,7 @@ struct PeopleListView: View {
                     Button {
                         let person = Person()
                         modelContext.insert(person)
+                        newPerson = person
                     } label: {
                         Label("Add Person", systemImage: "person.badge.plus")
                     }
@@ -115,6 +117,9 @@ struct PeopleListView: View {
             Text(importResult?.message ?? "")
         }
         .navigationDestination(for: Person.self) { person in
+            PersonEditView(person: person)
+        }
+        .navigationDestination(item: $newPerson) { person in
             PersonEditView(person: person)
         }
         #if os(iOS)
