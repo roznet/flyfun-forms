@@ -184,7 +184,7 @@ enum MRZResultProcessor {
         var descriptor = FetchDescriptor<TravelDocument>(predicate: predicate)
         descriptor.fetchLimit = 2
         guard let docs = try? modelContext.fetch(descriptor) else { return nil }
-        return docs.first { excluding == nil || $0.persistentModelID != excluding!.persistentModelID }
+        return docs.first { $0.persistentModelID != excluding?.persistentModelID }
     }
 
     // MARK: - People Search

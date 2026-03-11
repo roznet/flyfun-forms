@@ -87,7 +87,7 @@ final class ImageOCRManager {
                     }
                 }
             }
-            return MRZParser.parse(lines: Array(filtered.prefix(2)))
+            return nil
         } else {
             return MRZParser.parse(lines: Array(filtered.prefix(lineCount)))
         }
