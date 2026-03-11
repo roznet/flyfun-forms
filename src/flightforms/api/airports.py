@@ -1,11 +1,15 @@
 """Airport discovery endpoints."""
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..airport_resolver import PREFIX_COUNTRIES, AirportResolver
 from flyfun_common.db import current_user_id
 from ..registry import MappingRegistry
 from .models import AirportDetail, AirportInfo, AirportsResponse, FormInfo, PrefixInfo
+
+_ICAO_RE = re.compile(r"^[A-Z]{4}$")
 
 router = APIRouter()
 
@@ -44,6 +48,9 @@ def list_airports(user_id: str = Depends(current_user_id)):
 
 @router.get("/airports/{icao}", response_model=AirportDetail)
 def get_airport(icao: str, user_id: str = Depends(current_user_id)):
+    icao = icao.upper()
+    if not _ICAO_RE.match(icao):
+        raise HTTPException(status_code=400, detail="Invalid ICAO code")
     mappings = _registry.get_forms_for_airport(icao)
     if not mappings:
         raise HTTPException(status_code=404, detail=f"No forms available for {icao}")

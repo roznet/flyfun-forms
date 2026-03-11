@@ -1,7 +1,11 @@
 """Pydantic models for API request/response."""
 
-from pydantic import BaseModel
+import re
+
+from pydantic import BaseModel, field_validator
 from typing import Optional, Union
+
+_ICAO_RE = re.compile(r"^[A-Z]{4}$")
 
 
 class FlightData(BaseModel):
@@ -51,6 +55,15 @@ class ConnectingFlightData(BaseModel):
 class GenerateRequest(BaseModel):
     airport: str
     form: str
+
+    @field_validator("airport")
+    @classmethod
+    def validate_icao(cls, v: str) -> str:
+        v = v.upper()
+        if not _ICAO_RE.match(v):
+            raise ValueError("Invalid ICAO code")
+        return v
+
     flight: FlightData
     aircraft: AircraftData
     crew: list[PersonData]

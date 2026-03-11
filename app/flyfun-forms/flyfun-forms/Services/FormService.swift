@@ -49,9 +49,7 @@ struct FormService {
         urlRequest.httpBody = body
         applyAuth(&urlRequest)
 
-        if let bodyStr = String(data: body, encoding: .utf8) {
-            Self.logger.debug("POST /generate body: \(bodyStr)")
-        }
+        Self.logger.debug("POST /generate for airport=\(request.airport) form=\(request.form)")
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse else {

@@ -78,7 +78,10 @@ class MappingRegistry:
         return None
 
     def get_template_path(self, mapping: FormMapping) -> Path:
-        return self.templates_dir / mapping.template
+        path = (self.templates_dir / mapping.template).resolve()
+        if not path.is_relative_to(self.templates_dir.resolve()):
+            raise ValueError("Invalid template path")
+        return path
 
     def all_airports(self) -> dict[str, list[FormMapping]]:
         """Return all airports with specific mappings."""

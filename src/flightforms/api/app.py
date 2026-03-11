@@ -47,6 +47,22 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Security headers middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request as StarletteRequest
+
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: StarletteRequest, call_next):
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            if not is_dev_mode():
+                response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+            return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
+
     # SessionMiddleware required for OAuth state roundtrip
     app.add_middleware(
         SessionMiddleware,
