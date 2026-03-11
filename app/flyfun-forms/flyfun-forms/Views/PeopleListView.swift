@@ -64,7 +64,7 @@ struct PeopleListView: View {
         .searchable(text: $searchText, prompt: "Search by name")
         .navigationTitle("People")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .navigation) {
                 Button {
                     sortByLastUsed.toggle()
                 } label: {

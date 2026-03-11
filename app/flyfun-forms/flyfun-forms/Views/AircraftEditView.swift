@@ -7,9 +7,13 @@ struct AircraftEditView: View {
         Form {
             Section("Aircraft") {
                 TextField("Registration (e.g. N122DR)", text: $aircraft.registration)
+                    #if os(iOS)
                     .textInputAutocapitalization(.characters)
+                    #endif
                 TextField("Type (e.g. S22T)", text: $aircraft.type)
+                    #if os(iOS)
                     .textInputAutocapitalization(.characters)
+                    #endif
                 Picker("Category", selection: $aircraft.isAirplane) {
                     Text("Airplane").tag(true)
                     Text("Helicopter").tag(false)
@@ -33,7 +37,9 @@ struct AircraftEditView: View {
                     get: { aircraft.usualBase ?? "" },
                     set: { aircraft.usualBase = $0.isEmpty ? nil : $0.uppercased() }
                 ))
+                #if os(iOS)
                 .textInputAutocapitalization(.characters)
+                #endif
             }
         }
         .navigationTitle(aircraft.displayName)

@@ -103,7 +103,11 @@ struct AirportPickerView: View {
             }
             recentRoutesSection
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #else
+        .listStyle(.inset)
+        #endif
     }
 
     @ViewBuilder

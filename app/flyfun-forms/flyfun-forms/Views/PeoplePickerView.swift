@@ -27,7 +27,11 @@ struct PeoplePickerView: View {
                     matchingPeopleSection
                     groupSuggestionsSection
                 }
+                #if os(iOS)
                 .listStyle(.insetGrouped)
+                #else
+                .listStyle(.inset)
+                #endif
             }
             .navigationTitle("People")
             #if os(iOS)

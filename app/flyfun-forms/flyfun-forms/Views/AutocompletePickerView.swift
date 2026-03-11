@@ -64,7 +64,11 @@ struct AutocompletePickerView<Item: Identifiable & Hashable, RowContent: View>: 
                     }
                 }
             }
+            #if os(iOS)
             .listStyle(.insetGrouped)
+            #else
+            .listStyle(.inset)
+            #endif
         }
     }
 
