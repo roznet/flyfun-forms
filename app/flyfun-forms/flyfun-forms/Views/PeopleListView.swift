@@ -9,6 +9,11 @@ struct PeopleListView: View {
     @State private var importResult: ImportResult?
     @State private var searchText = ""
     @State private var sortByLastUsed = false
+    #if os(iOS)
+    @State private var showingScanSheet = false
+    @State private var scanProcessingResult: MRZProcessingResult?
+    @State private var navigateToPerson: Person?
+    #endif
 
     private var filteredPeople: [Person] {
         let needle = searchText.lowercased()
@@ -77,6 +82,13 @@ struct PeopleListView: View {
                     } label: {
                         Label("Add Person", systemImage: "person.badge.plus")
                     }
+                    #if os(iOS)
+                    Button {
+                        showingScanSheet = true
+                    } label: {
+                        Label("Scan Document", systemImage: "doc.text.viewfinder")
+                    }
+                    #endif
                     Button {
                         showingImporter = true
                     } label: {
@@ -105,6 +117,26 @@ struct PeopleListView: View {
         .navigationDestination(for: Person.self) { person in
             PersonEditView(person: person)
         }
+        #if os(iOS)
+        .sheet(isPresented: $showingScanSheet) {
+            ScanDocumentSheet { result in
+                let processing = MRZResultProcessor.process(result, context: .standalone, modelContext: modelContext)
+                scanProcessingResult = processing
+            }
+        }
+        .sheet(item: $scanProcessingResult) { processing in
+            MRZResultActionView(
+                processingResult: processing,
+                onDismiss: { scanProcessingResult = nil },
+                onPersonSelected: { person in
+                    navigateToPerson = person
+                }
+            )
+        }
+        .navigationDestination(item: $navigateToPerson) { person in
+            PersonEditView(person: person)
+        }
+        #endif
     }
 
     private func deletePeople(at offsets: IndexSet) {

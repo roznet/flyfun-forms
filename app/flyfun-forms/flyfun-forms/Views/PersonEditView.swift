@@ -4,6 +4,10 @@ import SwiftData
 struct PersonEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var person: Person
+    #if os(iOS)
+    @State private var showingScanSheet = false
+    @State private var scanProcessingResult: MRZProcessingResult?
+    #endif
 
     private static let dateRange: ClosedRange<Date> = {
         let calendar = Calendar.current
@@ -75,14 +79,37 @@ struct PersonEditView: View {
         .navigationTitle(person.displayName)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingScanSheet = true
+                } label: {
+                    Image(systemName: "doc.text.viewfinder")
+                }
+            }
+        }
+        .sheet(isPresented: $showingScanSheet) {
+            ScanDocumentSheet { result in
+                let processing = MRZResultProcessor.process(result, context: .person(person), modelContext: modelContext)
+                scanProcessingResult = processing
+            }
+        }
+        .sheet(item: $scanProcessingResult) { processing in
+            MRZResultActionView(
+                processingResult: processing,
+                onDismiss: { scanProcessingResult = nil }
+            )
+        }
         #endif
     }
 }
 
 struct DocumentEditView: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var document: TravelDocument
     #if os(iOS)
-    @State private var showScanner = false
+    @State private var showingScanSheet = false
+    @State private var scanProcessingResult: MRZProcessingResult?
     #endif
 
     var body: some View {
@@ -105,52 +132,34 @@ struct DocumentEditView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    showScanner = true
+                    showingScanSheet = true
                 } label: {
                     Image(systemName: "doc.text.viewfinder")
                 }
             }
         }
-        .fullScreenCover(isPresented: $showScanner) {
-            MRZScannerView { result in
-                applyMRZResult(result)
+        .sheet(isPresented: $showingScanSheet) {
+            ScanDocumentSheet { result in
+                let processing = MRZResultProcessor.process(result, context: .document(document), modelContext: modelContext)
+                if !processing.namesMismatch && processing.duplicateDocument == nil {
+                    // Simple case: no conflicts, just apply directly
+                    MRZResultProcessor.fillDocument(document, from: result)
+                    if let person = document.person {
+                        MRZResultProcessor.fillPerson(person, from: result)
+                    }
+                } else {
+                    scanProcessingResult = processing
+                }
             }
+        }
+        .sheet(item: $scanProcessingResult) { processing in
+            MRZResultActionView(
+                processingResult: processing,
+                onDismiss: { scanProcessingResult = nil }
+            )
         }
         #endif
     }
-
-    #if os(iOS)
-    private func applyMRZResult(_ result: MRZScanResult) {
-        // Always set document fields
-        document.docNumber = result.passportNumber
-        document.issuingCountry = result.issuingCountry
-        document.expiryDate = result.expiryDate
-        document.docType = result.format == .td1 ? "Identity card" : "Passport"
-
-        // Conditionally set person fields (only if empty/nil)
-        guard let person = document.person else { return }
-
-        if person.firstName.isEmpty {
-            person.firstName = result.givenNames
-        }
-        if person.lastName.isEmpty {
-            person.lastName = result.surname
-        }
-        if person.dateOfBirth == nil {
-            person.dateOfBirth = result.dateOfBirth
-        }
-        if person.nationality == nil || person.nationality?.isEmpty == true {
-            person.nationality = result.nationality
-        }
-        if person.sex == nil || person.sex?.isEmpty == true {
-            switch result.gender {
-            case "M": person.sex = "Male"
-            case "F": person.sex = "Female"
-            default: break
-            }
-        }
-    }
-    #endif
 }
 
 // Helper for optional Date bindings with DatePicker
