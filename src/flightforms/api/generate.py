@@ -46,7 +46,7 @@ def configure(registry: MappingRegistry, resolver: AirportResolver):
 def _generate_form(mapping: FormMapping, request: GenerateRequest, flatten: bool) -> bytes:
     template_path = _registry.get_template_path(mapping)
     if not template_path.exists():
-        raise HTTPException(status_code=500, detail=f"Template file not found: {mapping.template}")
+        raise HTTPException(status_code=500, detail="Template file not found")
 
     if mapping.filler_type == "pdf_acroform":
         return fill_pdf(template_path, mapping, request, _resolver, flatten)
@@ -57,7 +57,7 @@ def _generate_form(mapping: FormMapping, request: GenerateRequest, flatten: bool
     elif mapping.filler_type == "xlsx":
         return fill_xlsx(template_path, mapping, request, _resolver)
     else:
-        raise HTTPException(status_code=500, detail=f"Unknown filler type: {mapping.filler_type}")
+        raise HTTPException(status_code=500, detail="Unsupported form type")
 
 
 @router.post("/generate")

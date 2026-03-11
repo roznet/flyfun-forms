@@ -34,6 +34,8 @@ async def lifespan(app: FastAPI):
             ensure_dev_user(session)
         finally:
             session.close()
+    if not is_dev_mode() and os.environ.get("JWT_SECRET") in (None, "", "change-me-in-production"):
+        raise RuntimeError("JWT_SECRET must be set to a secure value in production")
     logger.info("FlightForms API started (env=%s)", os.environ.get("ENVIRONMENT", "development"))
     yield
 
@@ -46,6 +48,22 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
+
+    # Security headers middleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request as StarletteRequest
+
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: StarletteRequest, call_next):
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            if not is_dev_mode():
+                response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+            return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # SessionMiddleware required for OAuth state roundtrip
     app.add_middleware(
