@@ -138,6 +138,11 @@ struct FlightEditView: View {
             Text(errorMessage ?? "Unknown error")
         }
         .quickLookPreview($previewURL)
+        .onChange(of: previewURL) { oldURL, _ in
+            if let oldURL {
+                try? FileManager.default.removeItem(at: oldURL)
+            }
+        }
         .sheet(isPresented: $showAirportPicker) {
             AirportPickerView(originICAO: $flight.originICAO, destinationICAO: $flight.destinationICAO)
         }

@@ -89,26 +89,18 @@ The app uses `URLSession.shared` with default TLS validation. This means:
 
 **Status: ACCEPTED RISK** — Certificate pinning with Let's Encrypt (90-day rotation) would require app updates on every certificate renewal, creating an unacceptable maintenance burden and bricking risk. Standard TLS validation via the system trust store, combined with HSTS enforcement (now added), provides adequate protection for this use case.
 
-### 5. Person Legacy Fields Still on Model (HIGH — Data Hygiene)
+### 5. ~~Person Legacy Fields Still on Model~~ (RESOLVED)
 
-**File:** `app/flyfun-forms/flyfun-forms/Models/Person.swift:10-13`
+**File:** `app/flyfun-forms/flyfun-forms/flyfun_formsApp.swift`
 
-```swift
-var idNumber: String?
-var idType: String?
-var idIssuingCountry: String?
-var idExpiry: Date?
-```
-
-These legacy fields on `Person` duplicate the data now stored in `TravelDocument`. The migration code (`flyfun_formsApp.swift:54-77`) copies data to `TravelDocument` but **never clears** the legacy fields. This means passport numbers exist in two places in the SwiftData store (and consequently in two places in CloudKit).
-
-**Recommendation:** After migration, nil out the legacy fields:
+**Status: FIXED** — The migration code now nils out the legacy fields after copying data to `TravelDocument`:
 ```swift
 person.idNumber = nil
 person.idType = nil
 person.idIssuingCountry = nil
 person.idExpiry = nil
 ```
+Passport numbers no longer exist in two places in the SwiftData/CloudKit store.
 
 ---
 
@@ -167,18 +159,15 @@ The session middleware and JWT signing share the same secret. If the session sec
 
 **Recommendation:** Use a separate secret for session middleware.
 
-### 11. `.env.sample` Contains Placeholder Credentials (MEDIUM)
+### 11. ~~`.env.sample` Contains Placeholder Credentials~~ (RESOLVED)
 
-**File:** `.env.sample:3`
+**File:** `src/flightforms/api/app.py`
 
+**Status: FIXED** — The server now refuses to start in production if `JWT_SECRET` is unset or still has the placeholder value:
+```python
+if not is_dev_mode() and os.environ.get("JWT_SECRET") in (None, "", "change-me-in-production"):
+    raise RuntimeError("JWT_SECRET must be set to a secure value in production")
 ```
-DATABASE_URL=mysql+pymysql://user:pass@shared-mysql:3306/flyfun
-JWT_SECRET=change-me-in-production
-```
-
-While this is a sample file, `change-me-in-production` as a JWT secret is dangerous if someone forgets to change it. The `.env` itself is properly gitignored.
-
-**Recommendation:** Add a startup check that refuses to start if `JWT_SECRET` equals the placeholder value.
 
 ### 12. ~~No ICAO Code Input Validation~~ (RESOLVED)
 
@@ -223,19 +212,19 @@ Even if a mapping file were compromised with a `../` traversal payload, the serv
 
 ## LOW Severity Issues
 
-### 16. Generated PDFs Written to Temp Directory (LOW)
+### 16. ~~Generated PDFs Written to Temp Directory~~ (RESOLVED)
 
-**File:** `app/flyfun-forms/flyfun-forms/Views/FlightEditView.swift:294-297`
+**File:** `app/flyfun-forms/flyfun-forms/Views/FlightEditView.swift`
 
+**Status: FIXED** — Temp PDF files (which contain filled passport data) are now deleted as soon as the QuickLook preview is dismissed:
 ```swift
-let tempDir = FileManager.default.temporaryDirectory
-let fileURL = tempDir.appendingPathComponent(filename)
-try data.write(to: fileURL)
+.onChange(of: previewURL) { oldURL, _ in
+    if let oldURL {
+        try? FileManager.default.removeItem(at: oldURL)
+    }
+}
 ```
-
-Generated PDFs (which contain passport data) are written to the iOS temp directory. These files persist until the system reclaims them.
-
-**Recommendation:** Clean up temp files after QuickLook preview is dismissed, or use a more ephemeral storage mechanism.
+Note: This is on the user's iOS device (already protected by iOS Data Protection), so the risk was low. The fix is still good hygiene to minimize the window where passport data exists in plaintext on disk.
 
 ### 17. No Rate Limiting on /generate Endpoint (LOW)
 
@@ -300,11 +289,11 @@ These aspects of the architecture are well-designed:
 | **P0** | Add path traversal protection for templates (#13) | **FIXED** |
 | **P0** | Add security headers (#14) | **FIXED** |
 | **P0** | Pin dependency versions (#15) | **FIXED** |
-| **P1** | Clear legacy Person ID fields after migration (#5) | Open |
+| **P1** | Clear legacy Person ID fields after migration (#5) | **FIXED** |
 | **P1** | Certificate pinning (#4) | Accepted risk |
 | **P2** | Use separate secret for SessionMiddleware (#10) | Open |
-| **P2** | Clean up temp PDF files after preview (#16) | Open |
-| **P2** | Add startup check for placeholder JWT_SECRET (#11) | Open |
+| **P2** | Clean up temp PDF files after preview (#16) | **FIXED** |
+| **P2** | Add startup check for placeholder JWT_SECRET (#11) | **FIXED** |
 | **P3** | Add HTTP warning in CLI for non-localhost URLs (#7) | Open |
 | **P3** | Add rate limiting to /generate endpoint (#17) | Open |
 
@@ -321,5 +310,8 @@ The most critical issues have been resolved:
 - Template loading is protected against path traversal
 - Security headers (HSTS, X-Frame-Options, etc.) are now set on all responses
 - Dependency versions are pinned to prevent unvetted upgrades
+- Legacy Person ID fields are cleared after migration to avoid duplicate PII storage
+- Server refuses to start with placeholder JWT_SECRET in production
+- Temp PDF files containing passport data are deleted after QuickLook preview
 
-Remaining open items are lower priority and primarily affect defense-in-depth rather than direct data exposure.
+Remaining open items (separate session secret, CLI HTTP warning, rate limiting) are lower priority and primarily affect defense-in-depth rather than direct data exposure.

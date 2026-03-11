@@ -68,6 +68,13 @@ struct flyfun_formsApp: App {
             )
             doc.person = person
             context.insert(doc)
+
+            // Clear legacy fields so passport data doesn't exist in two places
+            person.idNumber = nil
+            person.idType = nil
+            person.idIssuingCountry = nil
+            person.idExpiry = nil
+
             migrated += 1
         }
 
