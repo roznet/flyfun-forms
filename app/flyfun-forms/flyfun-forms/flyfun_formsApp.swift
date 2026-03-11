@@ -17,7 +17,7 @@ struct flyfun_formsApp: App {
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
-            cloudKitDatabase: .private("iCloud.aero.flyfun.flightforms")
+            cloudKitDatabase: .private("iCloud.net.ro-z.flyfun-forms")
         )
 
         do {
