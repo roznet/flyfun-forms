@@ -93,8 +93,10 @@ class TestMappingRegistry:
         assert len(forms) >= 1
         assert forms[0].id == "gar"
 
-    def test_unknown_airport_returns_empty(self, registry):
-        assert registry.get_forms_for_airport("XXXX") == []
+    def test_unknown_airport_returns_default(self, registry):
+        forms = registry.get_forms_for_airport("XXXX")
+        assert len(forms) >= 1
+        assert forms[0].id == "gendec_icao"
 
     def test_get_form_by_id(self, registry):
         m = registry.get_form("LSGS", "lsgs")

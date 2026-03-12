@@ -14,6 +14,7 @@ class FormMapping:
         self.raw = data
         self.icao: Optional[str] = data.get("icao")
         self.icao_prefix: Optional[str] = data.get("icao_prefix")
+        self.is_default: bool = data.get("default", False)
         self.template = data["template"]
         self.filler_type = data["type"]  # pdf_acroform, docx, xlsx
         self.version = data.get("version", "1.0")
@@ -46,6 +47,8 @@ class MappingRegistry:
         self._by_icao: dict[str, list[FormMapping]] = {}
         # prefix -> list of FormMapping (fallback)
         self._by_prefix: dict[str, list[FormMapping]] = {}
+        # default mappings (catch-all when no icao or prefix match)
+        self._defaults: list[FormMapping] = []
         self._load_all()
 
     def _load_all(self):
@@ -60,6 +63,8 @@ class MappingRegistry:
                 self._by_icao.setdefault(mapping.icao, []).append(mapping)
             elif mapping.icao_prefix:
                 self._by_prefix.setdefault(mapping.icao_prefix, []).append(mapping)
+            elif mapping.is_default:
+                self._defaults.append(mapping)
 
     def get_forms_for_airport(self, icao: str) -> list[FormMapping]:
         """Get all form mappings for an airport (exact match first, then prefix fallback)."""
@@ -68,7 +73,7 @@ class MappingRegistry:
         for prefix, mappings in self._by_prefix.items():
             if icao.startswith(prefix):
                 return mappings
-        return []
+        return self._defaults
 
     def get_form(self, icao: str, form_id: str) -> Optional[FormMapping]:
         """Get a specific form mapping by airport and form ID."""
@@ -90,3 +95,7 @@ class MappingRegistry:
     def all_prefixes(self) -> dict[str, list[FormMapping]]:
         """Return all prefix-level mappings."""
         return dict(self._by_prefix)
+
+    def all_defaults(self) -> list[FormMapping]:
+        """Return all default (catch-all) mappings."""
+        return list(self._defaults)

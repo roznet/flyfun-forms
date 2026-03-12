@@ -1,0 +1,31 @@
+{
+  "default": true,
+  "label": "ICAO General Declaration",
+  "template": "gendec_icao.pdf",
+  "type": "pdf_acroform",
+  "version": "1.0",
+  "time_reference": "utc",
+  "max_crew": 7,
+  "max_passengers": 99,
+  "date_format": "%d/%m/%Y",
+  "has_connecting_flight": false,
+  "extra_fields": [],
+  "required_fields": {
+    "flight": ["origin", "destination", "departure_date"],
+    "aircraft": ["registration"],
+    "crew": ["first_name", "last_name"],
+    "passengers": []
+  },
+  "field_map": {
+    "aircraft.owner": "Operator",
+    "aircraft.registration": "Marks of Nationality and Registration",
+    "flight.departure_date": "Date",
+    "flight.origin": "Departure from",
+    "flight.destination": "Arrival at",
+    "routing.departure_place": "PLACERow1",
+    "routing.arrival_place": "PLACERow4",
+    "passengers.embarking": "Embarking",
+    "passengers.disembarking": "Disembarking",
+    "crew[{i}].full_name": "NAMES OF CREWRow{n}"
+  }
+}

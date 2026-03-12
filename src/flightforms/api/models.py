@@ -114,6 +114,11 @@ class PrefixInfo(BaseModel):
     forms: list[str]
 
 
+class DefaultFormInfo(BaseModel):
+    forms: list[str]
+
+
 class AirportsResponse(BaseModel):
     airports: list[AirportInfo]
     prefixes: list[PrefixInfo]
+    defaults: list[DefaultFormInfo] = []

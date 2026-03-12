@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..airport_resolver import PREFIX_COUNTRIES, AirportResolver
 from flyfun_common.db import current_user_id
 from ..registry import MappingRegistry
-from .models import AirportDetail, AirportInfo, AirportsResponse, FormInfo, PrefixInfo
+from .models import AirportDetail, AirportInfo, AirportsResponse, DefaultFormInfo, FormInfo, PrefixInfo
 
 _ICAO_RE = re.compile(r"^[A-Z]{4}$")
 
@@ -43,7 +43,14 @@ def list_airports(user_id: str = Depends(current_user_id)):
             forms=[m.id for m in mappings],
         ))
 
-    return AirportsResponse(airports=airports, prefixes=prefixes)
+    defaults = []
+    default_mappings = _registry.all_defaults()
+    if default_mappings:
+        defaults.append(DefaultFormInfo(
+            forms=[m.id for m in default_mappings],
+        ))
+
+    return AirportsResponse(airports=airports, prefixes=prefixes, defaults=defaults)
 
 
 @router.get("/airports/{icao}", response_model=AirportDetail)

@@ -76,6 +76,10 @@ def fill_pdf(
         "destination.country": airport_resolver.get_country(request.flight.destination),
         "remote.country": remote_country,
         "passengers.count": str(len(request.passengers)),
+        "passengers.embarking": str(len(request.passengers)),
+        "passengers.disembarking": str(len(request.passengers)),
+        "routing.departure_place": airport_resolver.get_name(request.flight.origin),
+        "routing.arrival_place": airport_resolver.get_name(request.flight.destination),
         "airport.name": airport_resolver.get_name(request.airport),
     }
 
@@ -163,6 +167,7 @@ def _fill_person_fields(
 ):
     """Fill person (crew/passenger) array fields."""
     person_values = {
+        "full_name": f"{person.last_name} {person.first_name}".strip(),
         "function": person.function or "",
         "first_name": person.first_name,
         "last_name": person.last_name,

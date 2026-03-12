@@ -85,9 +85,11 @@ class TestAirports:
         data = resp.json()
         assert data["forms"][0]["id"] == "french_customs"
 
-    def test_airport_detail_unknown(self, client):
+    def test_airport_detail_unknown_gets_default(self, client):
         resp = client.get("/airports/XXXX")
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["forms"][0]["id"] == "gendec_icao"
 
 
 # ── Validate endpoint ─────────────────────────────────────────────────────────
