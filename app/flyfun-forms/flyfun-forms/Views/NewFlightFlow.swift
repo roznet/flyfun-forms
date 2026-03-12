@@ -65,12 +65,6 @@ struct NewFlightFlow: View {
             .sheet(isPresented: $showPeoplePicker) {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
-            .onChange(of: originICAO) {
-                AirportTimezoneCache.shared.resolve(icao: originICAO)
-            }
-            .onChange(of: destinationICAO) {
-                AirportTimezoneCache.shared.resolve(icao: destinationICAO)
-            }
             .onChange(of: departureDate) { oldValue, newValue in
                 if Calendar.current.isDate(arrivalDate, inSameDayAs: oldValue) {
                     arrivalDate = newValue

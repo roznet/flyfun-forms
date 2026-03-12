@@ -68,11 +68,9 @@ struct FlightEditView: View {
         }
         .onChange(of: flight.originICAO) {
             fetchFormDetails(icao: flight.originICAO)
-            AirportTimezoneCache.shared.resolve(icao: flight.originICAO)
         }
         .onChange(of: flight.destinationICAO) {
             fetchFormDetails(icao: flight.destinationICAO)
-            AirportTimezoneCache.shared.resolve(icao: flight.destinationICAO)
         }
         .onChange(of: flight.departureDate) { oldValue, newValue in
             autoSyncArrivalDate(oldDeparture: oldValue, newDeparture: newValue)
@@ -81,8 +79,6 @@ struct FlightEditView: View {
             previousDepartureDate = flight.departureDate
             fetchFormDetails(icao: flight.originICAO)
             fetchFormDetails(icao: flight.destinationICAO)
-            AirportTimezoneCache.shared.resolve(icao: flight.originICAO)
-            AirportTimezoneCache.shared.resolve(icao: flight.destinationICAO)
         }
     }
 

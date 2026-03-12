@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Reusable time entry widget that stores UTC but lets the user view/edit in a chosen timezone.
 /// Shows an HStack with a time TextField and a timezone Picker.
-/// Timezone options: Zulu + origin TZ + destination TZ (deduped). Default = relevant airport's local TZ.
+/// Timezone options: UTC + origin TZ + destination TZ (deduped). Default = relevant airport's local TZ.
 struct TimeEntryView: View {
     /// The UTC time string binding (HH:mm format), stored in the model.
     @Binding var utcTimeString: String
@@ -19,8 +19,8 @@ struct TimeEntryView: View {
     @State private var displayTime: String = ""
     @State private var selectedTimezoneId: String = "GMT"
     @State private var isUpdating = false
-
-    private var tzCache: AirportTimezoneCache { .shared }
+    @State private var originTZ: TimeZone?
+    @State private var destTZ: TimeZone?
 
     private var selectedTimezone: TimeZone {
         availableTimezones.first(where: { $0.identifier == selectedTimezoneId }) ?? .gmt
@@ -54,30 +54,59 @@ struct TimeEntryView: View {
             }
         }
         .onAppear {
-            initializeTimezone()
-            updateDisplayFromUTC()
+            resolveTimezones()
         }
         .onChange(of: utcTimeString) {
             guard !isUpdating else { return }
             updateDisplayFromUTC()
         }
-        .onChange(of: airportICAO) {
-            initializeTimezone()
-            updateDisplayFromUTC()
+        .onChange(of: airportICAO) { resolveTimezones() }
+        .onChange(of: originICAO) { resolveTimezones() }
+        .onChange(of: destinationICAO) { resolveTimezones() }
+    }
+
+    // MARK: - Timezone Resolution
+
+    private func resolveTimezones() {
+        let cache = AirportTimezoneCache.shared
+
+        // Check if already cached
+        originTZ = cache.timezone(for: originICAO)
+        destTZ = cache.timezone(for: destinationICAO)
+        applyDefaults()
+
+        // Resolve if needed, update when done
+        cache.resolve(icao: originICAO) {
+            originTZ = cache.timezone(for: originICAO)
+            applyDefaults()
         }
+        cache.resolve(icao: destinationICAO) {
+            destTZ = cache.timezone(for: destinationICAO)
+            applyDefaults()
+        }
+    }
+
+    private func applyDefaults() {
+        let cache = AirportTimezoneCache.shared
+        if let localTZ = cache.timezone(for: airportICAO) {
+            if selectedTimezoneId == "GMT" {
+                selectedTimezoneId = localTZ.identifier
+            }
+        }
+        updateDisplayFromUTC()
     }
 
     // MARK: - Available Timezones
 
     private var availableTimezones: [TimeZone] {
         var tzs: [TimeZone] = [.gmt]
-        if let originTZ = tzCache.timezone(for: originICAO), originTZ.secondsFromGMT() != 0 {
-            tzs.append(originTZ)
+        if let tz = originTZ, tz.secondsFromGMT() != 0 {
+            tzs.append(tz)
         }
-        if let destTZ = tzCache.timezone(for: destinationICAO),
-           destTZ.secondsFromGMT() != 0,
-           !tzs.contains(where: { $0.identifier == destTZ.identifier }) {
-            tzs.append(destTZ)
+        if let tz = destTZ,
+           tz.secondsFromGMT() != 0,
+           !tzs.contains(where: { $0.identifier == tz.identifier }) {
+            tzs.append(tz)
         }
         return tzs
     }
@@ -93,16 +122,6 @@ struct TimeEntryView: View {
         return "\(city) (GMT\(sign)\(offsetHours))"
     }
 
-    // MARK: - Timezone Initialization
-
-    private func initializeTimezone() {
-        if let localTZ = tzCache.timezone(for: airportICAO) {
-            selectedTimezoneId = localTZ.identifier
-        } else {
-            selectedTimezoneId = TimeZone.gmt.identifier
-        }
-    }
-
     // MARK: - Conversion
 
     private func updateUTCFromDisplay() {
@@ -110,7 +129,7 @@ struct TimeEntryView: View {
         defer { isUpdating = false }
 
         guard let (hour, minute) = parseTime(displayTime) else {
-            utcTimeString = displayTime // pass through if not parseable
+            utcTimeString = displayTime
             return
         }
 
@@ -120,7 +139,6 @@ struct TimeEntryView: View {
             return
         }
 
-        // Convert from selected TZ to UTC
         let offset = tz.secondsFromGMT() / 60
         var totalMinutes = hour * 60 + minute - offset
         if totalMinutes < 0 { totalMinutes += 1440 }
@@ -144,7 +162,6 @@ struct TimeEntryView: View {
             return
         }
 
-        // Convert from UTC to selected TZ
         let offset = tz.secondsFromGMT() / 60
         var totalMinutes = hour * 60 + minute + offset
         if totalMinutes < 0 { totalMinutes += 1440 }

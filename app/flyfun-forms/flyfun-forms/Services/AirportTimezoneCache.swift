@@ -4,7 +4,6 @@ import RZFlight
 
 /// Resolves and caches airport ICAO codes to their local TimeZone
 /// using CLGeocoder reverse-geocoding of the airport's coordinates.
-@Observable
 final class AirportTimezoneCache {
     static let shared = AirportTimezoneCache()
 
@@ -14,16 +13,17 @@ final class AirportTimezoneCache {
     private init() {}
 
     /// Returns the cached timezone for an airport, or nil if not yet resolved.
-    /// Automatically triggers resolution if not cached.
     func timezone(for icao: String) -> TimeZone? {
-        if let tz = cache[icao] { return tz }
-        resolve(icao: icao)
-        return nil
+        cache[icao]
     }
 
     /// Resolve the timezone for an airport ICAO code.
-    func resolve(icao: String) {
-        guard !icao.isEmpty, cache[icao] == nil, !pending.contains(icao) else { return }
+    /// Calls the completion handler on the main actor when done.
+    func resolve(icao: String, onResolved: (() -> Void)? = nil) {
+        guard !icao.isEmpty, cache[icao] == nil, !pending.contains(icao) else {
+            if cache[icao] != nil { onResolved?() }
+            return
+        }
         guard let airport = AirportDatabase.shared.airport(icao: icao) else { return }
 
         pending.insert(icao)
@@ -37,6 +37,7 @@ final class AirportTimezoneCache {
                     await MainActor.run {
                         cache[icao] = tz
                         pending.remove(icao)
+                        onResolved?()
                     }
                     return
                 }
