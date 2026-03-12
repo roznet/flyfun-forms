@@ -107,6 +107,10 @@ The form system follows a **template + mapping + filler** pattern:
 
 This makes the system extensible — adding a new airport or country requires only a template file and a JSON mapping.
 
+## Privacy
+
+FlightForms is designed with privacy as a core principle. See [PRIVACY.md](PRIVACY.md) for full details.
+
 ## License
 
-Private — all rights reserved.
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
