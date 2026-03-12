@@ -50,10 +50,10 @@ Shared MySQL (prod) / SQLite (dev) with flyfun-common:
 ## Endpoints
 
 ### `GET /airports`
-Returns all airports with available forms, grouped by exact ICAO match and prefix fallback.
+Returns all airports with available forms, grouped by exact ICAO match, prefix fallback, and default forms (catch-all for unmatched airports).
 
 ### `GET /airports/{icao}`
-Returns form details for a specific airport: required fields, extra fields, max crew/pax, version, send_to email.
+Returns form details for a specific airport: required fields, extra fields, max crew/pax, version, send_to email. Falls back to default forms (e.g., ICAO GenDec) for airports without specific mappings.
 
 ### `POST /generate`
 Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).

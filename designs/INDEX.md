@@ -14,8 +14,8 @@ Key exports: `/generate`, `/validate`, `/airports`, `/airports/{icao}`
 → Full doc: api.md
 
 ### form-system
-Template + mapping + filler architecture. How forms are discovered, configured via JSON mappings, and filled by pluggable fillers (PDF, DOCX, XLSX).
-Key exports: `MappingRegistry`, `PDFFiller`, `DocxFiller`, `XlsxFiller`
+Template + mapping + filler architecture. How forms are discovered, configured via JSON mappings, and filled by pluggable fillers (PDF, DOCX, XLSX). Supports exact ICAO, prefix, and default fallback matching.
+Key exports: `MappingRegistry`, `fill_pdf`, `fill_french_customs`, `fill_docx`, `fill_xlsx`
 → Full doc: form-system.md
 
 ### ios-app
