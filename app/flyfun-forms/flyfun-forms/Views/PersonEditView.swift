@@ -3,6 +3,7 @@ import SwiftData
 
 struct PersonEditView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Bindable var person: Person
     #if os(iOS)
     @State private var showingScanSheet = false
@@ -16,64 +17,24 @@ struct PersonEditView: View {
     }()
 
     var body: some View {
-        Form {
-            Section("Name") {
-                TextField("First Name", text: $person.firstName)
-                    .textContentType(.givenName)
-                TextField("Last Name", text: $person.lastName)
-                    .textContentType(.familyName)
-            }
-
-            Section("Details") {
-                OptionalDatePicker("Date of Birth", selection: $person.dateOfBirth, in: Self.dateRange)
-                TextField("Place of Birth", text: Binding(
-                    get: { person.placeOfBirth ?? "" },
-                    set: { person.placeOfBirth = $0.isEmpty ? nil : $0 }
-                ))
-                Picker("Sex", selection: Binding(
-                    get: { person.sex ?? "" },
-                    set: { person.sex = $0.isEmpty ? nil : $0 }
-                )) {
-                    Text("—").tag("")
-                    Text("Male").tag("Male")
-                    Text("Female").tag("Female")
+        Group {
+            if sizeClass == .compact {
+                Form {
+                    personInfoSections
+                    documentsSections
                 }
-                TextField("Address", text: Binding(
-                    get: { person.address ?? "" },
-                    set: { person.address = $0.isEmpty ? nil : $0 }
-                ), axis: .vertical)
-                .lineLimit(2...3)
-            }
-
-            Section("Documents") {
-                ForEach(person.documentList) { doc in
-                    NavigationLink(destination: DocumentEditView(document: doc)) {
-                        VStack(alignment: .leading) {
-                            Text(doc.displayLabel)
-                            if let expiry = doc.expiryDate {
-                                Text("Expires \(expiry, format: .dateTime.day().month().year())")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    Form {
+                        personInfoSections
                     }
-                }
-                .onDelete { offsets in
-                    let docs = person.documentList
-                    for i in offsets {
-                        modelContext.delete(docs[i])
+                    .frame(maxWidth: .infinity)
+                    Form {
+                        documentsSections
                     }
+                    .frame(maxWidth: .infinity)
                 }
-
-                Button("Add Document") {
-                    let doc = TravelDocument()
-                    doc.person = person
-                    modelContext.insert(doc)
-                }
-            }
-
-            Section {
-                Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
+                .padding(.horizontal)
             }
         }
         .navigationTitle(person.displayName)
@@ -101,6 +62,76 @@ struct PersonEditView: View {
             )
         }
         #endif
+    }
+
+    @ViewBuilder
+    private var personInfoSections: some View {
+        Section("Name") {
+            TextField("First Name", text: $person.firstName)
+                .textContentType(.givenName)
+            TextField("Last Name", text: $person.lastName)
+                .textContentType(.familyName)
+        }
+
+        Section("Details") {
+            OptionalDatePicker("Date of Birth", selection: $person.dateOfBirth, in: Self.dateRange)
+            TextField("Place of Birth", text: Binding(
+                get: { person.placeOfBirth ?? "" },
+                set: { person.placeOfBirth = $0.isEmpty ? nil : $0 }
+            ))
+            Picker("Sex", selection: Binding(
+                get: { person.sex ?? "" },
+                set: { person.sex = $0.isEmpty ? nil : $0 }
+            )) {
+                Text("—").tag("")
+                Text("Male").tag("Male")
+                Text("Female").tag("Female")
+            }
+            TextField("Phone", text: Binding(
+                get: { person.phone ?? "" },
+                set: { person.phone = $0.isEmpty ? nil : $0 }
+            ))
+            .textContentType(.telephoneNumber)
+            TextField("Address", text: Binding(
+                get: { person.address ?? "" },
+                set: { person.address = $0.isEmpty ? nil : $0 }
+            ), axis: .vertical)
+            .lineLimit(2...3)
+        }
+    }
+
+    @ViewBuilder
+    private var documentsSections: some View {
+        Section("Documents") {
+            ForEach(person.documentList) { doc in
+                NavigationLink(destination: DocumentEditView(document: doc)) {
+                    VStack(alignment: .leading) {
+                        Text(doc.displayLabel)
+                        if let expiry = doc.expiryDate {
+                            Text("Expires \(expiry, format: .dateTime.day().month().year())")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .onDelete { offsets in
+                let docs = person.documentList
+                for i in offsets {
+                    modelContext.delete(docs[i])
+                }
+            }
+
+            Button("Add Document") {
+                let doc = TravelDocument()
+                doc.person = person
+                modelContext.insert(doc)
+            }
+        }
+
+        Section {
+            Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
+        }
     }
 }
 
@@ -142,7 +173,6 @@ struct DocumentEditView: View {
             ScanDocumentSheet { result in
                 let processing = MRZResultProcessor.process(result, context: .document(document), modelContext: modelContext)
                 if !processing.namesMismatch && processing.duplicateDocument == nil {
-                    // Simple case: no conflicts, just apply directly
                     MRZResultProcessor.fillDocument(document, from: result)
                     if let person = document.person {
                         MRZResultProcessor.fillPerson(person, from: result)
