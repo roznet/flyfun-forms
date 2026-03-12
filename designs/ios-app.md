@@ -29,7 +29,7 @@ app/flyfun-forms/flyfun-forms/
 └── Services/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
     ├── Environment.swift      # APIConfig (base URL, simulator vs device)
-    ├── AuthService.swift      # OAuth via ASWebAuthenticationSession
+    ├── AuthService.swift      # Google OAuth + native Apple Sign-In
     ├── FormService.swift      # API client for /airports, /generate, /validate
     ├── DocumentResolver.swift # Picks best document per person + airport region
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
@@ -45,14 +45,22 @@ app/flyfun-forms/flyfun-forms/
 
 ### Auth Flow
 
-Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md) with iOS-specific redirect:
+Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
+**Google:** Web OAuth via `ASWebAuthenticationSession`
 1. User taps "Sign in with Google" on `LoginView`
 2. `AuthService` opens `ASWebAuthenticationSession` → `https://forms.flyfun.aero/auth/login/google?platform=ios&scheme=flyfunforms`
 3. Server handles OAuth, redirects to `flyfunforms://auth/callback?token=<JWT>`
 4. `AppState` captures callback URL, extracts JWT, stores in keychain via `CodableSecureStorage` (from RZUtilsSwift)
-5. All API requests include `Authorization: Bearer <JWT>` header
-6. On logout, JWT cleared from keychain
+
+**Apple:** Native `ASAuthorizationAppleIDProvider`
+1. User taps the system "Sign in with Apple" button on `LoginView`
+2. `AuthService.signInWithApple()` presents the native Apple Sign-In sheet via `ASAuthorizationController`
+3. On success, extracts the identity token and user's name (name only provided on first authorization)
+4. POSTs identity token + first/last name to `POST /auth/apple/token`
+5. Server validates token against Apple's JWKS keys, creates/updates user (storing name on first login), returns a flyfun JWT
+
+**Common:** All API requests include `Authorization: Bearer <JWT>` header. On logout, JWT cleared from keychain.
 
 ### API Integration
 
@@ -112,7 +120,8 @@ if appState.isAuthenticated {
 
 - **SwiftData over Core Data:** Modern API, native CloudKit integration, less boilerplate. Requires iOS 17+.
 - **CloudKit private DB for PII:** Apple handles encryption. No custom encryption layer needed. Cross-device sync is automatic.
-- **ASWebAuthenticationSession:** System-provided OAuth UI. Handles Safari cookie sharing and secure callback. No embedded WebView.
+- **Native Apple Sign-In:** Uses `ASAuthorizationAppleIDProvider` for polished system UI. Identity token exchanged server-side via `POST /auth/apple/token`. Name captured and stored on first authorization only.
+- **ASWebAuthenticationSession for Google:** System-provided OAuth UI. Handles Safari cookie sharing and secure callback. No embedded WebView.
 - **JWT in keychain:** Using RZUtilsSwift's `CodableSecureStorage` for secure, typed token storage.
 - **URL scheme `flyfunforms://`:** For OAuth callback redirect from server back to app.
 - **Multi-document per person:** Real pilots carry multiple passports/IDs. Document selection is automatic per region but overridable. Nationality derived from document, not stored on person.
