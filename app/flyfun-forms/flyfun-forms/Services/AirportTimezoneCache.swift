@@ -8,12 +8,7 @@ import RZFlight
 final class AirportTimezoneCache {
     static let shared = AirportTimezoneCache()
 
-    struct Entry {
-        var timezone: TimeZone
-        var city: String
-    }
-
-    private var cache: [String: Entry] = [:]
+    private var cache: [String: TimeZone] = [:]
     private var pending: Set<String> = []
 
     private init() {}
@@ -21,14 +16,9 @@ final class AirportTimezoneCache {
     /// Returns the cached timezone for an airport, or nil if not yet resolved.
     /// Automatically triggers resolution if not cached.
     func timezone(for icao: String) -> TimeZone? {
-        if let entry = cache[icao] { return entry.timezone }
+        if let tz = cache[icao] { return tz }
         resolve(icao: icao)
         return nil
-    }
-
-    /// Returns the cached entry (timezone + city) for an airport.
-    func entry(for icao: String) -> Entry? {
-        cache[icao]
     }
 
     /// Resolve the timezone for an airport ICAO code.
@@ -38,16 +28,14 @@ final class AirportTimezoneCache {
 
         pending.insert(icao)
         let location = CLLocation(latitude: airport.coord.latitude, longitude: airport.coord.longitude)
-        let airportCity = airport.city
 
         Task {
             let geocoder = CLGeocoder()
             do {
                 let placemarks = try await geocoder.reverseGeocodeLocation(location)
                 if let tz = placemarks.first?.timeZone {
-                    let city = placemarks.first?.locality ?? airportCity
                     await MainActor.run {
-                        cache[icao] = Entry(timezone: tz, city: city)
+                        cache[icao] = tz
                         pending.remove(icao)
                     }
                     return

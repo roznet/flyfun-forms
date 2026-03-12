@@ -85,18 +85,12 @@ struct TimeEntryView: View {
     private func tzLabel(_ tz: TimeZone) -> String {
         if tz == .gmt || tz.secondsFromGMT() == 0 { return "UTC" }
 
-        // Try to get city name from cache
-        let icaos = [originICAO, destinationICAO]
-        for icao in icaos {
-            if let entry = tzCache.entry(for: icao), entry.timezone.identifier == tz.identifier {
-                let offsetHours = tz.secondsFromGMT() / 3600
-                let sign = offsetHours >= 0 ? "+" : ""
-                return "\(entry.city) (GMT\(sign)\(offsetHours))"
-            }
-        }
-
-        let abbr = tz.abbreviation() ?? tz.identifier
-        return abbr
+        // Extract city from identifier (e.g. "Europe/London" -> "London")
+        let city = tz.identifier.split(separator: "/").last
+            .map { $0.replacingOccurrences(of: "_", with: " ") } ?? tz.identifier
+        let offsetHours = tz.secondsFromGMT() / 3600
+        let sign = offsetHours >= 0 ? "+" : ""
+        return "\(city) (GMT\(sign)\(offsetHours))"
     }
 
     // MARK: - Timezone Initialization
