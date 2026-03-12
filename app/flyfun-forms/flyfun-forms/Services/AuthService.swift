@@ -102,11 +102,7 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
             controller.delegate = delegate
             // Keep delegate alive until callback fires
             objc_setAssociatedObject(controller, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
-            #if os(iOS)
             controller.performRequests()
-            #else
-            controller.performRequests()
-            #endif
         }
     }
 
