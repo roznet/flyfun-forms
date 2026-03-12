@@ -19,11 +19,13 @@ src/flightforms/
 ├── templates/               # Form template files (PDF/DOCX/XLSX)
 │   ├── lsgs_immigration.pdf
 │   ├── french_customs.pdf
+│   ├── gendec_icao.pdf
 │   ├── lfqa_customs.docx
 │   └── gar_template.xlsx
 └── mappings/                # JSON mapping configs
     ├── lsgs.json
     ├── french_customs.json
+    ├── gendec_icao.json
     ├── lfqa.json
     └── gar.json
 ```
@@ -31,47 +33,71 @@ src/flightforms/
 ### How It Works
 
 1. **Discovery:** `MappingRegistry` scans `mappings/` at startup, builds ICAO → form config index
-2. **Resolution:** Request comes in with airport ICAO → exact match checked first, then prefix match (e.g., `LFOH` → `LF*` → `french_customs.json`)
-3. **Filling:** Registry selects the right filler based on `type` in mapping (`pdf_acroform`, `docx`, `xlsx`)
+2. **Resolution:** Request comes in with airport ICAO → exact match first, then prefix match (e.g., `LFOH` → `LF*` → `french_customs.json`), then default fallback (`"default": true` mappings for airports with no specific form)
+3. **Filling:** `generate.py` selects the right filler based on `type` in mapping (`pdf_acroform`, `pdf_acroform_french`, `docx`, `xlsx`)
 4. **Output:** Filler reads template, maps canonical fields → template fields using the mapping, writes filled file
 
 ### JSON Mapping Structure
 
+Scope is set by exactly one of `icao`, `icao_prefix`, or `default`:
+
 ```json
 {
-    "airport": "LSGS",           // or prefix like "LF" for country-level
-    "form": "immigration",       // form ID (unique per airport)
+    "icao": "LSGS",              // exact airport match
+    "icao_prefix": "LF",         // OR country/region prefix match
+    "default": true,             // OR catch-all fallback for unmatched airports
+    "label": "Immigration Information",
     "template": "lsgs_immigration.pdf",
     "type": "pdf_acroform",      // filler type
     "version": "1.0",
-    "timezone": "Europe/Zurich", // for local time conversion (null = UTC)
-    "required_fields": {
-        "flight": true, "aircraft": true,
-        "crew": true, "passengers": true
-    },
-    "extra_fields": {            // form-specific fields beyond core model
-        "reason_for_visit": {"type": "string", "default": "Tourism"}
-    },
+    "time_reference": "utc",     // "utc" or "local"
+    "time_zone": "Europe/Zurich", // for local time conversion (only if time_reference=local)
+    "date_format": "%d/%m/%Y",
+    "checkbox_on": "/Yes",       // PDF checkbox on value (form-dependent)
+    "checkbox_off": "/Off",
     "max_crew": 8,
     "max_passengers": 20,
-    "field_map": {               // canonical name → template field name
-        "aircraft_registration": "Registration",
-        "crew_0_last_name": "Crew1Surname",
-        "departure_date": "DepDate"
+    "has_connecting_flight": false,
+    "default_observations": "Nothing to declare",
+    "send_to": "email@example.com",
+    "required_fields": {         // arrays of required field names per section
+        "flight": ["origin", "destination", "departure_date"],
+        "aircraft": ["registration"],
+        "crew": ["first_name", "last_name"],
+        "passengers": []
     },
-    "checkbox_values": {"on": "Yes", "off": "No"},
-    "default_observations": "Nothing to declare"
+    "extra_fields": [],
+    "field_map": {               // canonical name → template field name
+        "aircraft.registration": "Text7",
+        "flight.departure_date": "Text1",
+        "crew[{i}].last_name": "LAST NAMERow{n}",
+        "crew[{i}].full_name": "NAMES OF CREWRow{n}"
+    }
 }
 ```
 
 ### Fillers
 
-| Filler | Library | Input | Notes |
-|--------|---------|-------|-------|
-| `pdf_acroform` | pypdf | PDF with AcroForm fields | Generic; fills named fields. `?flatten=true` removes editability |
-| `french_customs` | pypdf | French customs PDF | Subclass of PDF filler with layout-specific handling |
-| `docx` | python-docx | DOCX with placeholders | Appends runs, fills table cells |
-| `xlsx` | openpyxl | XLSX with named cells | Fills specific cells; preserves formulas |
+| Type key | Filler | Library | Notes |
+|----------|--------|---------|-------|
+| `pdf_acroform` | `pdf_filler.py` | pypdf | Generic AcroForm filling. Supports `full_name`, routing, direction, nature checkboxes |
+| `pdf_acroform_french` | `french_customs_filler.py` | pypdf | French customs-specific: combined crew/pax list, UTC→local time, role dropdowns |
+| `docx` | `docx_filler.py` | python-docx | Fills table cells, auto-adds rows |
+| `xlsx` | `xlsx_filler.py` | openpyxl | Fills specific cells; preserves formulas |
+
+### Canonical Field Names
+
+Used in `field_map` to map data to template fields. The PDF filler (`pdf_filler.py`) builds a values dict with these keys:
+
+**Flight/aircraft:** `flight.origin`, `flight.destination`, `flight.departure_date`, `flight.arrival_date`, `flight.departure_time_utc`, `flight.arrival_time_utc`, `flight.remote`, `flight.nature`, `flight.contact`, `flight.observations`, `aircraft.registration`, `aircraft.type`, `aircraft.owner`, `aircraft.owner_address`, `aircraft.usual_base`
+
+**Derived:** `origin.country`, `destination.country`, `remote.country`, `airport.name`, `passengers.count`, `passengers.embarking`, `passengers.disembarking`, `routing.departure_place`, `routing.arrival_place`
+
+**Checkboxes:** `direction.inbound`, `direction.outbound`, `flight.nature.<value>` (e.g., `flight.nature.private`), `aircraft.airplane`, `aircraft.helicopter`
+
+**Person arrays** (use `{i}` for 0-based, `{n}` for 1-based index): `crew[{i}].full_name`, `crew[{i}].first_name`, `crew[{i}].last_name`, `crew[{i}].function`, `crew[{i}].dob`, `crew[{i}].nationality`, `crew[{i}].id_number`, `crew[{i}].id_type`, `crew[{i}].id_issuing_country`, `crew[{i}].id_expiry`, `crew[{i}].sex`, `crew[{i}].place_of_birth` (same for `passengers[{i}]`)
+
+**Extra/connecting:** `extra.<key>`, `connecting.origin`, `connecting.destination`, etc.
 
 ### Direction Derivation
 
@@ -90,41 +116,45 @@ When `?flatten=true`, the PDF filler uses pypdf's built-in flatten parameter on 
 
 ```python
 # Registry discovers all available forms
-registry = MappingRegistry()
-forms = registry.get_forms("LSGS")  # → [{"form": "immigration", ...}]
+registry = MappingRegistry("src/flightforms/mappings", "src/flightforms/templates")
+forms = registry.get_forms_for_airport("LSGS")  # → [FormMapping(id="lsgs", ...)]
+forms = registry.get_forms_for_airport("EDDF")  # → [FormMapping(id="gendec_icao", ...)] (default)
 
-# Generate a filled form
-filler = registry.get_filler("LSGS", "immigration")
-filled_bytes = filler.fill(flight_data, aircraft_data, crew, passengers)
+# Get a specific form mapping
+mapping = registry.get_form("LSGS", "lsgs")
+template_path = registry.get_template_path(mapping)
+
+# Filling is dispatched in generate.py based on mapping.filler_type
+from flightforms.fillers.pdf_filler import fill_pdf
+filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 ```
 
 ```json
-// Adding a new airport: just create mappings/newairport.json
+// Adding a new airport: just create mappings/newairport.json + template
 {
-    "airport": "LSZB",
-    "form": "immigration",
+    "icao": "LSZB",
+    "label": "Immigration Form",
     "template": "lszb_immigration.pdf",
     "type": "pdf_acroform",
     "version": "1.0",
-    "field_map": { "aircraft_registration": "Reg", ... }
+    "field_map": { "aircraft.registration": "Reg", "crew[{i}].last_name": "NameRow{n}" }
 }
 ```
 
 ## Current Form Inventory
 
-| Airport(s) | Format | Type | Status |
-|------------|--------|------|--------|
-| LSGS (Sion, CH) | PDF AcroForm | immigration | Ready |
-| LF* (France generic) | PDF AcroForm | customs | Ready |
-| LFRD (Dinard) | PDF AcroForm | customs | Ready (different layout) |
-| LFQA (Reims) | DOCX | customs | Ready |
-| EG* (UK) | XLSX | gar | Ready |
-| LFQB, EGJB, EIWT | PDF | — | Not ready (need fillable AcroForm) |
+| Mapping ID | Scope | Format | Label |
+|------------|-------|--------|-------|
+| `lsgs` | LSGS (Sion, CH) | PDF AcroForm | Immigration Information |
+| `french_customs` | LF* (France) | PDF AcroForm (french) | Préavis Douane |
+| `lfqa` | LFQA (Reims) | DOCX | Customs Declaration |
+| `gar` | EG* (UK) | XLSX | General Aviation Report |
+| `gendec_icao` | Default (all others) | PDF AcroForm | ICAO General Declaration |
 
 ## Key Choices
 
 - **JSON mappings, not code:** New forms don't require Python changes — just template + JSON. This is the core extensibility mechanism.
-- **Prefix matching:** Country-level forms (LF* for France, EG* for UK) avoid duplicating configs per airport. Exact match always wins.
+- **Three-tier resolution:** Exact ICAO match → prefix match → default fallback. Covers specific airports, country-level forms, and a universal ICAO GenDec for everything else.
 - **Separate fillers per format:** PDF, DOCX, XLSX have fundamentally different filling mechanics. No shared abstraction forced.
 - **Templates bundled in Docker image:** Templates ship with the code. No external template storage needed.
 
@@ -133,8 +163,8 @@ filled_bytes = filler.fill(flight_data, aircraft_data, crew, passengers)
 - **Flat PDFs can't be filled:** The filler needs AcroForm fields to target. Non-fillable PDFs must be recreated in Adobe Acrobat with form fields.
 - **XLSX formulas:** openpyxl preserves but doesn't recalculate `COUNTA()` formulas. They update when opened in Excel.
 - **XLSX header_map targets value cells, not label cells:** In templates like GAR, labels are in columns A/C/E/G and values go in the adjacent columns B/D/F/H. The `header_map` must reference the **value** cells (e.g., `B3` not `A3`).
-- **Timezone handling:** Some forms want local time, others UTC. The mapping's `timezone` field controls conversion. If null, times stay UTC.
-- **Field naming conventions:** Crew/passenger fields use indexed names like `crew_0_last_name`, `pax_2_dob`. The index maps to position in the form.
+- **Timezone handling:** Some forms want local time, others UTC. The mapping's `time_zone` + `time_reference` fields control conversion. If `time_reference` is `"utc"` (default), times stay UTC.
+- **Field naming conventions:** Canonical names use dot notation (`aircraft.registration`, `crew[{i}].last_name`). Array patterns use `{i}` (0-based) and `{n}` (1-based) for PDF field name resolution.
 
 ## References
 
