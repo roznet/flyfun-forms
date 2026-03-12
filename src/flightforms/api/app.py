@@ -65,10 +65,14 @@ def create_app() -> FastAPI:
 
     app.add_middleware(SecurityHeadersMiddleware)
 
-    # SessionMiddleware required for OAuth state roundtrip
+    # SessionMiddleware required for OAuth state roundtrip.
+    # Apple OAuth uses response_mode=form_post (cross-origin POST),
+    # so SameSite must be "none" + https_only for the cookie to survive.
     app.add_middleware(
         SessionMiddleware,
         secret_key=get_jwt_secret(),
+        same_site="none",
+        https_only=not is_dev_mode(),
     )
 
     if is_dev_mode():
