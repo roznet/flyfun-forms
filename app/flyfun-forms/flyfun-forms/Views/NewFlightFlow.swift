@@ -108,8 +108,7 @@ struct NewFlightFlow: View {
                     utcTimeString: $departureTimeUTC,
                     airportICAO: originICAO,
                     originICAO: originICAO,
-                    destinationICAO: destinationICAO,
-                    placeholder: "e.g. 08:00"
+                    destinationICAO: destinationICAO
                 )
             }
             DatePicker("Arrival Date", selection: $arrivalDate, displayedComponents: .date)
@@ -118,8 +117,7 @@ struct NewFlightFlow: View {
                     utcTimeString: $arrivalTimeUTC,
                     airportICAO: destinationICAO,
                     originICAO: originICAO,
-                    destinationICAO: destinationICAO,
-                    placeholder: "e.g. 09:00"
+                    destinationICAO: destinationICAO
                 )
             }
         }

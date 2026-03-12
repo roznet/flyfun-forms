@@ -16,9 +16,6 @@ struct TimeEntryView: View {
     /// ICAO code of the destination airport (for timezone options).
     var destinationICAO: String
 
-    /// Placeholder text for the text field.
-    var placeholder: String = "HH:mm"
-
     @State private var displayTime: String = ""
     @State private var selectedTimezoneId: String = "GMT"
     @State private var isUpdating = false
@@ -30,13 +27,12 @@ struct TimeEntryView: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
-            TextField(placeholder, text: $displayTime)
+        HStack(spacing: 8) {
+            TextField("11:00", text: $displayTime)
                 #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
                 #endif
-                .frame(width: 60)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.trailing)
                 .onChange(of: displayTime) {
                     guard !isUpdating else { return }
                     updateUTCFromDisplay()

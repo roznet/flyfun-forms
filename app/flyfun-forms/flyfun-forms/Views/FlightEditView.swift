@@ -152,8 +152,7 @@ struct FlightEditView: View {
                     utcTimeString: $flight.departureTimeUTC,
                     airportICAO: flight.originICAO,
                     originICAO: flight.originICAO,
-                    destinationICAO: flight.destinationICAO,
-                    placeholder: "e.g. 08:00"
+                    destinationICAO: flight.destinationICAO
                 )
             }
             DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
@@ -162,8 +161,7 @@ struct FlightEditView: View {
                     utcTimeString: $flight.arrivalTimeUTC,
                     airportICAO: flight.destinationICAO,
                     originICAO: flight.originICAO,
-                    destinationICAO: flight.destinationICAO,
-                    placeholder: "e.g. 09:00"
+                    destinationICAO: flight.destinationICAO
                 )
             }
         }
