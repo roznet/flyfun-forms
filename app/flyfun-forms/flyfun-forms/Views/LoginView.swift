@@ -33,6 +33,14 @@ struct LoginView: View {
                     .padding(.horizontal)
             }
 
+            SignInWithAppleButton(.signIn) { _ in
+                Task { await signInWithApple() }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(maxWidth: 280, minHeight: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .disabled(isSigningIn)
+
             Button {
                 Task { await signIn(provider: "google") }
             } label: {
@@ -56,6 +64,21 @@ struct LoginView: View {
                 .frame(height: 60)
         }
         .padding()
+    }
+
+    private func signInWithApple() async {
+        isSigningIn = true
+        errorMessage = nil
+        defer { isSigningIn = false }
+        do {
+            let token = try await authService.signInWithApple(baseURL: APIConfig.baseURL)
+            let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)")!
+            appState.handleAuthCallback(url: callbackURL)
+        } catch {
+            if (error as? ASAuthorizationError)?.code != .canceled {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
 
     private func signIn(provider: String) async {
