@@ -72,7 +72,10 @@ struct LoginView: View {
         defer { isSigningIn = false }
         do {
             let token = try await authService.signInWithApple(baseURL: APIConfig.baseURL)
-            let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)")!
+            guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
+                errorMessage = "Failed to create authentication URL."
+                return
+            }
             appState.handleAuthCallback(url: callbackURL)
         } catch {
             if (error as? ASAuthorizationError)?.code != .canceled {
@@ -87,7 +90,10 @@ struct LoginView: View {
         defer { isSigningIn = false }
         do {
             let token = try await authService.signIn(baseURL: APIConfig.baseURL, provider: provider)
-            let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)")!
+            guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
+                errorMessage = "Failed to create authentication URL."
+                return
+            }
             appState.handleAuthCallback(url: callbackURL)
         } catch {
             if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
