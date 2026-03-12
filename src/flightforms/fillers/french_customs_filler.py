@@ -94,7 +94,9 @@ def fill_french_customs(
             updates[pdf_field] = header_values[canonical[7:]]
 
     # Nature/type of flight checkboxes
-    nature = request.flight.nature.lower()
+    # Map app values to form checkbox keys
+    nature_aliases = {"commercial": "business"}
+    nature = nature_aliases.get(request.flight.nature.lower(), request.flight.nature.lower())
     for key in ["nature.private", "nature.business", "nature.fret", "nature.other"]:
         if key in field_map:
             check_val = key.split(".")[-1]
@@ -118,8 +120,8 @@ def fill_french_customs(
         updates[role_field] = role
 
         # Person data fields
-        last_name_field = field_map.get("person.last_name", "Zone de texte 1")
-        first_name_field = field_map.get("person.first_name", "Zone de texte 2")
+        first_name_field = field_map.get("person.first_name", "Zone de texte 1")
+        last_name_field = field_map.get("person.last_name", "Zone de texte 2")
         nationality_field = field_map.get("person.nationality", "Zone de texte 3")
         id_number_field = field_map.get("person.id_number", "Zone de texte 4")
 
