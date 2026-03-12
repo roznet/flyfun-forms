@@ -64,11 +64,8 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     // MARK: - Native Apple Sign-In
 
-    /// Uses ASAuthorizationAppleIDProvider to sign in natively, then exchanges the
-    /// identity token with the server for a JWT.
-    func signInWithApple(baseURL: URL) async throws -> String {
-        let credential = try await performAppleAuthorization()
-
+    /// Exchanges an Apple credential (from SignInWithAppleButton) with the server for a JWT.
+    func exchangeAppleCredential(_ credential: ASAuthorizationAppleIDCredential, baseURL: URL) async throws -> String {
         guard let identityTokenData = credential.identityToken,
               let identityToken = String(data: identityTokenData, encoding: .utf8)
         else {
@@ -89,21 +86,6 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
             firstName: firstName,
             lastName: lastName
         )
-    }
-
-    private func performAppleAuthorization() async throws -> ASAuthorizationAppleIDCredential {
-        let provider = ASAuthorizationAppleIDProvider()
-        let request = provider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let delegate = AppleSignInDelegate(continuation: continuation)
-            let controller = ASAuthorizationController(authorizationRequests: [request])
-            controller.delegate = delegate
-            // Keep delegate alive until callback fires
-            objc_setAssociatedObject(controller, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
-            controller.performRequests()
-        }
     }
 
     /// POST the Apple identity token to /auth/apple/token and return the JWT.
@@ -141,36 +123,5 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
             throw URLError(.cannotParseResponse)
         }
         return token
-    }
-}
-
-// MARK: - ASAuthorizationControllerDelegate
-
-/// Bridges ASAuthorizationController's delegate callbacks into async/await.
-private final class AppleSignInDelegate: NSObject, ASAuthorizationControllerDelegate {
-    private var continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>?
-
-    init(continuation: CheckedContinuation<ASAuthorizationAppleIDCredential, Error>) {
-        self.continuation = continuation
-    }
-
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithAuthorization authorization: ASAuthorization
-    ) {
-        if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-            continuation?.resume(returning: credential)
-        } else {
-            continuation?.resume(throwing: URLError(.userAuthenticationRequired))
-        }
-        continuation = nil
-    }
-
-    func authorizationController(
-        controller: ASAuthorizationController,
-        didCompleteWithError error: Error
-    ) {
-        continuation?.resume(throwing: error)
-        continuation = nil
     }
 }

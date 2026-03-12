@@ -33,8 +33,10 @@ struct LoginView: View {
                     .padding(.horizontal)
             }
 
-            SignInWithAppleButton(.signIn) { _ in
-                Task { await signInWithApple() }
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                Task { await handleAppleSignIn(result) }
             }
             .signInWithAppleButtonStyle(.black)
             .frame(maxWidth: 280, minHeight: 50)
@@ -66,12 +68,17 @@ struct LoginView: View {
         .padding()
     }
 
-    private func signInWithApple() async {
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
         isSigningIn = true
         errorMessage = nil
         defer { isSigningIn = false }
         do {
-            let token = try await authService.signInWithApple(baseURL: APIConfig.baseURL)
+            let authorization = try result.get()
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                errorMessage = "Unexpected credential type."
+                return
+            }
+            let token = try await authService.exchangeAppleCredential(credential, baseURL: APIConfig.baseURL)
             guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
                 errorMessage = "Failed to create authentication URL."
                 return
