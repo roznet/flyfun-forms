@@ -8,6 +8,7 @@ Different enough from the generic PDF filler to warrant its own module.
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader, PdfWriter
 
@@ -18,6 +19,14 @@ from ..registry import FormMapping
 def _parse_date(date_str: str, fmt: str) -> str:
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     return dt.strftime(fmt)
+
+
+def _utc_to_local(time_str: str, date_str: str, tz_name: str) -> str:
+    """Convert HH:MM UTC to local time in the given timezone."""
+    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
+    dt_local = dt_utc.astimezone(ZoneInfo(tz_name))
+    return dt_local.strftime("%H:%M")
 
 
 def _suffix(index: int) -> str:
@@ -39,9 +48,26 @@ def fill_french_customs(
     writer.append(reader)
 
     field_map = mapping.raw.get("field_map", {})
-    is_arrival = request.airport == request.flight.destination
+    tz_name = mapping.raw.get("time_zone", "Europe/Paris")
 
     observations = request.observations or mapping.default_observations or ""
+
+    # Convert UTC times to local
+    dep_time_local = _utc_to_local(
+        request.flight.departure_time_utc, request.flight.departure_date, tz_name
+    )
+    arr_time_local = _utc_to_local(
+        request.flight.arrival_time_utc, request.flight.arrival_date, tz_name
+    )
+
+    # Build contact from pilot (first crew member) name + flight contact
+    pilot = request.crew[0] if request.crew else None
+    contact_parts = []
+    if pilot:
+        contact_parts.append(f"{pilot.first_name} {pilot.last_name}")
+    if request.flight.contact:
+        contact_parts.append(request.flight.contact)
+    contact = ", ".join(contact_parts)
 
     # Build header values
     header_values = {
@@ -51,14 +77,13 @@ def fill_french_customs(
         "aircraft_type": request.aircraft.type,
         "departure_date": _parse_date(request.flight.departure_date, mapping.date_format),
         "arrival_date": _parse_date(request.flight.arrival_date, mapping.date_format),
-        "departure_time": request.flight.departure_time_utc,
-        "arrival_time": request.flight.arrival_time_utc,
-        "contact": request.flight.contact or "",
+        "departure_time": dep_time_local,
+        "arrival_time": arr_time_local,
+        "contact": contact,
         "airport": request.airport,
         "observations": observations,
-        "owner": request.aircraft.owner or "",
-        "flight_number": "",
         "airline": "",
+        "flight_number": "",
     }
 
     updates = {}
@@ -68,17 +93,9 @@ def fill_french_customs(
         if canonical.startswith("header.") and canonical[7:] in header_values:
             updates[pdf_field] = header_values[canonical[7:]]
 
-    # Direction checkboxes
-    arrival_field = field_map.get("direction.arrival")
-    departure_field = field_map.get("direction.departure")
-    if arrival_field:
-        updates[arrival_field] = mapping.checkbox_on if is_arrival else mapping.checkbox_off
-    if departure_field:
-        updates[departure_field] = mapping.checkbox_off if is_arrival else mapping.checkbox_on
-
-    # Nature checkboxes
+    # Nature/type of flight checkboxes
     nature = request.flight.nature.lower()
-    for key in ["nature.commercial", "nature.private"]:
+    for key in ["nature.private", "nature.business", "nature.fret", "nature.other"]:
         if key in field_map:
             check_val = key.split(".")[-1]
             updates[field_map[key]] = mapping.checkbox_on if nature == check_val else mapping.checkbox_off
@@ -113,11 +130,7 @@ def fill_french_customs(
 
     # Apply updates
     for page in writer.pages:
-        writer.update_page_form_field_values(page, updates, flatten=flatten)
-
-    # Remove widget annotations after flattening (appearances already baked in)
-    if flatten:
-        writer.remove_annotations(subtypes="/Widget")
+        writer.update_page_form_field_values(page, updates, auto_regenerate=flatten)
 
     output = BytesIO()
     writer.write(output)

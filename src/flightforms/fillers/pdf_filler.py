@@ -146,11 +146,7 @@ def fill_pdf(
 
     # Apply all updates
     for page in writer.pages:
-        writer.update_page_form_field_values(page, updates, flatten=flatten)
-
-    # Remove widget annotations after flattening (appearances already baked in)
-    if flatten:
-        writer.remove_annotations(subtypes="/Widget")
+        writer.update_page_form_field_values(page, updates, auto_regenerate=flatten)
 
     output = BytesIO()
     writer.write(output)
