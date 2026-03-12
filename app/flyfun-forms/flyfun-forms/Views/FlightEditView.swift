@@ -8,6 +8,7 @@ struct FlightEditView: View {
     @Query(sort: \Person.lastName) private var allPeople: [Person]
     @Environment(\.airportCatalog) private var catalog
     @Environment(AppState.self) private var appState
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var showAirportPicker = false
     @State private var showPeoplePicker = false
@@ -18,8 +19,10 @@ struct FlightEditView: View {
     @State private var errorMessage: String?
     @State private var showingError = false
     @State private var previewURL: URL?
-    @State private var formDetails: [String: [FormInfo]] = [:]  // icao -> forms
-    @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]  // "airport_form" -> values
+    @State private var formDetails: [String: [FormInfo]] = [:]
+    @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
+    @State private var previousDepartureDate: Date?
+
     private let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -27,105 +30,19 @@ struct FlightEditView: View {
         return f
     }()
 
+    private static let reasonOptions = [
+        "Business",
+        "Pleasure",
+        "Transit",
+        "Other",
+    ]
+
     var body: some View {
-        Form {
-            Section("Route") {
-                Button {
-                    showAirportPicker = true
-                } label: {
-                    HStack {
-                        let origin = flight.originICAO.isEmpty ? "----" : flight.originICAO
-                        let dest = flight.destinationICAO.isEmpty ? "----" : flight.destinationICAO
-                        Text("\(origin)  \(Image(systemName: "arrow.right"))  \(dest)")
-                            .font(.system(.title3, design: .monospaced).bold())
-                        Spacer()
-                        Image(systemName: "pencil")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
-            Section("Schedule") {
-                DatePicker("Departure Date", selection: $flight.departureDate, displayedComponents: .date)
-                TextField("Departure Time (UTC, e.g. 08:00)", text: $flight.departureTimeUTC)
-                DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
-                TextField("Arrival Time (UTC, e.g. 09:00)", text: $flight.arrivalTimeUTC)
-            }
-
-            Section("Aircraft") {
-                Picker("Aircraft", selection: $flight.aircraft) {
-                    Text("None").tag(nil as Aircraft?)
-                    ForEach(allAircraft) { ac in
-                        Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
-                    }
-                }
-            }
-
-            Section("Crew") {
-                ForEach(flight.crewList) { person in
-                    Text(person.displayName)
-                        .swipeActions {
-                            Button("Remove", role: .destructive) {
-                                flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
-                            }
-                        }
-                }
-                Button {
-                    editingCrew = flight.crewList
-                    editingPassengers = flight.passengerList
-                    showPeoplePicker = true
-                } label: {
-                    Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
-                }
-            }
-
-            Section("Passengers") {
-                ForEach(flight.passengerList) { person in
-                    Text(person.displayName)
-                        .swipeActions {
-                            Button("Remove", role: .destructive) {
-                                flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
-                            }
-                        }
-                }
-            }
-
-            Section("Flight Details") {
-                Picker("Nature", selection: $flight.nature) {
-                    Text("Private").tag("private")
-                    Text("Commercial").tag("commercial")
-                }
-                TextField("Contact (phone, email)", text: Binding(
-                    get: { flight.contact ?? "" },
-                    set: { flight.contact = $0.isEmpty ? nil : $0 }
-                ))
-                TextField("Observations", text: Binding(
-                    get: { flight.observations ?? "" },
-                    set: { flight.observations = $0.isEmpty ? nil : $0 }
-                ), axis: .vertical)
-                .lineLimit(2...4)
-            }
-
-            // Dynamic form sections per airport
-            if !flight.destinationICAO.isEmpty {
-                formSection(airport: flight.destinationICAO, direction: "arrival")
-            }
-            if !flight.originICAO.isEmpty {
-                formSection(airport: flight.originICAO, direction: "departure")
-            }
-
-            Section("Actions") {
-                Button {
-                    createReturnFlight()
-                } label: {
-                    Label("Create Return Flight", systemImage: "arrow.uturn.left")
-                }
-                Button {
-                    duplicateFlight()
-                } label: {
-                    Label("Duplicate Flight", systemImage: "doc.on.doc")
-                }
+        Group {
+            if sizeClass == .regular {
+                wideLayout
+            } else {
+                compactLayout
             }
         }
         .navigationTitle(flight.displayName)
@@ -149,13 +66,254 @@ struct FlightEditView: View {
         .sheet(isPresented: $showPeoplePicker, onDismiss: applyPeopleSelection) {
             PeoplePickerView(selectedCrew: $editingCrew, selectedPassengers: $editingPassengers)
         }
-        .onChange(of: flight.originICAO) { fetchFormDetails(icao: flight.originICAO) }
-        .onChange(of: flight.destinationICAO) { fetchFormDetails(icao: flight.destinationICAO) }
+        .onChange(of: flight.originICAO) {
+            fetchFormDetails(icao: flight.originICAO)
+            AirportTimezoneCache.shared.resolve(icao: flight.originICAO)
+        }
+        .onChange(of: flight.destinationICAO) {
+            fetchFormDetails(icao: flight.destinationICAO)
+            AirportTimezoneCache.shared.resolve(icao: flight.destinationICAO)
+        }
+        .onChange(of: flight.departureDate) { oldValue, newValue in
+            autoSyncArrivalDate(oldDeparture: oldValue, newDeparture: newValue)
+        }
         .onAppear {
+            previousDepartureDate = flight.departureDate
             fetchFormDetails(icao: flight.originICAO)
             fetchFormDetails(icao: flight.destinationICAO)
+            AirportTimezoneCache.shared.resolve(icao: flight.originICAO)
+            AirportTimezoneCache.shared.resolve(icao: flight.destinationICAO)
         }
     }
+
+    // MARK: - Layouts
+
+    private var compactLayout: some View {
+        Form {
+            routeSection
+            scheduleSection
+            aircraftSection
+            flightDetailsSection
+            crewSection
+            passengersSection
+            formSections
+            actionsSection
+        }
+    }
+
+    private var wideLayout: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Form {
+                routeSection
+                scheduleSection
+                aircraftSection
+                flightDetailsSection
+                formSections
+                actionsSection
+            }
+            .frame(minWidth: 0, maxWidth: .infinity)
+
+            Form {
+                crewSection
+                passengersSection
+            }
+            .frame(minWidth: 0, maxWidth: .infinity)
+        }
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder
+    private var routeSection: some View {
+        Section("Route") {
+            Button {
+                showAirportPicker = true
+            } label: {
+                HStack {
+                    let origin = flight.originICAO.isEmpty ? "----" : flight.originICAO
+                    let dest = flight.destinationICAO.isEmpty ? "----" : flight.destinationICAO
+                    Text("\(origin)  \(Image(systemName: "arrow.right"))  \(dest)")
+                        .font(.system(.title3, design: .monospaced).bold())
+                    Spacer()
+                    Image(systemName: "pencil")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var scheduleSection: some View {
+        Section("Schedule") {
+            DatePicker("Departure Date", selection: $flight.departureDate, displayedComponents: .date)
+            LabeledContent("Departure Time") {
+                TimeEntryView(
+                    utcTimeString: $flight.departureTimeUTC,
+                    airportICAO: flight.originICAO,
+                    originICAO: flight.originICAO,
+                    destinationICAO: flight.destinationICAO,
+                    placeholder: "e.g. 08:00"
+                )
+            }
+            DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
+            LabeledContent("Arrival Time") {
+                TimeEntryView(
+                    utcTimeString: $flight.arrivalTimeUTC,
+                    airportICAO: flight.destinationICAO,
+                    originICAO: flight.originICAO,
+                    destinationICAO: flight.destinationICAO,
+                    placeholder: "e.g. 09:00"
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var aircraftSection: some View {
+        Section("Aircraft") {
+            Picker("Aircraft", selection: $flight.aircraft) {
+                Text("None").tag(nil as Aircraft?)
+                ForEach(allAircraft) { ac in
+                    Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var flightDetailsSection: some View {
+        Section("Flight Details") {
+            Picker("Nature", selection: $flight.nature) {
+                Text("Private").tag("private")
+                Text("Commercial").tag("commercial")
+            }
+            Picker("Reason for Visit", selection: reasonForVisitBinding) {
+                Text("—").tag("")
+                ForEach(Self.reasonOptions, id: \.self) { reason in
+                    Text(reason).tag(reason)
+                }
+            }
+            Picker("Responsible Person", selection: responsiblePersonBinding) {
+                Text("—").tag("")
+                ForEach(allPeople) { person in
+                    Text(person.displayName).tag(person.displayName)
+                }
+            }
+            if let person = flight.responsiblePerson {
+                if let phone = person.phone, !phone.isEmpty {
+                    LabeledContent("Phone", value: phone)
+                        .foregroundStyle(.secondary)
+                }
+                if let address = person.address, !address.isEmpty {
+                    LabeledContent("Address", value: address)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            TextField("Observations", text: Binding(
+                get: { flight.observations ?? "" },
+                set: { flight.observations = $0.isEmpty ? nil : $0 }
+            ), axis: .vertical)
+            .lineLimit(2...4)
+        }
+    }
+
+    @ViewBuilder
+    private var crewSection: some View {
+        Section("Crew") {
+            ForEach(flight.crewList) { person in
+                Text(person.displayName)
+                    .swipeActions {
+                        Button("Remove", role: .destructive) {
+                            flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
+                        }
+                    }
+            }
+            Button {
+                editingCrew = flight.crewList
+                editingPassengers = flight.passengerList
+                showPeoplePicker = true
+            } label: {
+                Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var passengersSection: some View {
+        Section("Passengers") {
+            ForEach(flight.passengerList) { person in
+                Text(person.displayName)
+                    .swipeActions {
+                        Button("Remove", role: .destructive) {
+                            flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
+                        }
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var formSections: some View {
+        if !flight.destinationICAO.isEmpty {
+            formSection(airport: flight.destinationICAO, direction: "arrival")
+        }
+        if !flight.originICAO.isEmpty {
+            formSection(airport: flight.originICAO, direction: "departure")
+        }
+    }
+
+    @ViewBuilder
+    private var actionsSection: some View {
+        Section("Actions") {
+            Button {
+                createReturnFlight()
+            } label: {
+                Label("Create Return Flight", systemImage: "arrow.uturn.left")
+            }
+            Button {
+                duplicateFlight()
+            } label: {
+                Label("Duplicate Flight", systemImage: "doc.on.doc")
+            }
+        }
+    }
+
+    // MARK: - Bindings
+
+    private var reasonForVisitBinding: Binding<String> {
+        Binding(
+            get: { flight.reasonForVisit ?? "" },
+            set: { flight.reasonForVisit = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private var responsiblePersonBinding: Binding<String> {
+        Binding(
+            get: { flight.responsiblePerson?.displayName ?? "" },
+            set: { newValue in
+                if let person = allPeople.first(where: { $0.displayName == newValue }) {
+                    flight.responsiblePerson = person
+                    // Also sync contact field for backward compat
+                    flight.contact = person.phone
+                } else {
+                    flight.responsiblePerson = nil
+                    flight.contact = nil
+                }
+            }
+        )
+    }
+
+    // MARK: - Arrival Date Auto-sync
+
+    private func autoSyncArrivalDate(oldDeparture: Date, newDeparture: Date) {
+        // Only sync if arrival was matching old departure (user hasn't manually changed it)
+        if Calendar.current.isDate(flight.arrivalDate, inSameDayAs: oldDeparture) {
+            flight.arrivalDate = newDeparture
+        }
+    }
+
+    // MARK: - Form Sections
 
     @ViewBuilder
     private func formSection(airport: String, direction: String) -> some View {
@@ -163,10 +321,8 @@ struct FlightEditView: View {
         if !forms.isEmpty {
             ForEach(forms) { formInfo in
                 Section("\(airport) — \(formInfo.label) (\(direction))") {
-                    // Extra fields for this form
                     extraFieldsView(airport: airport, formInfo: formInfo)
 
-                    // Generate button
                     Button {
                         Task { await generateForm(airport: airport, form: formInfo.id) }
                     } label: {
@@ -190,7 +346,8 @@ struct FlightEditView: View {
     @ViewBuilder
     private func extraFieldsView(airport: String, formInfo: FormInfo) -> some View {
         let formKey = "\(airport)_\(formInfo.id)"
-        ForEach(formInfo.extraFields) { field in
+        let hiddenKeys: Set<String> = ["reason_for_visit", "responsible_person"]
+        ForEach(formInfo.extraFields.filter({ !hiddenKeys.contains($0.key) })) { field in
             switch field.type {
             case "choice":
                 Picker(field.label, selection: extraFieldBinding(formKey: formKey, fieldKey: field.key, defaultValue: field.options?.first ?? "")) {
@@ -206,13 +363,12 @@ struct FlightEditView: View {
                         Text(person.displayName).tag(person.displayName)
                     }
                 }
-                // Show address of selected person
                 if case .person(let dict) = extraFieldValues[formKey]?[field.key],
                    !dict.isEmpty {
                     TextField("Address", text: personAddressBinding(formKey: formKey, fieldKey: field.key))
                         .foregroundStyle(.secondary)
                 }
-            default: // text
+            default:
                 TextField(field.label, text: textExtraFieldBinding(formKey: formKey, fieldKey: field.key))
             }
         }
@@ -307,6 +463,9 @@ struct FlightEditView: View {
     }
 
     private func buildRequest(airport: String, form: String) -> GenerateRequest {
+        // Derive contact from responsible person
+        let contactValue = flight.responsiblePerson?.phone ?? flight.contact
+
         let flightPayload = FlightPayload(
             origin: flight.originICAO,
             destination: flight.destinationICAO,
@@ -315,7 +474,7 @@ struct FlightEditView: View {
             arrivalDate: dateFmt.string(from: flight.arrivalDate),
             arrivalTimeUtc: flight.arrivalTimeUTC,
             nature: flight.nature,
-            contact: flight.contact
+            contact: contactValue
         )
 
         let aircraftPayload: AircraftPayload
@@ -338,7 +497,20 @@ struct FlightEditView: View {
         let paxPayloads = flight.passengerList.map { personPayload($0, airport: airport) }
 
         let formKey = "\(airport)_\(form)"
-        let extras = extraFieldValues[formKey]
+        var extras = extraFieldValues[formKey] ?? [:]
+
+        // Inject reason_for_visit into extra fields for forms that need it
+        if let reason = flight.reasonForVisit, !reason.isEmpty {
+            extras["reason_for_visit"] = .text(reason)
+        }
+
+        // Inject responsible_person into extra fields for forms that need it
+        if let person = flight.responsiblePerson {
+            extras["responsible_person"] = .person([
+                "name": person.displayName,
+                "address": person.address ?? "",
+            ])
+        }
 
         return GenerateRequest(
             airport: airport,
@@ -347,7 +519,7 @@ struct FlightEditView: View {
             aircraft: aircraftPayload,
             crew: crewPayloads,
             passengers: paxPayloads,
-            extraFields: extras?.isEmpty == false ? extras : nil,
+            extraFields: extras.isEmpty ? nil : extras,
             observations: flight.observations
         )
     }
@@ -398,6 +570,8 @@ struct FlightEditView: View {
         newFlight.passengers = flight.passengers
         newFlight.nature = flight.nature
         newFlight.contact = flight.contact
+        newFlight.reasonForVisit = flight.reasonForVisit
+        newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
     }
 
@@ -415,7 +589,8 @@ struct FlightEditView: View {
         newFlight.nature = flight.nature
         newFlight.contact = flight.contact
         newFlight.observations = flight.observations
+        newFlight.reasonForVisit = flight.reasonForVisit
+        newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
     }
 }
-

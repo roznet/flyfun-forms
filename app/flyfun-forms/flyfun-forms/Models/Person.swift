@@ -26,6 +26,9 @@ final class Person {
     @Relationship(inverse: \Flight.passengers)
     var passengerFlights: [Flight]?
 
+    @Relationship(inverse: \Flight.responsiblePerson)
+    var responsibleFlights: [Flight]?
+
     var documentList: [TravelDocument] { documents ?? [] }
 
     var fullName: String { "\(firstName) \(lastName)" }

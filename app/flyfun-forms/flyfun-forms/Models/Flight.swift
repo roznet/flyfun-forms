@@ -12,6 +12,8 @@ final class Flight {
     var nature: String = "private"
     var observations: String?
     var contact: String?
+    var reasonForVisit: String?
+    var responsiblePerson: Person?
 
     // All relationships optional for CloudKit; inverses on the other side
     var aircraft: Aircraft?

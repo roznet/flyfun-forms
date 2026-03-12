@@ -65,6 +65,17 @@ struct NewFlightFlow: View {
             .sheet(isPresented: $showPeoplePicker) {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
+            .onChange(of: originICAO) {
+                AirportTimezoneCache.shared.resolve(icao: originICAO)
+            }
+            .onChange(of: destinationICAO) {
+                AirportTimezoneCache.shared.resolve(icao: destinationICAO)
+            }
+            .onChange(of: departureDate) { oldValue, newValue in
+                if Calendar.current.isDate(arrivalDate, inSameDayAs: oldValue) {
+                    arrivalDate = newValue
+                }
+            }
         }
     }
 
@@ -92,9 +103,25 @@ struct NewFlightFlow: View {
 
         Section("Schedule") {
             DatePicker("Departure Date", selection: $departureDate, displayedComponents: .date)
-            TextField("Departure Time (UTC, e.g. 08:00)", text: $departureTimeUTC)
+            LabeledContent("Departure Time") {
+                TimeEntryView(
+                    utcTimeString: $departureTimeUTC,
+                    airportICAO: originICAO,
+                    originICAO: originICAO,
+                    destinationICAO: destinationICAO,
+                    placeholder: "e.g. 08:00"
+                )
+            }
             DatePicker("Arrival Date", selection: $arrivalDate, displayedComponents: .date)
-            TextField("Arrival Time (UTC, e.g. 09:00)", text: $arrivalTimeUTC)
+            LabeledContent("Arrival Time") {
+                TimeEntryView(
+                    utcTimeString: $arrivalTimeUTC,
+                    airportICAO: destinationICAO,
+                    originICAO: originICAO,
+                    destinationICAO: destinationICAO,
+                    placeholder: "e.g. 09:00"
+                )
+            }
         }
 
         Section("Aircraft") {
