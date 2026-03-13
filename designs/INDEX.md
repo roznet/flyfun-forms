@@ -28,6 +28,10 @@ Command-line client for batch form generation from CSV files. Uses API tokens fo
 Key exports: `cli.py` (generate, trip, airports commands)
 → Full doc: cli.md
 
+### localisation
+Multilingual support for the iOS/macOS app — English (base), French, German, Spanish. Uses Xcode String Catalogs (`.xcstrings`). Documents code changes, what's localised vs not, and remaining steps for Mac.
+→ Full doc: localisation.md
+
 ### flight_forms_brainstorm
 Original brainstorm and detailed reference notes. Contains GAR XLSX cell layout, template inventory, and implementation status. Not a structured design doc — use for detailed lookup.
 → Full doc: flight_forms_brainstorm.md

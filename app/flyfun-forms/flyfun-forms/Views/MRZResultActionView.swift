@@ -37,7 +37,7 @@ struct MRZResultActionView: View {
         let r = processingResult.scanResult
         Section("Scanned Document") {
             LabeledContent("Name", value: "\(r.givenNames) \(r.surname)")
-            LabeledContent("Document", value: "\(r.format == .td1 ? "ID Card" : "Passport") \(r.passportNumber)")
+            LabeledContent("Document", value: "\(r.format == .td1 ? String(localized: "ID Card") : String(localized: "Passport", comment: "Document type")) \(r.passportNumber)")
             LabeledContent("Nationality", value: r.nationality)
             LabeledContent("Date of Birth", value: r.dateOfBirth, format: .dateTime.day().month().year())
             LabeledContent("Expiry", value: r.expiryDate, format: .dateTime.day().month().year())

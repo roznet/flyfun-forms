@@ -179,19 +179,19 @@ struct FlightEditView: View {
     private var flightDetailsSection: some View {
         Section("Flight Details") {
             Picker("Nature", selection: $flight.nature) {
-                Text("Private").tag("private")
-                Text("Commercial").tag("commercial")
+                Text("Private", comment: "Flight nature").tag("private")
+                Text("Commercial", comment: "Flight nature").tag("commercial")
             }
             Picker("Reason for Visit", selection: reasonForVisitBinding) {
                 Text("—").tag("")
                 ForEach(Self.reasonOptions, id: \.self) { reason in
-                    Text(reason).tag(reason)
+                    Text(LocalizedStringKey(reason)).tag(reason)
                 }
             }
             Picker("Responsible Person", selection: responsiblePersonBinding) {
                 Text("—").tag("")
                 ForEach(allPeople) { person in
-                    Text(person.displayName).tag(person.displayName)
+                    Text(verbatim: person.displayName).tag(person.displayName)
                 }
             }
             if let person = flight.responsiblePerson {

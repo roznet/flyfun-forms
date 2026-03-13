@@ -5,7 +5,7 @@ enum AppSection: String, CaseIterable, Identifiable {
     case people, aircraft, flights, settings
     var id: String { rawValue }
 
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
         case .people: "People"
         case .aircraft: "Aircraft"
@@ -75,7 +75,7 @@ struct WideContentView: View {
             List(selection: $selectedSection) {
                 ForEach(AppSection.allCases) { section in
                     NavigationLink(value: section) {
-                        Label(section.title, systemImage: section.icon)
+                        Label(String(localized: section.title), systemImage: section.icon)
                     }
                 }
             }

@@ -1,0 +1,1035 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "People" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Personnes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Personas" } }
+      }
+    },
+    "Aircraft" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aéronefs" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Luftfahrzeuge" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Aeronaves" } }
+      }
+    },
+    "Flights" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Vols" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flüge" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Vuelos" } }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Réglages" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Einstellungen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajustes" } }
+      }
+    },
+    "Flyfun Forms" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Flyfun Forms" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flyfun Forms" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Flyfun Forms" } }
+      }
+    },
+    "Select a Section" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Sélectionnez une section" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Bereich auswählen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Seleccione una sección" } }
+      }
+    },
+    "Select an Item" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Sélectionnez un élément" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Element auswählen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Seleccione un elemento" } }
+      }
+    },
+    "Sign Out" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Se déconnecter" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Abmelden" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Cerrar sesión" } }
+      }
+    },
+    "Flight Forms" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Flight Forms" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flight Forms" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Flight Forms" } }
+      }
+    },
+    "GA customs form generator" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Générateur de formulaires douaniers AG" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "GA-Zollformular-Generator" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Generador de formularios aduaneros AG" } }
+      }
+    },
+    "Sign in with Google" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Se connecter avec Google" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Mit Google anmelden" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Iniciar sesión con Google" } }
+      }
+    },
+    "Unexpected credential type." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Type d'identifiant inattendu." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Unerwarteter Anmeldedatentyp." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tipo de credencial inesperado." } }
+      }
+    },
+    "Failed to create authentication URL." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Impossible de créer l'URL d'authentification." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Authentifizierungs-URL konnte nicht erstellt werden." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "No se pudo crear la URL de autenticación." } }
+      }
+    },
+    "Search by name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Rechercher par nom" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nach Name suchen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Buscar por nombre" } }
+      }
+    },
+    "Sort A-Z" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Trier A-Z" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "A-Z sortieren" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ordenar A-Z" } }
+      }
+    },
+    "Sort by Recent" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Trier par récent" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nach Aktualität sortieren" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ordenar por reciente" } }
+      }
+    },
+    "Add Person" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter une personne" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Person hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir persona" } }
+      }
+    },
+    "Scan Document" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scanner un document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument scannen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escanear documento" } }
+      }
+    },
+    "Import from CSV" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Importer depuis CSV" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Aus CSV importieren" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Importar desde CSV" } }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir" } }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "OK" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "OK" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "OK" } }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Erreur" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Fehler" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Error" } }
+      }
+    },
+    "Could not access file." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Impossible d'accéder au fichier." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Datei konnte nicht geöffnet werden." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "No se pudo acceder al archivo." } }
+      }
+    },
+    "Import Complete" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Import terminé" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Import abgeschlossen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Importación completada" } }
+      }
+    },
+    "Import Failed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Échec de l'import" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Import fehlgeschlagen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Error en la importación" } }
+      }
+    },
+    "%lld imported" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld importé(s)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld importiert" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld importado(s)" } }
+      }
+    },
+    "%lld already existed" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld existait déjà" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld bereits vorhanden" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "%lld ya existía(n)" } }
+      }
+    },
+    "Crew" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Équipage" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Besatzung" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tripulación" } }
+      }
+    },
+    "Name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nom" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Name" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nombre" } }
+      }
+    },
+    "First Name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Prénom" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Vorname" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nombre" } }
+      }
+    },
+    "Last Name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nom de famille" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nachname" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Apellido" } }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Détails" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Details" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Detalles" } }
+      }
+    },
+    "Date of Birth" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Date de naissance" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Geburtsdatum" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Fecha de nacimiento" } }
+      }
+    },
+    "Place of Birth" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Lieu de naissance" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Geburtsort" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Lugar de nacimiento" } }
+      }
+    },
+    "Sex" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Sexe" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Geschlecht" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Sexo" } }
+      }
+    },
+    "Male" : {
+      "comment" : "Sex/gender option",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Masculin" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Männlich" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Masculino" } }
+      }
+    },
+    "Female" : {
+      "comment" : "Sex/gender option",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Féminin" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Weiblich" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Femenino" } }
+      }
+    },
+    "Phone" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Téléphone" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Telefon" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Teléfono" } }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Adresse" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Adresse" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Dirección" } }
+      }
+    },
+    "Documents" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Documents" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokumente" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Documentos" } }
+      }
+    },
+    "Add Document" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter un document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir documento" } }
+      }
+    },
+    "Usual Crew Member" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Membre d'équipage habituel" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Übliches Besatzungsmitglied" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Miembro de tripulación habitual" } }
+      }
+    },
+    "Document Type" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Type de document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokumenttyp" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tipo de documento" } }
+      }
+    },
+    "Passport" : {
+      "comment" : "Document type",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Passeport" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Reisepass" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Pasaporte" } }
+      }
+    },
+    "Identity card" : {
+      "comment" : "Document type",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Carte d'identité" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personalausweis" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Documento de identidad" } }
+      }
+    },
+    "Other" : {
+      "comment" : "Document type",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Autre" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Sonstiges" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Otro" } }
+      }
+    },
+    "Document Number" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Numéro de document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokumentnummer" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Número de documento" } }
+      }
+    },
+    "Issuing Country (e.g. FRA)" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Pays émetteur (ex. FRA)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ausstellungsland (z.B. DEU)" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "País emisor (ej. ESP)" } }
+      }
+    },
+    "Expiry Date" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Date d'expiration" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ablaufdatum" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Fecha de vencimiento" } }
+      }
+    },
+    "Set" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Définir" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Festlegen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Establecer" } }
+      }
+    },
+    "Expires %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Expire le %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Gültig bis %@" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Vence el %@" } }
+      }
+    },
+    "New Person" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nouvelle personne" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Neue Person" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nueva persona" } }
+      }
+    },
+    "New Aircraft" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nouvel aéronef" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Neues Luftfahrzeug" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nueva aeronave" } }
+      }
+    },
+    "Add Aircraft" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter un aéronef" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Luftfahrzeug hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir aeronave" } }
+      }
+    },
+    "Registration" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Immatriculation" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Kennzeichen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Matrícula" } }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Type" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Typ" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tipo" } }
+      }
+    },
+    "Category" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Catégorie" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Kategorie" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Categoría" } }
+      }
+    },
+    "Airplane" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Avion" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flugzeug" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Avión" } }
+      }
+    },
+    "Helicopter" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Hélicoptère" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Hubschrauber" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Helicóptero" } }
+      }
+    },
+    "Owner" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Propriétaire" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Eigentümer" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Propietario" } }
+      }
+    },
+    "Owner Name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nom du propriétaire" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Name des Eigentümers" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nombre del propietario" } }
+      }
+    },
+    "Owner Address" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Adresse du propriétaire" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Adresse des Eigentümers" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Dirección del propietario" } }
+      }
+    },
+    "Base" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Base" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Basis" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Base" } }
+      }
+    },
+    "Usual Base (ICAO)" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Base habituelle (OACI)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Üblicher Standort (ICAO)" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Base habitual (OACI)" } }
+      }
+    },
+    "Add Flight" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter un vol" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flug hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir vuelo" } }
+      }
+    },
+    "Route" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Route" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Route" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ruta" } }
+      }
+    },
+    "Schedule" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Horaires" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Zeitplan" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Horario" } }
+      }
+    },
+    "Departure Date" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Date de départ" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Abflugdatum" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Fecha de salida" } }
+      }
+    },
+    "Departure Time" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Heure de départ" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Abflugzeit" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Hora de salida" } }
+      }
+    },
+    "Arrival Date" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Date d'arrivée" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ankunftsdatum" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Fecha de llegada" } }
+      }
+    },
+    "Arrival Time" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Heure d'arrivée" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ankunftszeit" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Hora de llegada" } }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aucun" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Keines" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ninguno" } }
+      }
+    },
+    "Flight Details" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Détails du vol" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flugdetails" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Detalles del vuelo" } }
+      }
+    },
+    "Nature" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nature" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Art" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Naturaleza" } }
+      }
+    },
+    "Private" : {
+      "comment" : "Flight nature",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Privé" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Privat" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Privado" } }
+      }
+    },
+    "Commercial" : {
+      "comment" : "Flight nature",
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Commercial" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Gewerblich" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Comercial" } }
+      }
+    },
+    "Reason for Visit" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Motif de la visite" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Reisegrund" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Motivo de la visita" } }
+      }
+    },
+    "Business" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Affaires" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Geschäftlich" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Negocios" } }
+      }
+    },
+    "Pleasure" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Loisirs" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Freizeit" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ocio" } }
+      }
+    },
+    "Transit" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Transit" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Transit" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tránsito" } }
+      }
+    },
+    "Responsible Person" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Personne responsable" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Verantwortliche Person" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Persona responsable" } }
+      }
+    },
+    "Observations" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Observations" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Bemerkungen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Observaciones" } }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Retirer" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Entfernen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Eliminar" } }
+      }
+    },
+    "Edit Crew & Passengers" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Modifier équipage et passagers" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Besatzung & Passagiere bearbeiten" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Editar tripulación y pasajeros" } }
+      }
+    },
+    "Passengers" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Passagers" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Passagiere" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Pasajeros" } }
+      }
+    },
+    "Generate" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Générer" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Erstellen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Generar" } }
+      }
+    },
+    "Actions" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Actions" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Aktionen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Acciones" } }
+      }
+    },
+    "Create Return Flight" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Créer un vol retour" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Rückflug erstellen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Crear vuelo de regreso" } }
+      }
+    },
+    "Duplicate Flight" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Dupliquer le vol" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flug duplizieren" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Duplicar vuelo" } }
+      }
+    },
+    "Unknown error" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Erreur inconnue" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Unbekannter Fehler" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Error desconocido" } }
+      }
+    },
+    "New Flight" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nouveau vol" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Neuer Flug" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nuevo vuelo" } }
+      }
+    },
+    "Add People" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter des personnes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personen hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir personas" } }
+      }
+    },
+    "Back" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Retour" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Zurück" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Atrás" } }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Annuler" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Abbrechen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Cancelar" } }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Suivant" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Weiter" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Siguiente" } }
+      }
+    },
+    "Create Flight" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Créer le vol" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flug erstellen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Crear vuelo" } }
+      }
+    },
+    "Tap to select" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Appuyez pour sélectionner" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Zum Auswählen tippen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Toque para seleccionar" } }
+      }
+    },
+    "No crew selected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aucun équipage sélectionné" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Keine Besatzung ausgewählt" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ninguna tripulación seleccionada" } }
+      }
+    },
+    "No passengers selected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aucun passager sélectionné" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Keine Passagiere ausgewählt" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Ningún pasajero seleccionado" } }
+      }
+    },
+    "Select People" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Sélectionner des personnes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personen auswählen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Seleccionar personas" } }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Terminé" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Fertig" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Listo" } }
+      }
+    },
+    "Search people..." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Rechercher des personnes..." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personen suchen..." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Buscar personas..." } }
+      }
+    },
+    "Selected" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Sélectionné(s)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ausgewählt" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Seleccionado(s)" } }
+      }
+    },
+    "Passenger" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Passager" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Passagier" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Pasajero" } }
+      }
+    },
+    "Groups" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Groupes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Gruppen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Grupos" } }
+      }
+    },
+    "Frequent with %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Fréquent avec %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Häufig mit %@" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Frecuente con %@" } }
+      }
+    },
+    "Usual Crew" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Équipage habituel" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Übliche Besatzung" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Tripulación habitual" } }
+      }
+    },
+    "FROM" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "DE" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "VON" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "DE" } }
+      }
+    },
+    "TO" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "VERS" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "NACH" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "A" } }
+      }
+    },
+    "Search airport name or ICAO..." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Rechercher aéroport ou OACI..." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flughafen oder ICAO suchen..." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Buscar aeropuerto o OACI..." } }
+      }
+    },
+    "Airports" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aéroports" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Flughäfen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Aeropuertos" } }
+      }
+    },
+    "Recent Routes" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Routes récentes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Letzte Routen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Rutas recientes" } }
+      }
+    },
+    "Hold passport MRZ in the guide area" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Placez la zone MRZ du passeport dans le cadre" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Halten Sie die MRZ des Reisepasses in den Rahmen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Coloque la zona MRZ del pasaporte en el marco" } }
+      }
+    },
+    "Scanning..." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scan en cours..." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Wird gescannt..." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escaneando..." } }
+      }
+    },
+    "Scanned!" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scanné !" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Gescannt!" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "¡Escaneado!" } }
+      }
+    },
+    "Having trouble reading the MRZ" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Difficulté à lire la zone MRZ" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Probleme beim Lesen der MRZ" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Dificultad para leer la zona MRZ" } }
+      }
+    },
+    "Enter details manually" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Saisir manuellement" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Manuell eingeben" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Introducir manualmente" } }
+      }
+    },
+    "Camera access is required to scan documents" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "L'accès à la caméra est nécessaire pour scanner les documents" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Kamerazugriff ist zum Scannen von Dokumenten erforderlich" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Se requiere acceso a la cámara para escanear documentos" } }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ouvrir les réglages" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Einstellungen öffnen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Abrir ajustes" } }
+      }
+    },
+    "Scan Travel Document" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scanner un document de voyage" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Reisedokument scannen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escanear documento de viaje" } }
+      }
+    },
+    "Scan the MRZ (machine readable zone) on a passport or ID card." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scannez la zone MRZ (zone de lecture automatique) d'un passeport ou d'une carte d'identité." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Scannen Sie die MRZ (maschinenlesbare Zone) eines Reisepasses oder Personalausweises." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escanee la zona MRZ (zona de lectura automática) de un pasaporte o documento de identidad." } }
+      }
+    },
+    "Scan with Camera" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scanner avec la caméra" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Mit Kamera scannen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escanear con cámara" } }
+      }
+    },
+    "Choose from Photos" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Choisir depuis les photos" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Aus Fotos auswählen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Elegir de las fotos" } }
+      }
+    },
+    "Scanning image..." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Scan de l'image..." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Bild wird gescannt..." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Escaneando imagen..." } }
+      }
+    },
+    "No MRZ found in image. Try another photo." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Aucune zone MRZ trouvée. Essayez une autre photo." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Keine MRZ im Bild gefunden. Versuchen Sie ein anderes Foto." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "No se encontró zona MRZ en la imagen. Pruebe con otra foto." } }
+      }
+    },
+    "Scan Result" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Résultat du scan" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Scan-Ergebnis" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Resultado del escaneo" } }
+      }
+    },
+    "Scanned Document" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Document scanné" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Gescanntes Dokument" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Documento escaneado" } }
+      }
+    },
+    "Document" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Documento" } }
+      }
+    },
+    "Nationality" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Nationalité" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nationalität" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Nacionalidad" } }
+      }
+    },
+    "Expiry" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Expiration" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ablauf" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Vencimiento" } }
+      }
+    },
+    "ID Card" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Carte d'identité" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Personalausweis" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Documento de identidad" } }
+      }
+    },
+    "Document already exists" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Le document existe déjà" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument existiert bereits" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "El documento ya existe" } }
+      }
+    },
+    "Assigned to %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Assigné à %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Zugewiesen an %@" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Asignado a %@" } }
+      }
+    },
+    "Actions (document already exists)" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Actions (le document existe déjà)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Aktionen (Dokument existiert bereits)" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Acciones (el documento ya existe)" } }
+      }
+    },
+    "Fill document fields" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Remplir les champs du document" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokumentfelder ausfüllen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Rellenar campos del documento" } }
+      }
+    },
+    "Fill and update name to %@ %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Remplir et mettre à jour le nom en %@ %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Ausfüllen und Name ändern zu %@ %@" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Rellenar y actualizar nombre a %@ %@" } }
+      }
+    },
+    "Fill document only (keep name %@)" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Remplir le document uniquement (garder le nom %@)" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nur Dokument ausfüllen (Name %@ behalten)" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Rellenar solo el documento (mantener nombre %@)" } }
+      }
+    },
+    "Add document to %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter un document à %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument zu %@ hinzufügen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir documento a %@" } }
+      }
+    },
+    "Add document and update name" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ajouter un document et mettre à jour le nom" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Dokument hinzufügen und Name aktualisieren" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Añadir documento y actualizar nombre" } }
+      }
+    },
+    "Create new person instead" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Créer une nouvelle personne à la place" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Stattdessen neue Person erstellen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Crear nueva persona en su lugar" } }
+      }
+    },
+    "Matching People" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Personnes correspondantes" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Übereinstimmende Personen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Personas coincidentes" } }
+      }
+    },
+    "Or" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Ou" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Oder" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "O" } }
+      }
+    },
+    "Create new person" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Créer une nouvelle personne" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Neue Person erstellen" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Crear nueva persona" } }
+      }
+    },
+    "Not signed in. Please sign in to generate forms." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Non connecté. Veuillez vous connecter pour générer des formulaires." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Nicht angemeldet. Bitte melden Sie sich an, um Formulare zu erstellen." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "No ha iniciado sesión. Inicie sesión para generar formularios." } }
+      }
+    },
+    "Session expired. Please sign in again." : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Session expirée. Veuillez vous reconnecter." } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Sitzung abgelaufen. Bitte melden Sie sich erneut an." } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Sesión expirada. Inicie sesión de nuevo." } }
+      }
+    },
+    "Server error (%lld): %@" : {
+      "localizations" : {
+        "fr" : { "stringUnit" : { "state" : "needs_review", "value" : "Erreur serveur (%lld) : %@" } },
+        "de" : { "stringUnit" : { "state" : "needs_review", "value" : "Serverfehler (%lld): %@" } },
+        "es" : { "stringUnit" : { "state" : "needs_review", "value" : "Error del servidor (%lld): %@" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
