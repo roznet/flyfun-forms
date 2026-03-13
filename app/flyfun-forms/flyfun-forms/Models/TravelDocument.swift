@@ -11,10 +11,18 @@ final class TravelDocument {
     @Relationship(inverse: \Person.documents)
     var person: Person?
 
+    var localizedDocType: String {
+        switch docType {
+        case "Passport": return String(localized: "Passport", comment: "Document type")
+        case "Identity card": return String(localized: "Identity card", comment: "Document type")
+        default: return String(localized: "Other", comment: "Document type")
+        }
+    }
+
     var displayLabel: String {
         let country = issuingCountry ?? "?"
         let suffix = docNumber.isEmpty ? "" : " — \(docNumber.suffix(6))"
-        return "\(docType) (\(country))\(suffix)"
+        return "\(localizedDocType) (\(country))\(suffix)"
     }
 
     init(docType: String = "Passport", docNumber: String = "", issuingCountry: String? = nil, expiryDate: Date? = nil) {

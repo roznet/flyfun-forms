@@ -75,12 +75,12 @@ struct LoginView: View {
         do {
             let authorization = try result.get()
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                errorMessage = "Unexpected credential type."
+                errorMessage = String(localized: "Unexpected credential type.")
                 return
             }
             let token = try await authService.exchangeAppleCredential(credential, baseURL: APIConfig.baseURL)
             guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
-                errorMessage = "Failed to create authentication URL."
+                errorMessage = String(localized: "Failed to create authentication URL.")
                 return
             }
             appState.handleAuthCallback(url: callbackURL)
@@ -98,7 +98,7 @@ struct LoginView: View {
         do {
             let token = try await authService.signIn(baseURL: APIConfig.baseURL, provider: provider)
             guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
-                errorMessage = "Failed to create authentication URL."
+                errorMessage = String(localized: "Failed to create authentication URL.")
                 return
             }
             appState.handleAuthCallback(url: callbackURL)

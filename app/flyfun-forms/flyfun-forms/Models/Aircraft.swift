@@ -16,7 +16,7 @@ final class Aircraft {
 
     var displayName: String {
         let reg = registration.trimmingCharacters(in: .whitespaces)
-        return reg.isEmpty ? "New Aircraft" : reg
+        return reg.isEmpty ? String(localized: "New Aircraft") : reg
     }
 
     init(registration: String = "", type: String = "") {

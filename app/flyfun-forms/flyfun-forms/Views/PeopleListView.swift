@@ -156,7 +156,10 @@ struct PeopleListView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             guard url.startAccessingSecurityScopedResource() else {
-                importResult = ImportResult(title: "Error", message: "Could not access file.")
+                importResult = ImportResult(
+                    title: String(localized: "Error"),
+                    message: String(localized: "Could not access file.")
+                )
                 return
             }
             defer { url.stopAccessingSecurityScopedResource() }
@@ -164,17 +167,17 @@ struct PeopleListView: View {
                 let data = try Data(contentsOf: url)
                 let (imported, skipped) = try PeopleCSVImporter.importInto(modelContext, from: data)
                 var parts: [String] = []
-                if imported > 0 { parts.append("\(imported) imported") }
-                if skipped > 0 { parts.append("\(skipped) already existed") }
+                if imported > 0 { parts.append(String(localized: "\(imported) imported")) }
+                if skipped > 0 { parts.append(String(localized: "\(skipped) already existed")) }
                 importResult = ImportResult(
-                    title: "Import Complete",
+                    title: String(localized: "Import Complete"),
                     message: parts.joined(separator: ", ").capitalized + "."
                 )
             } catch {
-                importResult = ImportResult(title: "Import Failed", message: error.localizedDescription)
+                importResult = ImportResult(title: String(localized: "Import Failed"), message: error.localizedDescription)
             }
         case .failure(let error):
-            importResult = ImportResult(title: "Error", message: error.localizedDescription)
+            importResult = ImportResult(title: String(localized: "Error"), message: error.localizedDescription)
         }
     }
 }

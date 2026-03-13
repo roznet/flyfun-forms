@@ -228,13 +228,13 @@ struct PeoplePickerView: View {
             .filter { !isSelected($0) }
 
         guard !members.isEmpty else { return [] }
-        return [PeopleGroup(name: "Frequent with \(anchor.displayName)", members: members)]
+        return [PeopleGroup(name: String(localized: "Frequent with \(anchor.displayName)"), members: members)]
     }
 
     private var usualCrewGroup: [PeopleGroup] {
         let crew = allPeople.filter { $0.isUsualCrew && !isSelected($0) }
         guard !crew.isEmpty else { return [] }
-        return [PeopleGroup(name: "Usual Crew", members: crew)]
+        return [PeopleGroup(name: String(localized: "Usual Crew"), members: crew)]
     }
 }
 

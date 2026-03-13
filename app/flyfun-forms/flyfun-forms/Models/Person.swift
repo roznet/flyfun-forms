@@ -35,7 +35,7 @@ final class Person {
 
     var displayName: String {
         let name = fullName.trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? "New Person" : name
+        return name.isEmpty ? String(localized: "New Person") : name
     }
 
     /// Most recent flight date across all crew and passenger flights.

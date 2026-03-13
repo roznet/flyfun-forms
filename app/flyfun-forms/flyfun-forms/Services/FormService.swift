@@ -15,11 +15,11 @@ struct FormService {
         var errorDescription: String? {
             switch self {
             case .notAuthenticated:
-                return "Not signed in. Please sign in to generate forms."
+                return String(localized: "Not signed in. Please sign in to generate forms.")
             case .unauthorized:
-                return "Session expired. Please sign in again."
+                return String(localized: "Session expired. Please sign in again.")
             case .serverError(let code, let message):
-                return "Server error (\(code)): \(message)"
+                return String(localized: "Server error (\(code)): \(message)")
             case .networkError(let error):
                 return error.localizedDescription
             }

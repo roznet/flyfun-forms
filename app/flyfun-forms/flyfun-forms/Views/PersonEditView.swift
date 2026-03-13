@@ -84,8 +84,8 @@ struct PersonEditView: View {
                 set: { person.sex = $0.isEmpty ? nil : $0 }
             )) {
                 Text("—").tag("")
-                Text("Male").tag("Male")
-                Text("Female").tag("Female")
+                Text("Male", comment: "Sex/gender option").tag("Male")
+                Text("Female", comment: "Sex/gender option").tag("Female")
             }
             TextField("Phone", text: Binding(
                 get: { person.phone ?? "" },
@@ -146,9 +146,9 @@ struct DocumentEditView: View {
     var body: some View {
         Form {
             Picker("Document Type", selection: $document.docType) {
-                Text("Passport").tag("Passport")
-                Text("Identity card").tag("Identity card")
-                Text("Other").tag("Other")
+                Text("Passport", comment: "Document type").tag("Passport")
+                Text("Identity card", comment: "Document type").tag("Identity card")
+                Text("Other", comment: "Document type").tag("Other")
             }
             TextField("Document Number", text: $document.docNumber)
             TextField("Issuing Country (e.g. FRA)", text: Binding(
