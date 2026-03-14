@@ -29,8 +29,10 @@ struct PersonEditView: View {
                         personInfoSections
                     }
                     .frame(maxWidth: .infinity)
-                    Form {
-                        documentsSections
+                    NavigationStack {
+                        Form {
+                            documentsSections
+                        }
                     }
                     .frame(maxWidth: .infinity)
                 }
