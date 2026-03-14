@@ -1,6 +1,6 @@
-import QuickLook
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct FlightEditView: View {
     @Bindable var flight: Flight
@@ -18,7 +18,8 @@ struct FlightEditView: View {
     @State private var generatingForm: String?
     @State private var errorMessage: String?
     @State private var showingError = false
-    @State private var previewURL: URL?
+    @State private var exportDocument: ExportFileDocument?
+    @State private var exportFilename: String = ""
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
@@ -31,10 +32,11 @@ struct FlightEditView: View {
     }()
 
     private static let reasonOptions = [
-        "Business",
-        "Pleasure",
-        "Transit",
-        "Other",
+        "Based",
+        "Short Term Visit",
+        "Maintenance",
+        "Permanent Import",
+        "Repair",
     ]
 
     var body: some View {
@@ -54,12 +56,15 @@ struct FlightEditView: View {
         } message: {
             Text(errorMessage ?? "Unknown error")
         }
-        .quickLookPreview($previewURL)
-        .onChange(of: previewURL) { oldURL, _ in
-            if let oldURL {
-                try? FileManager.default.removeItem(at: oldURL)
-            }
-        }
+        .fileExporter(
+            isPresented: Binding(
+                get: { exportDocument != nil },
+                set: { if !$0 { exportDocument = nil } }
+            ),
+            document: exportDocument,
+            contentType: exportDocument?.contentType ?? .data,
+            defaultFilename: exportFilename
+        ) { _ in }
         .sheet(isPresented: $showAirportPicker) {
             AirportPickerView(originICAO: $flight.originICAO, destinationICAO: $flight.destinationICAO)
         }
@@ -446,10 +451,8 @@ struct FlightEditView: View {
         let request = buildRequest(airport: airport, form: form)
         do {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
-            let tempDir = FileManager.default.temporaryDirectory
-            let fileURL = tempDir.appendingPathComponent(filename)
-            try data.write(to: fileURL)
-            previewURL = fileURL
+            exportFilename = filename
+            exportDocument = ExportFileDocument(data: data, filename: filename)
         } catch {
             errorMessage = error.localizedDescription
             showingError = true
@@ -586,5 +589,38 @@ struct FlightEditView: View {
         newFlight.reasonForVisit = flight.reasonForVisit
         newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
+    }
+}
+
+// MARK: - File Export Document
+
+struct ExportFileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.data] }
+
+    let data: Data
+    let contentType: UTType
+
+    init(data: Data, filename: String) {
+        self.data = data
+        let ext = (filename as NSString).pathExtension.lowercased()
+        switch ext {
+        case "xlsx":
+            self.contentType = UTType(filenameExtension: "xlsx") ?? .data
+        case "pdf":
+            self.contentType = .pdf
+        case "docx":
+            self.contentType = UTType(filenameExtension: "docx") ?? .data
+        default:
+            self.contentType = .data
+        }
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+        contentType = .data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

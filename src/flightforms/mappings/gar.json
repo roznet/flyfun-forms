@@ -12,7 +12,7 @@
   "time_format": "HH:MM:SS",
   "extra_fields": [
     {"key": "reason_for_visit", "label": "Reason for visit", "type": "choice",
-     "options": ["Business", "Pleasure", "Transit", "Other"]},
+     "options": ["Based", "Short Term Visit", "Maintenance", "Permanent Import", "Repair"]},
     {"key": "responsible_person", "label": "Responsible person", "type": "person",
      "maps_to": {"address": "D6"}}
   ],

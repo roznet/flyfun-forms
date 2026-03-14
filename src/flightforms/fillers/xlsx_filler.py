@@ -10,12 +10,9 @@ from ..api.models import GenerateRequest
 from ..registry import FormMapping
 
 
-def _parse_date(date_str: str, fmt: str) -> str:
-    dt = datetime.strptime(date_str, "%Y-%m-%d")
-    # Convert Python strftime format
-    if fmt == "DD/MM/YYYY":
-        return dt.strftime("%d/%m/%Y")
-    return dt.strftime(fmt)
+def _parse_date(date_str: str, fmt: str) -> datetime:
+    """Parse ISO date string and return a datetime for Excel native date cells."""
+    return datetime.strptime(date_str, "%Y-%m-%d")
 
 
 def _format_time(time_str: str, fmt: str) -> str:
@@ -50,24 +47,12 @@ def fill_xlsx(
 
     header_values = {
         "direction": direction_text,
-        "arrival_icao": request.flight.destination if is_arrival else request.flight.origin,
-        "arrival_date": _parse_date(
-            request.flight.arrival_date if is_arrival else request.flight.departure_date,
-            date_fmt,
-        ),
-        "arrival_time": _format_time(
-            request.flight.arrival_time_utc if is_arrival else request.flight.departure_time_utc,
-            time_fmt,
-        ),
-        "departure_icao": request.flight.origin if is_arrival else request.flight.destination,
-        "departure_date": _parse_date(
-            request.flight.departure_date if is_arrival else request.flight.arrival_date,
-            date_fmt,
-        ),
-        "departure_time": _format_time(
-            request.flight.departure_time_utc if is_arrival else request.flight.arrival_time_utc,
-            time_fmt,
-        ),
+        "arrival_icao": request.flight.destination,
+        "arrival_date": _parse_date(request.flight.arrival_date, date_fmt),
+        "arrival_time": _format_time(request.flight.arrival_time_utc, time_fmt),
+        "departure_icao": request.flight.origin,
+        "departure_date": _parse_date(request.flight.departure_date, date_fmt),
+        "departure_time": _format_time(request.flight.departure_time_utc, time_fmt),
         "owner": request.aircraft.owner or "",
         "contact": request.flight.contact or "",
         "registration": request.aircraft.registration,

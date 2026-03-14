@@ -532,6 +532,7 @@
       }
     },
     "Business" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2342,6 +2343,7 @@
       }
     },
     "Pleasure" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -3135,6 +3137,7 @@
       }
     },
     "Transit" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
