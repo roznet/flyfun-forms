@@ -46,8 +46,30 @@ struct flyfun_formsApp: App {
                 appState.handleAuthCallback(url: url)
             }
             .task { migrateDocuments() }
+            .task { await preloadAirportData() }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// Preload the airport database and warm timezone cache for airports used in recent flights.
+    private func preloadAirportData() async {
+        AirportDatabase.shared.load()
+        await AirportDatabase.shared.ready()
+
+        // Collect unique ICAOs from recent flights to pre-warm timezone cache
+        let context = sharedModelContainer.mainContext
+        var descriptor = FetchDescriptor<Flight>(sortBy: [SortDescriptor(\.departureDate, order: .reverse)])
+        descriptor.fetchLimit = 20
+        guard let flights = try? context.fetch(descriptor) else { return }
+
+        var icaos = Set<String>()
+        for flight in flights {
+            icaos.insert(flight.originICAO)
+            icaos.insert(flight.destinationICAO)
+        }
+        icaos.remove("")
+
+        await AirportTimezoneCache.shared.preload(icaos: icaos)
     }
 
     /// One-time migration: create TravelDocument from legacy flat fields on Person.

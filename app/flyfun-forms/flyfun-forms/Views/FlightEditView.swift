@@ -95,6 +95,7 @@ struct FlightEditView: View {
             scheduleSection
             aircraftSection
             flightDetailsSection
+            peopleButton
             crewSection
             passengersSection
             formSections
@@ -115,6 +116,7 @@ struct FlightEditView: View {
             .frame(minWidth: 0, maxWidth: .infinity)
 
             Form {
+                peopleButton
                 crewSection
                 passengersSection
             }
@@ -218,6 +220,19 @@ struct FlightEditView: View {
     }
 
     @ViewBuilder
+    private var peopleButton: some View {
+        Section {
+            Button {
+                editingCrew = flight.crewList
+                editingPassengers = flight.passengerList
+                showPeoplePicker = true
+            } label: {
+                Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
+            }
+        }
+    }
+
+    @ViewBuilder
     private var crewSection: some View {
         Section("Crew") {
             ForEach(flight.crewList) { person in
@@ -227,13 +242,6 @@ struct FlightEditView: View {
                             flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
                         }
                     }
-            }
-            Button {
-                editingCrew = flight.crewList
-                editingPassengers = flight.passengerList
-                showPeoplePicker = true
-            } label: {
-                Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
             }
         }
     }
