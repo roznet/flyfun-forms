@@ -126,17 +126,28 @@ final class CameraOCRManager {
         try? handler.perform([request])
     }
 
+    /// Normalize common OCR misreads in MRZ text.
+    private nonisolated static func normalizeMRZ(_ text: String) -> String {
+        var result = text.uppercased()
+        for char: Character in ["«", "‹", "〈", "＜", "❮"] {
+            result = result.map { $0 == char ? "<" : $0 }.reduce("", { $0 + String($1) })
+        }
+        return result
+    }
+
     private nonisolated func handleOCRResults(_ request: VNRequest) {
         guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
 
         let allCandidates = observations.flatMap { $0.topCandidates(3).map(\.string) }
 
         // Match MRZ lines from ALL candidates (top 3 per observation)
-        let mrzLines = allCandidates.filter { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            return (trimmed.count == 44 && trimmed.range(of: "^[A-Z0-9<]{44}$", options: .regularExpression) != nil)
-                || (trimmed.count == 30 && trimmed.range(of: "^[A-Z0-9<]{30}$", options: .regularExpression) != nil)
-        }.map { $0.trimmingCharacters(in: .whitespaces) }
+        let mrzLines = allCandidates.compactMap { line -> String? in
+            let normalized = Self.normalizeMRZ(line.trimmingCharacters(in: .whitespaces))
+            guard (normalized.count == 44 && normalized.range(of: "^[A-Z0-9<]{44}$", options: .regularExpression) != nil)
+                || (normalized.count == 30 && normalized.range(of: "^[A-Z0-9<]{30}$", options: .regularExpression) != nil)
+            else { return nil }
+            return normalized
+        }
 
         guard !mrzLines.isEmpty else { return }
 

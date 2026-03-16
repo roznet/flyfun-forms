@@ -183,7 +183,12 @@ enum MRZParser {
         let compositeInput = passNum + String(substr(l2, 9, 1)) + substr(l2, 13, 7) + substr(l2, 21, 7) + substr(l2, 28, 15)
         let compCheck = checkDigit(compositeInput)
         let compExpected = digit(l2, 43)
-        guard compCheck == compExpected else { return nil }
+        // Skip composite check if trailing portion was truncated (all < fillers)
+        let trailingPortion = substr(l2, 28, 16)
+        let trailingTruncated = trailingPortion.allSatisfy({ $0 == "<" })
+        if !trailingTruncated {
+            guard compCheck == compExpected else { return nil }
+        }
 
         // Parse names from line 1
         let (surname, givenNames) = parseNames(String(line1.dropFirst(5)))

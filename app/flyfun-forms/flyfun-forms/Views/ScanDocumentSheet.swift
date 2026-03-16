@@ -1,15 +1,17 @@
 #if os(iOS)
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
-/// A reusable sheet that lets the user choose between camera scan and photo library,
-/// then delivers an MRZScanResult.
+/// A reusable sheet that lets the user choose between camera scan, photo library,
+/// or file picker, then delivers an MRZScanResult.
 struct ScanDocumentSheet: View {
     let onResult: (MRZScanResult) -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var mode: ScanMode?
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showFilePicker = false
     @State private var imageOCR = ImageOCRManager()
 
     enum ScanMode: Identifiable {
@@ -55,6 +57,15 @@ struct ScanDocumentSheet: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
+
+                    Button {
+                        showFilePicker = true
+                    } label: {
+                        Label("Choose from Files", systemImage: "folder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
                 .padding(.horizontal, 32)
 
@@ -79,6 +90,15 @@ struct ScanDocumentSheet: View {
                 MRZScannerView { result in
                     onResult(result)
                     dismiss()
+                }
+            }
+            .fileImporter(
+                isPresented: $showFilePicker,
+                allowedContentTypes: [.pdf, .image],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    imageOCR.scan(url: url)
                 }
             }
             .onChange(of: selectedPhoto) { _, newItem in

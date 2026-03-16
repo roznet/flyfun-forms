@@ -10,10 +10,13 @@ struct PeopleListView: View {
     @State private var searchText = ""
     @State private var sortByLastUsed = false
     @State private var newPerson: Person?
-    #if os(iOS)
     @State private var showingScanSheet = false
     @State private var scanProcessingResult: MRZProcessingResult?
     @State private var navigateToPerson: Person?
+    #if os(macOS)
+    @State private var showFilePicker = false
+    @State private var imageOCR = ImageOCRManager()
+    @State private var showingExporter = false
     #endif
 
     private var filteredPeople: [Person] {
@@ -90,12 +93,26 @@ struct PeopleListView: View {
                     } label: {
                         Label("Scan Document", systemImage: "doc.text.viewfinder")
                     }
+                    #else
+                    Button {
+                        showFilePicker = true
+                    } label: {
+                        Label("Scan Document", systemImage: "doc.text.viewfinder")
+                    }
                     #endif
                     Button {
                         showingImporter = true
                     } label: {
                         Label("Import from CSV", systemImage: "square.and.arrow.down")
                     }
+                    #if os(macOS)
+                    Divider()
+                    Button {
+                        showingExporter = true
+                    } label: {
+                        Label("Export to CSV", systemImage: "square.and.arrow.up")
+                    }
+                    #endif
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
@@ -129,6 +146,34 @@ struct PeopleListView: View {
                 scanProcessingResult = processing
             }
         }
+        #else
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.pdf, .image],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                imageOCR.scan(url: url)
+            }
+        }
+        .onChange(of: imageOCR.status) { _, newStatus in
+            if newStatus == .success, let result = imageOCR.result {
+                let processing = MRZResultProcessor.process(result, context: .standalone, modelContext: modelContext)
+                scanProcessingResult = processing
+            } else if newStatus == .noMRZFound {
+                importResult = ImportResult(
+                    title: String(localized: "No Document Found"),
+                    message: String(localized: "No machine-readable zone (MRZ) was found in the file. Try a clearer image or PDF of the passport page.")
+                )
+            }
+        }
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: CSVExportDocument(people: people),
+            contentType: .commaSeparatedText,
+            defaultFilename: "people.csv"
+        ) { _ in }
+        #endif
         .sheet(item: $scanProcessingResult) { processing in
             MRZResultActionView(
                 processingResult: processing,
@@ -141,7 +186,6 @@ struct PeopleListView: View {
         .navigationDestination(item: $navigateToPerson) { person in
             PersonEditView(person: person)
         }
-        #endif
     }
 
     private func deletePeople(at offsets: IndexSet) {
@@ -179,6 +223,74 @@ struct PeopleListView: View {
         case .failure(let error):
             importResult = ImportResult(title: String(localized: "Error"), message: error.localizedDescription)
         }
+    }
+
+}
+
+// MARK: - CSV Export
+
+struct CSVExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+
+    let csvData: Data
+
+    init(people: [Person]) {
+        let dateFmt = DateFormatter()
+        dateFmt.dateFormat = "yyyy-MM-dd"
+        dateFmt.locale = Locale(identifier: "en_US_POSIX")
+
+        var rows: [[String]] = []
+        rows.append(["First Name", "Last Name", "Gender", "DoB", "Nationality",
+                      "Doc Type", "Doc Number", "Doc Expiry", "Doc Issuing State", "Type"])
+
+        for person in people {
+            let docs = person.documentList
+            if docs.isEmpty {
+                rows.append([
+                    person.firstName,
+                    person.lastName,
+                    person.sex ?? "",
+                    person.dateOfBirth.map { dateFmt.string(from: $0) } ?? "",
+                    person.nationality ?? "",
+                    "", "", "", "",
+                    person.isUsualCrew ? "Crew" : ""
+                ])
+            } else {
+                for doc in docs {
+                    rows.append([
+                        person.firstName,
+                        person.lastName,
+                        person.sex ?? "",
+                        person.dateOfBirth.map { dateFmt.string(from: $0) } ?? "",
+                        person.nationality ?? "",
+                        doc.docType,
+                        doc.docNumber,
+                        doc.expiryDate.map { dateFmt.string(from: $0) } ?? "",
+                        doc.issuingCountry ?? "",
+                        person.isUsualCrew ? "Crew" : ""
+                    ])
+                }
+            }
+        }
+
+        let csv = rows.map { row in
+            row.map { field in
+                if field.contains(",") || field.contains("\"") || field.contains("\n") {
+                    return "\"\(field.replacingOccurrences(of: "\"", with: "\"\""))\""
+                }
+                return field
+            }.joined(separator: ",")
+        }.joined(separator: "\n")
+
+        self.csvData = Data(csv.utf8)
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        csvData = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: csvData)
     }
 }
 

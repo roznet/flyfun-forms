@@ -1,4 +1,3 @@
-#if os(iOS)
 import SwiftUI
 import SwiftData
 
@@ -21,7 +20,11 @@ struct MRZResultActionView: View {
                 actionsSection
             }
             .navigationTitle("Scan Result")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #else
+            .frame(minWidth: 400, minHeight: 350)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onDismiss() }
@@ -206,4 +209,3 @@ struct MRZResultActionView: View {
         }
     }
 }
-#endif

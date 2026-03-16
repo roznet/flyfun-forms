@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct PersonEditView: View {
     @Environment(\.modelContext) private var modelContext
@@ -7,8 +8,12 @@ struct PersonEditView: View {
     @Bindable var person: Person
     #if os(iOS)
     @State private var showingScanSheet = false
-    @State private var scanProcessingResult: MRZProcessingResult?
+    #else
+    @State private var showFilePicker = false
     #endif
+    @State private var scanProcessingResult: MRZProcessingResult?
+    @State private var imageOCR = ImageOCRManager()
+    @State private var showScanError = false
 
     private static let dateRange: ClosedRange<Date> = {
         let calendar = Calendar.current
@@ -57,13 +62,50 @@ struct PersonEditView: View {
                 scanProcessingResult = processing
             }
         }
+        #else
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showFilePicker = true
+                } label: {
+                    Image(systemName: "doc.text.viewfinder")
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.pdf, .image],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                imageOCR.scan(url: url)
+            }
+        }
+        .onChange(of: imageOCR.status) { _, newStatus in
+            if newStatus == .success, let scanResult = imageOCR.result {
+                let processing = MRZResultProcessor.process(scanResult, context: .person(person), modelContext: modelContext)
+                if !processing.namesMismatch && processing.duplicateDocument == nil {
+                    MRZResultProcessor.fillPerson(person, from: scanResult)
+                    MRZResultProcessor.createDocument(for: person, from: scanResult, in: modelContext)
+                } else {
+                    scanProcessingResult = processing
+                }
+            } else if newStatus == .noMRZFound {
+                showScanError = true
+            }
+        }
+        .alert("No Document Found", isPresented: $showScanError) {
+            Button("OK") {}
+        } message: {
+            Text("No machine-readable zone (MRZ) was found in the file. Try a clearer image or PDF of the passport page.")
+        }
+        #endif
         .sheet(item: $scanProcessingResult) { processing in
             MRZResultActionView(
                 processingResult: processing,
                 onDismiss: { scanProcessingResult = nil }
             )
         }
-        #endif
     }
 
     @ViewBuilder
@@ -135,6 +177,7 @@ struct PersonEditView: View {
             Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
         }
     }
+
 }
 
 struct DocumentEditView: View {
