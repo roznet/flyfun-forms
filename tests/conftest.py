@@ -176,7 +176,7 @@ def sample_request_gar() -> GenerateRequest:
         crew=[make_pilot(), make_crew_member()],
         passengers=[make_passenger()],
         extra_fields={
-            "reason_for_visit": "Pleasure",
+            "reason_for_visit": "Based",
             "responsible_person": {"name": "Zara Kowalski", "address": "7 Birch Lane"},
         },
     )

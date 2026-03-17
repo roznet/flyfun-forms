@@ -13,6 +13,7 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
         errors.append(ValidationError(
             field="airport",
             error="Airport must be either origin or destination of the flight",
+            value=request.airport,
         ))
 
     # Crew count
@@ -20,6 +21,7 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
         errors.append(ValidationError(
             field="crew",
             error=f"count {len(request.crew)} exceeds max {mapping.max_crew}",
+            value=str(len(request.crew)),
         ))
 
     # Passenger count
@@ -27,6 +29,7 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
         errors.append(ValidationError(
             field="passengers",
             error=f"count {len(request.passengers)} exceeds max {mapping.max_passengers}",
+            value=str(len(request.passengers)),
         ))
 
     # Required fields check
@@ -72,18 +75,22 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
             errors.append(ValidationError(field=f"extra_fields.{key}", error="required for this form"))
             continue
 
+        str_value = str(value) if not isinstance(value, str) else value
+
         if ef_type == "choice":
             options = ef_def.get("options", [])
             if options and value not in options:
                 errors.append(ValidationError(
                     field=f"extra_fields.{key}",
                     error=f"must be one of: {', '.join(options)}",
+                    value=str_value,
                 ))
         elif ef_type == "person":
             if not isinstance(value, dict) or not value.get("name"):
                 errors.append(ValidationError(
                     field=f"extra_fields.{key}",
                     error="must include at least a name",
+                    value=str_value,
                 ))
 
     return errors

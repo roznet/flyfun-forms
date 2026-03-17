@@ -18,6 +18,8 @@ struct FlightEditView: View {
     @State private var generatingForm: String?
     @State private var errorMessage: String?
     @State private var showingError = false
+    @State private var validationErrors: [ServerValidationError] = []
+    @State private var showingValidationErrors = false
     @State private var exportDocument: ExportFileDocument?
     @State private var exportFilename: String = ""
     @State private var formDetails: [String: [FormInfo]] = [:]
@@ -55,6 +57,9 @@ struct FlightEditView: View {
             Button("OK") {}
         } message: {
             Text(errorMessage ?? "Unknown error")
+        }
+        .sheet(isPresented: $showingValidationErrors) {
+            ValidationErrorsView(errors: validationErrors)
         }
         .fileExporter(
             isPresented: Binding(
@@ -461,6 +466,9 @@ struct FlightEditView: View {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
             exportFilename = filename
             exportDocument = ExportFileDocument(data: data, filename: filename)
+        } catch let FormService.FormError.validationErrors(errors) {
+            validationErrors = errors
+            showingValidationErrors = true
         } catch {
             errorMessage = error.localizedDescription
             showingError = true

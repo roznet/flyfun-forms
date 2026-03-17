@@ -365,7 +365,7 @@ class TestXlsxFiller:
             crew=[make_pilot(), make_crew_member()],
             passengers=[make_passenger()],
             extra_fields={
-                "reason_for_visit": "Pleasure",
+                "reason_for_visit": "Based",
                 "responsible_person": {"name": "Zara Kowalski", "address": "7 Birch Lane"},
             },
         )
@@ -393,7 +393,7 @@ class TestXlsxFiller:
             aircraft=make_aircraft(),
             crew=[make_pilot()],
             extra_fields={
-                "reason_for_visit": "Pleasure",
+                "reason_for_visit": "Based",
                 "responsible_person": {"name": "Zara Kowalski", "address": "7 Birch Lane"},
             },
         )
@@ -432,14 +432,14 @@ class TestXlsxFiller:
         xlsx_bytes = self._generate(registry, resolver)
         wb = load_workbook(BytesIO(xlsx_bytes))
         ws = wb["GAR"]
-        assert ws["A6"].value == "Pleasure"
+        assert ws["B6"].value == "Based"
 
     def test_extra_field_person_address(self, registry, resolver):
         xlsx_bytes = self._generate(registry, resolver)
         wb = load_workbook(BytesIO(xlsx_bytes))
         ws = wb["GAR"]
-        # responsible_person address maps to C6
-        assert ws["C6"].value == "7 Birch Lane"
+        # responsible_person address maps to D6
+        assert ws["D6"].value == "7 Birch Lane"
 
     def test_no_extra_fields(self, registry, resolver):
         """Generation should work even without extra fields."""

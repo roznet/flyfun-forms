@@ -76,6 +76,7 @@ class GenerateRequest(BaseModel):
 class ValidationError(BaseModel):
     field: str
     error: str
+    value: Optional[str] = None
 
 
 class ValidateResponse(BaseModel):

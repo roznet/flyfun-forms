@@ -169,7 +169,7 @@ class TestGenerate:
     def test_generate_gar_xlsx(self, client):
         body = self._body(airport="EGKA", form="gar", destination="EGKA")
         body["extra_fields"] = {
-            "reason_for_visit": "Pleasure",
+            "reason_for_visit": "Based",
             "responsible_person": {"name": "Zara K", "address": "7 Birch Lane"},
         }
         resp = client.post("/generate", json=body)
