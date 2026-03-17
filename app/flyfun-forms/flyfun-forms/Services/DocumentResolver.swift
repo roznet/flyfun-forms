@@ -65,7 +65,7 @@ enum DocumentResolver {
 
     /// Resolve the best document for a person given a target airport ICAO.
     static func resolve(person: Person, airport: String) -> TravelDocument? {
-        let docs = person.documentList
+        let docs = person.documentList.filter(\.isActive)
         guard !docs.isEmpty else { return nil }
         if docs.count == 1 { return docs[0] }
 

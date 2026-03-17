@@ -150,13 +150,24 @@ struct PersonEditView: View {
             ForEach(person.documentList) { doc in
                 NavigationLink(destination: DocumentEditView(document: doc)) {
                     VStack(alignment: .leading) {
-                        Text(doc.displayLabel)
+                        HStack {
+                            Text(doc.displayLabel)
+                            if !doc.isActive {
+                                Text("Inactive")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.secondary.opacity(0.2))
+                                    .clipShape(Capsule())
+                            }
+                        }
                         if let expiry = doc.expiryDate {
                             Text("Expires \(expiry, format: .dateTime.day().month().year())")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .opacity(doc.isActive ? 1 : 0.5)
                 }
             }
             .onDelete { offsets in
@@ -201,6 +212,7 @@ struct DocumentEditView: View {
                 set: { document.issuingCountry = $0.isEmpty ? nil : $0.uppercased() }
             ))
             OptionalDatePicker("Expiry Date", selection: $document.expiryDate)
+            Toggle("Active", isOn: $document.isActive)
         }
         .navigationTitle(document.displayLabel)
         #if os(iOS)

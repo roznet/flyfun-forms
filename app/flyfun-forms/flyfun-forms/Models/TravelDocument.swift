@@ -7,6 +7,7 @@ final class TravelDocument {
     var docNumber: String = ""
     var issuingCountry: String?            // ISO alpha-3 (e.g. "FRA", "GBR")
     var expiryDate: Date?
+    var isActive: Bool = true
 
     @Relationship(inverse: \Person.documents)
     var person: Person?
