@@ -62,7 +62,7 @@ Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).
 - **Connecting flight:** optional, for forms at intermediate stops that reference both arrival and departure
 
 ### `POST /validate`
-Same body as `/generate`, returns validation errors without generating.
+Same body as `/generate`, returns validation errors without generating. Each `ValidationError` includes `field`, `error`, and optional `value` (the submitted value that failed). The 422 response body is `{"detail": [ValidationError, ...]}` — the iOS app parses this into structured UI.
 
 ### `GET /health`
 Returns `{"status": "ok"}`.

@@ -25,13 +25,14 @@ app/flyfun-forms/flyfun-forms/
 │   ├── AircraftListView.swift
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
-│   └── FlightEditView.swift
+│   ├── FlightEditView.swift
+│   └── ValidationErrorsView.swift
 └── Services/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
     ├── Environment.swift      # APIConfig (base URL, simulator vs device)
     ├── AuthService.swift      # Google OAuth + native Apple Sign-In
-    ├── FormService.swift      # API client for /airports, /generate, /validate
-    ├── DocumentResolver.swift # Picks best document per person + airport region
+    ├── FormService.swift      # API client for /airports, /generate, /validate; parses 422 into structured errors
+    ├── DocumentResolver.swift # Picks best document per person + airport region (active only)
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
     └── APITypes.swift         # Codable request/response models
 ```
@@ -70,11 +71,13 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 - `POST /generate` — sends flight/people data, receives filled form file
 - `POST /validate` — dry-run validation before generation
 
+**Validation error handling:** 422 responses are parsed into `ServerValidationError` structs (field, error, value). `FormError.validationErrors` carries the structured list. `ServerValidationError.displayField` converts API field paths like `crew[0].id_number` into human-readable labels ("Crew 1 — ID Number"). `ValidationErrorsView` presents them in a sheet.
+
 ### SwiftData Models
 
 **Person:** firstName, lastName, dateOfBirth, sex, placeOfBirth, isUsualCrew. Has many `TravelDocument`s. Legacy flat id fields (idNumber, idType, etc.) kept for migration only — not used in UI or API calls.
 
-**TravelDocument:** docType (Passport/Identity card/Other), docNumber, issuingCountry (ISO alpha-3), expiryDate. Belongs to Person. Nationality is derived from the selected document's issuingCountry — no person-level nationality.
+**TravelDocument:** docType (Passport/Identity card/Other), docNumber, issuingCountry (ISO alpha-3), expiryDate, isActive (default true). Belongs to Person. Nationality is derived from the selected document's issuingCountry — no person-level nationality. Inactive documents are hidden from the resolver but kept for record.
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
@@ -86,6 +89,7 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 A person can have multiple travel documents (e.g., French + UK passport). `DocumentResolver` selects the best one at form generation time based on the target airport:
 
+0. **Active filter** — only active documents (`isActive == true`) are considered; inactive ones are skipped
 1. **User override** — if the user previously chose a specific document for this airport prefix, use it (stored in UserDefaults)
 2. **Region match** — ICAO prefix → region (Schengen/UK/other), prefer document issued by a matching country
 3. **Tiebreak** — latest expiry date among matching documents
@@ -148,6 +152,8 @@ if appState.isAuthenticated {
 - Extra fields dynamic UI (choice, person, text): **complete**
 - macOS compilation and CloudKit sync: **complete**
 - Navigate to edit on create (people, aircraft): **complete**
+- Active/inactive flag on travel documents: **complete**
+- Human-readable validation error display: **complete**
 - Document override UI (tap to switch per airport): **planned**
 - Share sheet / document handling: **planned**
 
