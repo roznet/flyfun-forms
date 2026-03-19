@@ -13,19 +13,23 @@ app/flyfun-forms/flyfun-forms/
 ├── flyfun_formsApp.swift      # App entry, SwiftData container, migration
 ├── ContentView.swift          # Tab navigation (People, Aircraft, Flights)
 ├── Models/
-│   ├── Person.swift           # @Model: crew/passenger data
-│   ├── TravelDocument.swift   # @Model: passport/ID card (many per Person)
-│   ├── Aircraft.swift         # @Model: aircraft details
-│   ├── Flight.swift           # @Model: flight leg with relationships
-│   └── Trip.swift             # @Model: multi-leg trip container
+│   ├── Person.swift              # @Model: crew/passenger data
+│   ├── TravelDocument.swift      # @Model: passport/ID card (many per Person)
+│   ├── Aircraft.swift            # @Model: aircraft details
+│   ├── Flight.swift              # @Model: flight leg with relationships
+│   ├── Trip.swift                # @Model: multi-leg trip container
+│   └── ICAOFlightPlanParser.swift # Parses pasted ICAO FPL text into flight fields
 ├── Views/
-│   ├── LoginView.swift        # Google/Apple OAuth sign-in
-│   ├── PeopleListView.swift   # CRUD for people
-│   ├── PersonEditView.swift   # Person details + document list
+│   ├── LoginView.swift           # Google/Apple OAuth sign-in
+│   ├── PeopleListView.swift      # CRUD for people + contact import button
+│   ├── PersonEditView.swift      # Person details + document list
 │   ├── AircraftListView.swift
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
-│   ├── FlightEditView.swift
+│   ├── FlightEditView.swift      # Flight details + form generation via share sheet
+│   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
+│   ├── SinglePersonPickerView.swift # Searchable single-select person picker
+│   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
 │   └── ValidationErrorsView.swift
 └── Services/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
@@ -75,13 +79,13 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 ### SwiftData Models
 
-**Person:** firstName, lastName, dateOfBirth, sex, placeOfBirth, isUsualCrew. Has many `TravelDocument`s. Legacy flat id fields (idNumber, idType, etc.) kept for migration only — not used in UI or API calls.
+**Person:** firstName, lastName, dateOfBirth, sex, placeOfBirth, isUsualCrew, phone, email, address. Has many `TravelDocument`s. Legacy flat id fields (idNumber, idType, etc.) kept for migration only — not used in UI or API calls.
 
 **TravelDocument:** docType (Passport/Identity card/Other), docNumber, issuingCountry (ISO alpha-3), expiryDate, isActive (default true). Belongs to Person. Nationality is derived from the selected document's issuingCountry — no person-level nationality. Inactive documents are hidden from the resolver but kept for record.
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
-**Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), trip, legOrder
+**Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder
 
 **Trip:** name, createdAt, legs (→ [Flight]), extraFields (JSON-encoded dict for form-specific fields)
 
@@ -98,6 +102,27 @@ A person can have multiple travel documents (e.g., French + UK passport). `Docum
 The selected document's `issuingCountry` is sent as `nationality` in the API request.
 
 On first launch after migration, existing Person flat id fields are converted to TravelDocument records automatically.
+
+### ICAO Flight Plan Import
+
+`NewFlightFlow` (and `FlightEditView`) supports pasting an ICAO FPL string from the clipboard. `ICAOFlightPlanParser` extracts registration, aircraft type, origin/destination ICAO, departure time, date of flight (DOF), and EET. Arrival time is computed from departure + EET. If no aircraft matches the parsed registration (normalized: dashes stripped, uppercased), a new `Aircraft` is created automatically.
+
+### Contact Import
+
+`ContactImportView` provides iOS (`CNContactPickerViewController`) and macOS (search-based `CNContactFetchRequest`) contact pickers. After picking a contact, `ContactResolveView` shows a resolution screen:
+- **Fuzzy matching:** finds existing `Person` records by name similarity (prefix matching + Levenshtein distance ≤ 2)
+- **Create new:** creates a fresh `Person` with phone, email, address, DOB from the contact
+- **Merge into existing:** either "Fill Missing Only" (preserves existing fields) or "Override All" mode
+
+### Form Export
+
+Generated forms are exported via the native share sheet: `UIActivityViewController` on iOS, a custom `MacShareView` (save to file / copy / Finder reveal) on macOS. Files are written to a temp directory first.
+
+### Responsible Person & Contact Auto-Fill
+
+The responsible person picker uses `SinglePersonPickerView` (searchable, single-select, sorted by usual crew then recent flights). When a responsible person is set:
+- `flight.contact` is set to their `displayName` (sent as `flight.contact` in the API request)
+- Extra fields `telephone` and `email` are auto-filled from the person's phone/email if not already set
 
 ## Usage Examples
 
@@ -129,6 +154,7 @@ if appState.isAuthenticated {
 - **JWT in keychain:** Using RZUtilsSwift's `CodableSecureStorage` for secure, typed token storage.
 - **URL scheme `flyfunforms://`:** For OAuth callback redirect from server back to app.
 - **Multi-document per person:** Real pilots carry multiple passports/IDs. Document selection is automatic per region but overridable. Nationality derived from document, not stored on person.
+- **Share sheet over fileExporter:** `UIActivityViewController` (iOS) / custom save/copy/reveal view (macOS) gives users more export options than the file-save dialog.
 - **Dev vs prod base URL:** `#if targetEnvironment(simulator) || os(macOS)` switches to `localhost.ro-z.me:8443` for local dev server testing. Physical iOS devices use `forms.flyfun.aero`.
 
 ## Gotchas
@@ -154,8 +180,11 @@ if appState.isAuthenticated {
 - Navigate to edit on create (people, aircraft): **complete**
 - Active/inactive flag on travel documents: **complete**
 - Human-readable validation error display: **complete**
+- ICAO flight plan paste import (with auto-create aircraft): **complete**
+- Share sheet for form export (iOS + macOS): **complete**
+- Searchable responsible person picker with contact auto-fill: **complete**
+- Contact import from device contacts with fuzzy merge: **complete**
 - Document override UI (tap to switch per airport): **planned**
-- Share sheet / document handling: **planned**
 
 ## References
 

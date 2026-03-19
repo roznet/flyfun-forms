@@ -20,12 +20,14 @@ src/flightforms/
 │   ├── lsgs_immigration.pdf
 │   ├── french_customs.pdf
 │   ├── gendec_icao.pdf
+│   ├── gendec_form.pdf
 │   ├── lfqa_customs.docx
 │   └── gar_template.xlsx
 └── mappings/                # JSON mapping configs
     ├── lsgs.json
     ├── french_customs.json
     ├── gendec_icao.json
+    ├── gendec_form.json     # Default form for unmatched airports
     ├── lfqa.json
     └── gar.json
 ```
@@ -149,12 +151,13 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 | `french_customs` | LF* (France) | PDF AcroForm (french) | Préavis Douane |
 | `lfqa` | LFQA (Reims) | DOCX | Customs Declaration |
 | `gar` | EG* (UK) | XLSX | General Aviation Report |
-| `gendec_icao` | Default (all others) | PDF AcroForm | ICAO General Declaration |
+| `gendec_form` | Default (all others) | PDF AcroForm | General Declaration |
+| `gendec_icao` | — (no scope, manually selectable) | PDF AcroForm | ICAO General Declaration |
 
 ## Key Choices
 
 - **JSON mappings, not code:** New forms don't require Python changes — just template + JSON. This is the core extensibility mechanism.
-- **Three-tier resolution:** Exact ICAO match → prefix match → default fallback. Covers specific airports, country-level forms, and a universal ICAO GenDec for everything else.
+- **Three-tier resolution:** Exact ICAO match → prefix match → default fallback. Covers specific airports, country-level forms, and a General Declaration form (`gendec_form`) as the catch-all default. The ICAO GenDec (`gendec_icao`) is available but no longer the default.
 - **Separate fillers per format:** PDF, DOCX, XLSX have fundamentally different filling mechanics. No shared abstraction forced.
 - **Templates bundled in Docker image:** Templates ship with the code. No external template storage needed.
 
