@@ -139,12 +139,55 @@ Bump version to X.Y (build N) for App Store release
 
 Do NOT push unless the user asks.
 
-## Step 8 — Report
+## Step 8 — Tag and release notes
+
+### Tagging convention
+
+Tags follow the pattern `{platform}/{version}`:
+- iOS: `ios/1.2`
+- macOS: `macos/1.2`
+
+Create the tag at HEAD after the version bump commit:
+```bash
+git tag ios/{version}
+```
+
+### Generate release notes
+
+Find the previous tag for the same platform:
+```bash
+git tag -l "ios/*" --sort=-version:refname | head -2
+```
+
+Generate a user-facing "What's New" summary from commits between the previous and new tag:
+```bash
+git log {previous_tag}..ios/{version} --oneline
+```
+
+From these commits, write a concise, user-facing release notes summary suitable for the App Store "What's New in This Version" box:
+- Group related changes into bullet points
+- Use plain language (no commit hashes, no technical jargon)
+- Focus on features and fixes the user cares about
+- Skip internal changes (test fixes, CI, refactoring, version bumps, doc syncs)
+- Keep it to 5-8 bullet points max
+
+Show the release notes to the user for review before proceeding.
+
+### Push tags
+
+After the user confirms, push the tag:
+```bash
+git push origin ios/{version}
+```
+
+## Step 9 — Report
 
 Tell the user:
 - Pre-flight check results summary
 - Archive created at the path
 - Version and build number in the archive
+- The tag that was created
+- The release notes for the App Store
 - It should now appear in **Xcode → Window → Organizer**
 - From there they can **Distribute App** → **App Store Connect** to upload
 - Remind them to push the version bump commit when ready
