@@ -13,6 +13,8 @@ struct PeopleListView: View {
     @State private var showingScanSheet = false
     @State private var scanProcessingResult: MRZProcessingResult?
     @State private var navigateToPerson: Person?
+    @State private var showContactPicker = false
+    @State private var importedContact: ImportedContact?
     #if os(macOS)
     @State private var showFilePicker = false
     @State private var imageOCR = ImageOCRManager()
@@ -101,6 +103,11 @@ struct PeopleListView: View {
                     }
                     #endif
                     Button {
+                        showContactPicker = true
+                    } label: {
+                        Label("Import from Contact", systemImage: "person.crop.rectangle")
+                    }
+                    Button {
                         showingImporter = true
                     } label: {
                         Label("Import from CSV", systemImage: "square.and.arrow.down")
@@ -132,6 +139,24 @@ struct PeopleListView: View {
             Button("OK") { importResult = nil }
         } message: {
             Text(importResult?.message ?? "")
+        }
+        #if os(iOS)
+        .sheet(isPresented: $showContactPicker) {
+            ContactPickerSheet { contact in
+                importedContact = ImportedContact(from: contact)
+            }
+        }
+        #else
+        .sheet(isPresented: $showContactPicker) {
+            ContactSearchView { contact in
+                importedContact = ImportedContact(from: contact)
+            }
+        }
+        #endif
+        .sheet(item: $importedContact) { contact in
+            ContactResolveView(contact: contact) { person in
+                navigateToPerson = person
+            }
         }
         .navigationDestination(for: Person.self) { person in
             PersonEditView(person: person)

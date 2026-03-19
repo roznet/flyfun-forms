@@ -536,9 +536,12 @@ struct FlightEditView: View {
                 "name": person.displayName,
                 "address": person.address ?? "",
             ])
-            // Auto-fill telephone from responsible person if not already set
+            // Auto-fill telephone and email from responsible person if not already set
             if extras["telephone"] == nil, let phone = person.phone, !phone.isEmpty {
                 extras["telephone"] = .text(phone)
+            }
+            if extras["email"] == nil, let email = person.email, !email.isEmpty {
+                extras["email"] = .text(email)
             }
         }
 

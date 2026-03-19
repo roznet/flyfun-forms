@@ -15,6 +15,7 @@ final class Person {
     var placeOfBirth: String?
     var address: String?
     var phone: String?
+    var email: String?
     var isUsualCrew: Bool = false
 
     var documents: [TravelDocument]?

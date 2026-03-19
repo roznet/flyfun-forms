@@ -136,6 +136,15 @@ struct PersonEditView: View {
                 set: { person.phone = $0.isEmpty ? nil : $0 }
             ))
             .textContentType(.telephoneNumber)
+            TextField("Email", text: Binding(
+                get: { person.email ?? "" },
+                set: { person.email = $0.isEmpty ? nil : $0 }
+            ))
+            .textContentType(.emailAddress)
+            #if os(iOS)
+            .keyboardType(.emailAddress)
+            .autocapitalization(.none)
+            #endif
             TextField("Address", text: Binding(
                 get: { person.address ?? "" },
                 set: { person.address = $0.isEmpty ? nil : $0 }
