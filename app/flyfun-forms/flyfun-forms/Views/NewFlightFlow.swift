@@ -1,5 +1,10 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// Two-step sheet for creating a new flight: Route & schedule, then people.
 /// Only inserts the Flight into the model context on "Create Flight".
@@ -77,6 +82,14 @@ struct NewFlightFlow: View {
 
     @ViewBuilder
     private var routeStep: some View {
+        Section {
+            Button {
+                pasteFlightPlan()
+            } label: {
+                Label("Paste Flight Plan", systemImage: "doc.on.clipboard")
+            }
+        }
+
         Section("Route") {
             Button {
                 showAirportPicker = true
@@ -159,6 +172,54 @@ struct NewFlightFlow: View {
                 Label("Select People", systemImage: "person.badge.plus")
             }
         }
+    }
+
+    // MARK: - Import Flight Plan
+
+    private func pasteFlightPlan() {
+        #if os(iOS)
+        guard let text = UIPasteboard.general.string else { return }
+        #else
+        guard let text = NSPasteboard.general.string(forType: .string) else { return }
+        #endif
+
+        guard let parsed = ICAOFlightPlanParser.parse(text) else { return }
+
+        if let icao = parsed.originICAO, !icao.isEmpty {
+            originICAO = icao
+        }
+        if let icao = parsed.destinationICAO, !icao.isEmpty {
+            destinationICAO = icao
+        }
+        if let time = parsed.departureTimeUTC {
+            departureTimeUTC = time
+        }
+        if let dof = parsed.dateOfFlight {
+            departureDate = dof
+            arrivalDate = dof
+        }
+        // Compute arrival time from departure + EET
+        if let depTime = parsed.departureTimeUTC, let eet = parsed.eet {
+            arrivalTimeUTC = addTime(depTime, eet)
+        }
+        // Match aircraft by registration
+        if let reg = parsed.aircraftRegistration {
+            let normalizedReg = reg.replacingOccurrences(of: "-", with: "").uppercased()
+            selectedAircraft = allAircraft.first { ac in
+                ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
+            }
+        }
+    }
+
+    /// Add two HH:mm time strings, wrapping at 24h.
+    private func addTime(_ base: String, _ offset: String) -> String {
+        let parts1 = base.split(separator: ":")
+        let parts2 = offset.split(separator: ":")
+        guard parts1.count == 2, parts2.count == 2,
+              let h1 = Int(parts1[0]), let m1 = Int(parts1[1]),
+              let h2 = Int(parts2[0]), let m2 = Int(parts2[1]) else { return base }
+        let total = (h1 * 60 + m1) + (h2 * 60 + m2)
+        return String(format: "%02d:%02d", (total / 60) % 24, total % 60)
     }
 
     // MARK: - Create

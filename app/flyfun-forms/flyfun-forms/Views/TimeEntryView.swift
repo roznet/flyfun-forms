@@ -100,26 +100,22 @@ struct TimeEntryView: View {
 
     private var availableTimezones: [TimeZone] {
         var tzs: [TimeZone] = [.gmt]
-        if let tz = originTZ, tz.secondsFromGMT() != 0 {
-            tzs.append(tz)
-        }
-        if let tz = destTZ,
-           tz.secondsFromGMT() != 0,
-           !tzs.contains(where: { $0.identifier == tz.identifier }) {
-            tzs.append(tz)
+        for tz in [originTZ, destTZ].compactMap({ $0 }) {
+            if !tzs.contains(where: { $0.identifier == tz.identifier }) {
+                tzs.append(tz)
+            }
         }
         return tzs
     }
 
     private func tzLabel(_ tz: TimeZone) -> String {
-        if tz == .gmt || tz.secondsFromGMT() == 0 { return "UTC" }
-
-        // Extract city from identifier (e.g. "Europe/London" -> "London")
+        if tz.identifier == TimeZone.gmt.identifier { return "UTC" }
         let city = tz.identifier.split(separator: "/").last
             .map { $0.replacingOccurrences(of: "_", with: " ") } ?? tz.identifier
-        let offsetHours = tz.secondsFromGMT() / 3600
-        let sign = offsetHours >= 0 ? "+" : ""
-        return "\(city) (GMT\(sign)\(offsetHours))"
+        let seconds = tz.secondsFromGMT()
+        if seconds == 0 { return city }
+        let sign = seconds >= 0 ? "+" : ""
+        return "\(city) (\(sign)\(seconds / 3600))"
     }
 
     // MARK: - Conversion
