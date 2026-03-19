@@ -116,10 +116,11 @@ enum MRZResultProcessor {
 
     /// Check if a person's name matches the scan result (case-insensitive, trimmed).
     static func namesMatch(person: Person, result: MRZScanResult) -> Bool {
-        let personFirst = person.firstName.lowercased().trimmingCharacters(in: .whitespaces)
-        let personLast = person.lastName.lowercased().trimmingCharacters(in: .whitespaces)
-        let scanFirst = result.givenNames.lowercased().trimmingCharacters(in: .whitespaces)
-        let scanLast = result.surname.lowercased().trimmingCharacters(in: .whitespaces)
+        // MRZ replaces hyphens with spaces, so normalize both sides
+        let personFirst = person.firstName.lowercased().replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespaces)
+        let personLast = person.lastName.lowercased().replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespaces)
+        let scanFirst = result.givenNames.lowercased().replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespaces)
+        let scanLast = result.surname.lowercased().replacingOccurrences(of: "-", with: " ").trimmingCharacters(in: .whitespaces)
 
         // Exact match
         if personLast == scanLast && personFirst == scanFirst {
@@ -150,14 +151,14 @@ enum MRZResultProcessor {
 
         // Last name comparison (weighted more heavily)
         if personLast == scanLast {
-            score += 0.6
+            score += 0.5
         } else if personLast.hasPrefix(scanLast) || scanLast.hasPrefix(personLast) {
-            score += 0.4
+            score += 0.3
         }
 
         // First name comparison
         if personFirst == scanFirst {
-            score += 0.3
+            score += 0.4
         } else if !personFirst.isEmpty && !scanFirst.isEmpty {
             let shorter = min(personFirst.count, scanFirst.count)
             if shorter >= 2 && personFirst.prefix(shorter) == scanFirst.prefix(shorter) {

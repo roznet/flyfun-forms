@@ -382,7 +382,7 @@ class TestXlsxFiller:
         xlsx_bytes = self._generate(registry, resolver)
         wb = load_workbook(BytesIO(xlsx_bytes))
         ws = wb["GAR"]
-        assert ws["A2"].value == "ARRIVAL"
+        assert ws["B2"].value == "ARRIVAL"
 
     def test_header_departure_direction(self, registry, resolver):
         mapping = registry.get_form("EGKA", "gar")
@@ -402,13 +402,13 @@ class TestXlsxFiller:
         )
         wb = load_workbook(BytesIO(xlsx_bytes))
         ws = wb["GAR"]
-        assert ws["A2"].value == "DEPARTURE"
+        assert ws["B2"].value == "DEPARTURE"
 
     def test_registration_filled(self, registry, resolver):
         xlsx_bytes = self._generate(registry, resolver)
         wb = load_workbook(BytesIO(xlsx_bytes))
         ws = wb["GAR"]
-        assert ws["A5"].value == "ZZ-TST"
+        assert ws["B5"].value == "ZZ-TST"
 
     def test_crew_rows(self, registry, resolver):
         xlsx_bytes = self._generate(registry, resolver)
