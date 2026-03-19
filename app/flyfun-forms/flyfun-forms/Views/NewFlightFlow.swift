@@ -202,11 +202,17 @@ struct NewFlightFlow: View {
         if let depTime = parsed.departureTimeUTC, let eet = parsed.eet {
             arrivalTimeUTC = addTime(depTime, eet)
         }
-        // Match aircraft by registration
+        // Match aircraft by registration, or create if not found
         if let reg = parsed.aircraftRegistration {
             let normalizedReg = reg.replacingOccurrences(of: "-", with: "").uppercased()
-            selectedAircraft = allAircraft.first { ac in
+            if let existing = allAircraft.first(where: { ac in
                 ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
+            }) {
+                selectedAircraft = existing
+            } else {
+                let ac = Aircraft(registration: reg, type: parsed.aircraftType ?? "")
+                modelContext.insert(ac)
+                selectedAircraft = ac
             }
         }
     }
