@@ -37,7 +37,7 @@ Run the Xcode test suite for the iOS simulator:
 xcodebuild test \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
-  -destination "platform=iOS Simulator,name=iPhone 16" \
+  -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
   -quiet \
   2>&1 | tail -30
 ```
@@ -106,7 +106,7 @@ xcodebuild archive \
   -scheme flyfun-forms \
   -configuration Release \
   -destination "generic/platform=iOS" \
-  -archivePath ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms-{version}.xcarchive \
+  -archivePath ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms\ $(date +%d-%m-%Y,\ %H.%M).xcarchive \
   CODE_SIGN_STYLE=Automatic \
   | tail -20
 ```
@@ -117,17 +117,12 @@ This may take a few minutes. Run with a generous timeout (600000ms).
 
 ## Step 6 — Verify archive
 
-Check that the archive was created and inspect it:
-```bash
-ls -la ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms-{version}.xcarchive/
-```
+The archive path includes a timestamp, so save it to a variable during the build step and reuse it here.
 
-Also verify the embedded Info.plist has the correct version:
+Check that the archive was created and verify the embedded version:
 ```bash
-/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" \
-  ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms-{version}.xcarchive/Info.plist
-/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" \
-  ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms-{version}.xcarchive/Info.plist
+/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" "$ARCHIVE_PATH/Info.plist"
+/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleVersion" "$ARCHIVE_PATH/Info.plist"
 ```
 
 ## Step 7 — Commit version bump
@@ -143,25 +138,41 @@ Do NOT push unless the user asks.
 
 ### Tagging convention
 
-Tags follow the pattern `{platform}/{version}`:
+Tags track the **marketing version** only, not the build number. The pattern is `{platform}/{marketing_version}`:
 - iOS: `ios/1.2`
 - macOS: `macos/1.2`
 
-Create the tag at HEAD after the version bump commit:
+**Key rules:**
+- Tags correspond to `MARKETING_VERSION`, never to `CURRENT_PROJECT_VERSION` (build number)
+- Build-only bumps (`/archive build`) do NOT create a new tag — they move the existing tag for that version
+- Only patch/minor/major bumps create a genuinely new tag
+
+**When the tag already exists** (i.e. build-only bump for the same marketing version):
+```bash
+git tag -f ios/{version}
+```
+This moves the existing tag to the new HEAD. When pushing, use `--force`:
+```bash
+git push origin ios/{version} --force
+```
+
+**When the tag is new** (patch/minor/major bump):
 ```bash
 git tag ios/{version}
+git push origin ios/{version}
 ```
 
 ### Generate release notes
 
-Find the previous tag for the same platform:
+Find the **previous version** tag (not the current one being created/moved):
 ```bash
-git tag -l "ios/*" --sort=-version:refname | head -2
+git tag -l "ios/*" --sort=-version:refname
 ```
+Pick the tag with the previous marketing version (e.g. if current is `ios/1.2`, previous is `ios/1.1`). For build-only bumps, the previous tag is still the prior version — release notes always cover the full version-to-version diff.
 
-Generate a user-facing "What's New" summary from commits between the previous and new tag:
+Generate a user-facing "What's New" summary from commits between the previous version and the current tag:
 ```bash
-git log {previous_tag}..ios/{version} --oneline
+git log {previous_version_tag}..ios/{version} --oneline
 ```
 
 From these commits, write a concise, user-facing release notes summary suitable for the App Store "What's New in This Version" box:
@@ -175,9 +186,10 @@ Show the release notes to the user for review before proceeding.
 
 ### Push tags
 
-After the user confirms, push the tag:
+After the user confirms, push the tag (use `--force` if the tag was moved):
 ```bash
-git push origin ios/{version}
+git push origin ios/{version}          # new tag
+git push origin ios/{version} --force  # moved tag (build-only bump)
 ```
 
 ## Step 9 — Report
