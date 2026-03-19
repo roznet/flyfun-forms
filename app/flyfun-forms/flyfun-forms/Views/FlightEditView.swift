@@ -12,6 +12,7 @@ struct FlightEditView: View {
 
     @State private var showAirportPicker = false
     @State private var showPeoplePicker = false
+    @State private var showResponsiblePersonPicker = false
     @State private var editingCrew: [Person] = []
     @State private var editingPassengers: [Person] = []
     @State private var isGenerating = false
@@ -75,6 +76,9 @@ struct FlightEditView: View {
         }
         .sheet(isPresented: $showPeoplePicker, onDismiss: applyPeopleSelection) {
             PeoplePickerView(selectedCrew: $editingCrew, selectedPassengers: $editingPassengers)
+        }
+        .sheet(isPresented: $showResponsiblePersonPicker) {
+            SinglePersonPickerView(selectedPerson: responsiblePersonObjectBinding)
         }
         .onChange(of: flight.originICAO) {
             fetchFormDetails(icao: flight.originICAO)
@@ -200,10 +204,15 @@ struct FlightEditView: View {
                     Text(LocalizedStringKey(reason)).tag(reason)
                 }
             }
-            Picker("Responsible Person", selection: responsiblePersonBinding) {
-                Text("—").tag("")
-                ForEach(allPeople) { person in
-                    Text(verbatim: person.displayName).tag(person.displayName)
+            Button {
+                showResponsiblePersonPicker = true
+            } label: {
+                HStack {
+                    Text("Responsible Person")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(flight.responsiblePerson?.displayName ?? "—")
+                        .foregroundStyle(.secondary)
                 }
             }
             if let person = flight.responsiblePerson {
@@ -300,18 +309,13 @@ struct FlightEditView: View {
         )
     }
 
-    private var responsiblePersonBinding: Binding<String> {
+    private var responsiblePersonObjectBinding: Binding<Person?> {
         Binding(
-            get: { flight.responsiblePerson?.displayName ?? "" },
+            get: { flight.responsiblePerson },
             set: { newValue in
-                if let person = allPeople.first(where: { $0.displayName == newValue }) {
-                    flight.responsiblePerson = person
-                    // Also sync contact field for backward compat
-                    flight.contact = person.phone
-                } else {
-                    flight.responsiblePerson = nil
-                    flight.contact = nil
-                }
+                flight.responsiblePerson = newValue
+                // Also sync contact field for backward compat
+                flight.contact = newValue?.phone
             }
         )
     }
