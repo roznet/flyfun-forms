@@ -489,8 +489,8 @@ struct FlightEditView: View {
     }
 
     private func buildRequest(airport: String, form: String) -> GenerateRequest {
-        // Derive contact from responsible person
-        let contactValue = flight.responsiblePerson?.phone ?? flight.contact
+        // Derive contact name from responsible person
+        let contactValue = flight.responsiblePerson?.displayName ?? flight.contact
 
         let flightPayload = FlightPayload(
             origin: flight.originICAO,
@@ -536,6 +536,10 @@ struct FlightEditView: View {
                 "name": person.displayName,
                 "address": person.address ?? "",
             ])
+            // Auto-fill telephone from responsible person if not already set
+            if extras["telephone"] == nil, let phone = person.phone, !phone.isEmpty {
+                extras["telephone"] = .text(phone)
+            }
         }
 
         return GenerateRequest(

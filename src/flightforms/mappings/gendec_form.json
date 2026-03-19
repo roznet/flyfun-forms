@@ -1,0 +1,45 @@
+{
+  "default": true,
+  "label": "General Declaration",
+  "template": "gendec_form.pdf",
+  "type": "pdf_acroform",
+  "version": "1.0",
+  "time_reference": "utc",
+  "max_crew": 4,
+  "max_passengers": 2,
+  "date_format": "%d/%m/%Y",
+  "has_connecting_flight": false,
+  "extra_fields": [
+    {"key": "telephone", "label": "Telephone", "type": "text"},
+    {"key": "email", "label": "Email", "type": "text"}
+  ],
+  "required_fields": {
+    "flight": ["origin", "destination", "departure_date"],
+    "aircraft": ["registration"],
+    "crew": ["first_name", "last_name"],
+    "passengers": []
+  },
+  "field_map": {
+    "aircraft.owner": "Operator",
+    "aircraft.registration": "Marks of Nationality and Registration",
+    "flight.departure_date": "Date",
+    "routing.departure_place": "Departure from Place",
+    "routing.arrival_place": "Arrival at Place",
+    "flight.departure_time_utc": "Departure time Expected",
+    "flight.arrival_time_utc": "Arrival time Expected",
+    "flight.contact": "Contact details Name",
+    "extra.telephone": "Telephone no",
+    "extra.email": "Emailaddress",
+    "crew[{i}].last_name": "SURNAMERow{n}",
+    "crew[{i}].function": "FUNCRow{n}",
+    "crew[{i}].first_name": "GIVEN NAME AND INITIALSRow{n}",
+    "crew[{i}].dob": "BIRTH DATERow{n}",
+    "crew[{i}].place_of_birth": "BIRTH PLACERow{n}",
+    "crew[{i}].id_number": "PASSPORT COUNTRY CODE OF ISSUANCE AND NUMBERRow{n}",
+    "passengers[{i}].last_name": "SURNAMERow{n}_2",
+    "passengers[{i}].first_name": "GIVEN NAME AND INITIALSRow{n}_2",
+    "passengers[{i}].dob": "BIRTH DATERow{n}_2",
+    "passengers[{i}].place_of_birth": "BIRTH PLACERow{n}_2",
+    "passengers[{i}].id_number": "PASSPORT COUNTRY CODE OF ISSUANCE AND NUMBERRow{n}_2"
+  }
+}

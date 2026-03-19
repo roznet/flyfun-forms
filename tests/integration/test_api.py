@@ -89,7 +89,7 @@ class TestAirports:
         resp = client.get("/airports/XXXX")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["forms"][0]["id"] == "gendec_icao"
+        assert data["forms"][0]["id"] == "gendec_form"
 
 
 # ── Validate endpoint ─────────────────────────────────────────────────────────

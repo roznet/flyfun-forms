@@ -1,5 +1,5 @@
 {
-  "default": true,
+  "default": false,
   "label": "ICAO General Declaration",
   "template": "gendec_icao.pdf",
   "type": "pdf_acroform",
