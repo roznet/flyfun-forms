@@ -17,6 +17,8 @@
 	<string>Camera is used to scan passport and ID card MRZ codes to auto-fill travel document details.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Contacts are used to import people into your flight manifests.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
