@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct FlightEditView: View {
     @Bindable var flight: Flight
@@ -21,8 +20,7 @@ struct FlightEditView: View {
     @State private var showingError = false
     @State private var validationErrors: [ServerValidationError] = []
     @State private var showingValidationErrors = false
-    @State private var exportDocument: ExportFileDocument?
-    @State private var exportFilename: String = ""
+    @State private var shareFileURL: URL?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
@@ -62,15 +60,25 @@ struct FlightEditView: View {
         .sheet(isPresented: $showingValidationErrors) {
             ValidationErrorsView(errors: validationErrors)
         }
-        .fileExporter(
-            isPresented: Binding(
-                get: { exportDocument != nil },
-                set: { if !$0 { exportDocument = nil } }
-            ),
-            document: exportDocument,
-            contentType: exportDocument?.contentType ?? .data,
-            defaultFilename: exportFilename
-        ) { _ in }
+        #if os(iOS)
+        .sheet(isPresented: Binding(
+            get: { shareFileURL != nil },
+            set: { if !$0 { shareFileURL = nil } }
+        )) {
+            if let url = shareFileURL {
+                ActivityView(activityItems: [url])
+            }
+        }
+        #else
+        .sheet(isPresented: Binding(
+            get: { shareFileURL != nil },
+            set: { if !$0 { shareFileURL = nil } }
+        )) {
+            if let url = shareFileURL {
+                MacShareView(url: url) { shareFileURL = nil }
+            }
+        }
+        #endif
         .sheet(isPresented: $showAirportPicker) {
             AirportPickerView(originICAO: $flight.originICAO, destinationICAO: $flight.destinationICAO)
         }
@@ -468,8 +476,9 @@ struct FlightEditView: View {
         let request = buildRequest(airport: airport, form: form)
         do {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
-            exportFilename = filename
-            exportDocument = ExportFileDocument(data: data, filename: filename)
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            try data.write(to: tempURL)
+            shareFileURL = tempURL
         } catch let FormService.FormError.validationErrors(errors) {
             validationErrors = errors
             showingValidationErrors = true
@@ -612,35 +621,99 @@ struct FlightEditView: View {
     }
 }
 
-// MARK: - File Export Document
+#if os(iOS)
+// MARK: - Share Sheet
 
-struct ExportFileDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.data] }
+struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
 
-    let data: Data
-    let contentType: UTType
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
 
-    init(data: Data, filename: String) {
-        self.data = data
-        let ext = (filename as NSString).pathExtension.lowercased()
-        switch ext {
-        case "xlsx":
-            self.contentType = UTType(filenameExtension: "xlsx") ?? .data
-        case "pdf":
-            self.contentType = .pdf
-        case "docx":
-            self.contentType = UTType(filenameExtension: "docx") ?? .data
-        default:
-            self.contentType = .data
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#else
+// MARK: - macOS Share View
+
+struct MacShareView: View {
+    let url: URL
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(url.lastPathComponent)
+                    .font(.headline)
+                Spacer()
+                Button("Done") { onDismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+
+            Divider()
+
+            List {
+                Button {
+                    saveToFile()
+                } label: {
+                    Label("Save to File\u{2026}", systemImage: "folder")
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    revealInFinder()
+                } label: {
+                    Label("Reveal in Finder", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    NSWorkspace.shared.open(url)
+                    onDismiss()
+                } label: {
+                    Label("Open", systemImage: "doc")
+                }
+                .buttonStyle(.plain)
+
+                Section("Share") {
+                    ForEach(sharingServices, id: \.title) { service in
+                        Button {
+                            service.perform(withItems: [url])
+                            onDismiss()
+                        } label: {
+                            HStack {
+                                Image(nsImage: service.image)
+                                    .resizable()
+                                    .frame(width: 16, height: 16)
+                                Text(service.title)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
+        .frame(width: 300, height: 400)
     }
 
-    init(configuration: ReadConfiguration) throws {
-        data = configuration.file.regularFileContents ?? Data()
-        contentType = .data
+    private var sharingServices: [NSSharingService] {
+        NSSharingService.sharingServices(forItems: [url])
     }
 
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: data)
+    private func saveToFile() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = url.lastPathComponent
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let dest = panel.url {
+            try? FileManager.default.copyItem(at: url, to: dest)
+        }
+        onDismiss()
+    }
+
+    private func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+        onDismiss()
     }
 }
+#endif
