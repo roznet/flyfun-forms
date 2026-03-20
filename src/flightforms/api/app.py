@@ -11,9 +11,9 @@ from flyfun_common.db import SessionLocal, ensure_dev_user, get_engine, init_sha
 from starlette.middleware.sessions import SessionMiddleware
 
 from ..airport_resolver import AirportResolver
-from ..db.models import AppBase
+from ..db.models import AppBase, Usage
 from ..registry import MappingRegistry
-from . import account, airports, generate, validate
+from . import airports, generate, validate
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +79,12 @@ def create_app() -> FastAPI:
         from starlette.middleware.cors import CORSMiddleware
         app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-    # Mount shared auth router (Google/Apple OAuth, /auth/me, /auth/logout)
-    app.include_router(create_auth_router(), tags=["auth"])
+    def _on_delete_user(user_id: str, db):
+        """Clean up app-specific data when a user deletes their account."""
+        db.query(Usage).filter(Usage.user_id == user_id).delete()
+
+    # Mount shared auth router (Google/Apple OAuth, /auth/me, /auth/logout, /auth/account)
+    app.include_router(create_auth_router(on_delete_user=_on_delete_user), tags=["auth"])
 
     # Initialize registry and resolver
     registry = MappingRegistry(_MAPPINGS_DIR, _TEMPLATES_DIR)
@@ -92,7 +96,6 @@ def create_app() -> FastAPI:
     validate.configure(registry)
 
     # Register routes
-    app.include_router(account.router, tags=["account"])
     app.include_router(airports.router, tags=["airports"])
     app.include_router(generate.router, tags=["generate"])
     app.include_router(validate.router, tags=["validate"])
