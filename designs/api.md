@@ -64,6 +64,9 @@ Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).
 ### `POST /validate`
 Same body as `/generate`, returns validation errors without generating. Each `ValidationError` includes `field`, `error`, and optional `value` (the submitted value that failed). The 422 response body is `{"detail": [ValidationError, ...]}` — the iOS app parses this into structured UI.
 
+### `DELETE /auth/account`
+Deletes the authenticated user's account and all associated data (usage records, API tokens, user record). Returns 204 No Content on success. Used by the iOS app's Settings screen for Apple App Store guideline 5.1.1(v) compliance.
+
 ### `GET /health`
 Returns `{"status": "ok"}`.
 

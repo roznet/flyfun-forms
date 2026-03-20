@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..airport_resolver import AirportResolver
 from ..db.models import AppBase
 from ..registry import MappingRegistry
-from . import airports, generate, validate
+from . import account, airports, generate, validate
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,7 @@ def create_app() -> FastAPI:
     validate.configure(registry)
 
     # Register routes
+    app.include_router(account.router, tags=["account"])
     app.include_router(airports.router, tags=["airports"])
     app.include_router(generate.router, tags=["generate"])
     app.include_router(validate.router, tags=["validate"])

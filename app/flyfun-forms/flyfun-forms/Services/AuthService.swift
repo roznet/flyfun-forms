@@ -88,6 +88,25 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         )
     }
 
+    /// Deletes the authenticated user's account on the server.
+    func deleteAccount(baseURL: URL, jwt: String) async throws {
+        let url = baseURL.appendingPathComponent("auth/account")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard httpResponse.statusCode == 204 else {
+            let detail = String(data: data, encoding: .utf8) ?? "Unknown error"
+            Self.logger.error("Account deletion failed (\(httpResponse.statusCode)): \(detail)")
+            throw URLError(.badServerResponse)
+        }
+    }
+
     /// POST the Apple identity token to /auth/apple/token and return the JWT.
     private func exchangeAppleToken(
         baseURL: URL,

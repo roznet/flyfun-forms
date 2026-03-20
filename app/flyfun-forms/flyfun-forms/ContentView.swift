@@ -106,6 +106,12 @@ struct WideContentView: View {
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
 
+    @State private var showDeleteConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var errorMessage: String?
+
+    private let authService = AuthService()
+
     var body: some View {
         Form {
             Section {
@@ -113,8 +119,54 @@ struct SettingsView: View {
                     appState.logout()
                 }
             }
+
+            Section {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    HStack {
+                        Text("Delete Account")
+                        if isDeletingAccount {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isDeletingAccount)
+            } footer: {
+                if let errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                } else {
+                    Text("Permanently deletes your account and all server data.")
+                }
+            }
         }
         .navigationTitle("Settings")
+        .confirmationDialog(
+            "Delete Account",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete My Account", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+        } message: {
+            Text("This will permanently delete your account. This action cannot be undone.")
+        }
+    }
+
+    private func deleteAccount() async {
+        guard let jwt = appState.jwt else { return }
+        isDeletingAccount = true
+        errorMessage = nil
+        defer { isDeletingAccount = false }
+        do {
+            try await authService.deleteAccount(baseURL: APIConfig.baseURL, jwt: jwt)
+            appState.logout()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 

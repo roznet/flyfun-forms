@@ -184,6 +184,7 @@ if appState.isAuthenticated {
 - Share sheet for form export (iOS + macOS): **complete**
 - Searchable responsible person picker with contact auto-fill: **complete**
 - Contact import from device contacts with fuzzy merge: **complete**
+- Account deletion (App Store guideline 5.1.1(v)): **complete**
 - Document override UI (tap to switch per airport): **planned**
 
 ## References
