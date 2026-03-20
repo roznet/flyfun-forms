@@ -4,20 +4,37 @@ Build an Xcode archive ready for App Store upload.
 
 ## Arguments
 
-The user may optionally specify the version bump in the command arguments (e.g. `/archive patch`, `/archive build`):
+The user may specify **platform** and **version bump** in any order (e.g. `/archive build`, `/archive macos patch`, `/archive ios build`):
+
+**Platform** (default: `ios`):
+- **ios** — build for iOS App Store
+- **macos** — build for Mac App Store
+
+**Version bump** (default: ask the user):
 - **build** — only increment `CURRENT_PROJECT_VERSION` (build number), keep `MARKETING_VERSION` unchanged. Use for TestFlight builds or minor fixes.
 - **patch** — increment last component of marketing version (1.1 → 1.2) + bump build number
 - **minor** — increment middle component (1.1 → 2.0 for two-part, 1.2.3 → 1.3.0) + bump build number
 - **major** — increment first component (1.1 → 2.0, 1.2.3 → 2.0.0) + bump build number
 
-If not specified in arguments, ask the user:
+If version bump is not specified, ask the user:
 > Current version: X.Y (build N). Bump type? [build / patch / minor / major]
+
+## Platform-specific settings
+
+Use these values based on the selected platform:
+
+| Setting | iOS | macOS |
+|---------|-----|-------|
+| Destination | `generic/platform=iOS` | `generic/platform=macOS` |
+| Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | `platform=macOS` |
+| Tag prefix | `ios` | `macos` |
+| Privacy checks | NSCameraUsageDescription, NSContactsUsageDescription | NSCameraUsageDescription, NSContactsUsageDescription |
 
 ## Step 1 — Read current version
 
 Read the current `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` from `app/flyfun-forms/flyfun-forms.xcodeproj/project.pbxproj`.
 
-Show the user: "Current version: X.Y (build N)"
+Show the user: "Current version: X.Y (build N) — archiving for {platform}"
 
 ## Step 2 — Pre-flight checks
 
@@ -32,12 +49,12 @@ Verify that the Release/production build will NOT use localhost. Check `app/flyf
 
 ### 2b — App tests
 
-Run the Xcode test suite for the iOS simulator:
+Run the Xcode test suite using the platform-appropriate destination:
 ```bash
 xcodebuild test \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
-  -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
+  -destination "{test_destination}" \
   -quiet \
   2>&1 | tail -30
 ```
@@ -105,7 +122,7 @@ xcodebuild archive \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
   -configuration Release \
-  -destination "generic/platform=iOS" \
+  -destination "{destination}" \
   -archivePath ~/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)/flyfun-forms\ $(date +%d-%m-%Y,\ %H.%M).xcarchive \
   CODE_SIGN_STYLE=Automatic \
   | tail -20
@@ -142,6 +159,8 @@ Tags track the **marketing version** only, not the build number. The pattern is 
 - iOS: `ios/1.2`
 - macOS: `macos/1.2`
 
+iOS and macOS tags are independent — each platform has its own tag history.
+
 **Key rules:**
 - Tags correspond to `MARKETING_VERSION`, never to `CURRENT_PROJECT_VERSION` (build number)
 - Build-only bumps (`/archive build`) do NOT create a new tag — they move the existing tag for that version
@@ -149,30 +168,30 @@ Tags track the **marketing version** only, not the build number. The pattern is 
 
 **When the tag already exists** (i.e. build-only bump for the same marketing version):
 ```bash
-git tag -f ios/{version}
+git tag -f {platform}/{version}
 ```
 This moves the existing tag to the new HEAD. When pushing, use `--force`:
 ```bash
-git push origin ios/{version} --force
+git push origin {platform}/{version} --force
 ```
 
 **When the tag is new** (patch/minor/major bump):
 ```bash
-git tag ios/{version}
-git push origin ios/{version}
+git tag {platform}/{version}
+git push origin {platform}/{version}
 ```
 
 ### Generate release notes
 
-Find the **previous version** tag (not the current one being created/moved):
+Find the **previous version** tag for the same platform (not the current one being created/moved):
 ```bash
-git tag -l "ios/*" --sort=-version:refname
+git tag -l "{platform}/*" --sort=-version:refname
 ```
 Pick the tag with the previous marketing version (e.g. if current is `ios/1.2`, previous is `ios/1.1`). For build-only bumps, the previous tag is still the prior version — release notes always cover the full version-to-version diff.
 
 Generate a user-facing "What's New" summary from commits between the previous version and the current tag:
 ```bash
-git log {previous_version_tag}..ios/{version} --oneline
+git log {previous_version_tag}..{platform}/{version} --oneline
 ```
 
 From these commits, write a concise, user-facing release notes summary suitable for the App Store "What's New in This Version" box:
@@ -188,14 +207,15 @@ Show the release notes to the user for review before proceeding.
 
 After the user confirms, push the tag (use `--force` if the tag was moved):
 ```bash
-git push origin ios/{version}          # new tag
-git push origin ios/{version} --force  # moved tag (build-only bump)
+git push origin {platform}/{version}          # new tag
+git push origin {platform}/{version} --force  # moved tag (build-only bump)
 ```
 
 ## Step 9 — Report
 
 Tell the user:
 - Pre-flight check results summary
+- Platform that was archived (iOS or macOS)
 - Archive created at the path
 - Version and build number in the archive
 - The tag that was created
