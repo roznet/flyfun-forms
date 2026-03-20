@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "GA customs form generator API"
 requires-python = ">=3.11"
 dependencies = [
-    "flyfun-common>=0.1.0",
+    "flyfun-common>=0.2.0",
     "fastapi>=0.109,<1.0",
     "uvicorn>=0.27,<1.0",
     "itsdangerous>=2.1,<3.0",
