@@ -2,10 +2,6 @@ import Foundation
 import SwiftData
 import UniformTypeIdentifiers
 
-extension UTType {
-    static let commaSeparatedText = UTType(importedAs: "public.comma-separated-values-text")
-}
-
 struct CSVPerson {
     var firstName: String
     var lastName: String

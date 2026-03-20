@@ -28,7 +28,8 @@ struct TimeEntryView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("11:00", text: $displayTime)
+            TextField("", text: $displayTime)
+                .labelsHidden()
                 #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
                 #endif
