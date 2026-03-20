@@ -46,10 +46,43 @@ final class AirportDatabase: @unchecked Sendable {
     }
 
     /// Search airports by ICAO code or name. Returns up to `limit` results.
+    /// Results are ranked by relevance:
+    ///   1. ICAO starts with needle  (e.g. "LO" → LOWW, LOWI)
+    ///   2. ICAO contains needle     (e.g. "LO" → EGLO, KALO)
+    ///   3. Name word starts with needle (e.g. "lon" → London City)
+    ///   4. Name contains needle      (e.g. "lo" → San Carlos)
+    /// Within each tier, results are sorted alphabetically by ICAO.
     func search(needle: String, limit: Int = 20) -> [Airport] {
         guard let knownAirports, !needle.isEmpty else { return [] }
-        let results = knownAirports.matching(needle: needle)
-        return Array(results.prefix(limit))
+        let matches = knownAirports.matching(needle: needle)
+        let ranked = Self.ranked(matches, needle: needle)
+        return Array(ranked.prefix(limit))
+    }
+
+    /// Assign a relevance tier (lower = better) to an airport for the given needle.
+    private static func tier(for airport: Airport, needle: String) -> Int {
+        let icao = airport.icao.lowercased()
+        let lowerNeedle = needle.lowercased()
+
+        if icao.hasPrefix(lowerNeedle) { return 0 }
+        if icao.contains(lowerNeedle) { return 1 }
+
+        // Check if any word in the name starts with the needle
+        let nameWords = airport.name.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+        if nameWords.contains(where: { $0.hasPrefix(lowerNeedle) }) { return 2 }
+
+        return 3
+    }
+
+    /// Sort airports by relevance tier, then alphabetically by ICAO within each tier.
+    static func ranked(_ airports: [Airport], needle: String) -> [Airport] {
+        airports.sorted { a, b in
+            let ta = tier(for: a, needle: needle)
+            let tb = tier(for: b, needle: needle)
+            if ta != tb { return ta < tb }
+            return a.icao < b.icao
+        }
     }
 
     /// Look up a single airport by ICAO code.
