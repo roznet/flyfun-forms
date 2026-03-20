@@ -9,6 +9,7 @@ final class Aircraft {
     var ownerAddress: String?
     var isAirplane: Bool = true
     var usualBase: String?
+    var ownerPerson: Person?
 
     // CloudKit inverse
     @Relationship(inverse: \Flight.aircraft)

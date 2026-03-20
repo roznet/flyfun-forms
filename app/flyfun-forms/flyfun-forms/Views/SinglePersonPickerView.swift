@@ -5,6 +5,7 @@ import SwiftData
 /// Same look and feel as PeoplePickerView but allows only one selection.
 struct SinglePersonPickerView: View {
     @Binding var selectedPerson: Person?
+    var title: String = "Responsible Person"
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Person.lastName) private var allPeople: [Person]
 
@@ -85,7 +86,7 @@ struct SinglePersonPickerView: View {
                 .listStyle(.inset)
                 #endif
             }
-            .navigationTitle("Responsible Person")
+            .navigationTitle(title)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
