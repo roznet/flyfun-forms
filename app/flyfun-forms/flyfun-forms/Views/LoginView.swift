@@ -33,34 +33,37 @@ struct LoginView: View {
                     .padding(.horizontal)
             }
 
-            SignInWithAppleButton(.signIn) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                Task { await handleAppleSignIn(result) }
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(maxWidth: 280, minHeight: 50)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .disabled(isSigningIn)
-
-            Button {
-                Task { await signIn(provider: "google") }
-            } label: {
-                HStack {
-                    if isSigningIn {
-                        ProgressView()
-                            .tint(.white)
-                    }
-                    Text("Sign in with Google")
-                        .fontWeight(.semibold)
+            VStack(spacing: 16) {
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.fullName, .email]
+                } onCompletion: { result in
+                    Task { await handleAppleSignIn(result) }
                 }
+                .signInWithAppleButtonStyle(.black)
                 .frame(maxWidth: 280)
-                .padding()
-                .background(.blue)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(height: 50)
+                .disabled(isSigningIn)
+
+                Button {
+                    Task { await signIn(provider: "google") }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isSigningIn {
+                            ProgressView()
+                                .tint(.primary)
+                        }
+                        Text("Sign in with Google")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: 280, minHeight: 50)
+                    .background {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.3), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isSigningIn)
             }
-            .disabled(isSigningIn)
 
             Spacer()
                 .frame(height: 60)

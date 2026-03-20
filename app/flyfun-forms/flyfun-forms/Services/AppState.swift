@@ -18,7 +18,7 @@ final class AppState {
     private(set) var jwt: String?
     private static let logger = Logger(subsystem: "net.ro-z.flyfun-forms", category: "AppState")
 
-    var isAuthenticated: Bool { jwt != nil }
+    var isAuthenticated: Bool { APIConfig.isDevMode || jwt != nil }
 
     init() {
         jwt = secureStorage.wrappedValue

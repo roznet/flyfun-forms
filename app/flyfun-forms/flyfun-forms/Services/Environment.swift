@@ -5,8 +5,10 @@ import SwiftUI
 enum APIConfig {
     #if targetEnvironment(simulator)
     static let baseURL = URL(string: "https://localhost.ro-z.me:8443")!
+    static let isDevMode = true
     #else
     static let baseURL = URL(string: "https://forms.flyfun.aero")!
+    static let isDevMode = false
     #endif
 }
 
