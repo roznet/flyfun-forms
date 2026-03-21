@@ -240,14 +240,16 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
             if field_width <= 0 or field_height <= 0:
                 continue
 
-            # Calculate font size that fits: width-constrained then capped by height
+            # Calculate font size that fits the text width, capped at a
+            # sensible default (Acrobat auto-size typically picks ~12pt for
+            # standard form fields, never larger than the box allows).
             usable_width = field_width - _PADDING
             text_len = len(text)
             if text_len == 0:
                 continue
 
             size_by_width = usable_width / (text_len * _HELV_AVG_WIDTH_RATIO)
-            max_size = field_height - 2  # small vertical margin
+            max_size = min(field_height - 2, 12)  # cap at 12pt
             font_size = min(size_by_width, max_size)
             font_size = max(font_size, 4)  # floor at 4pt
 
