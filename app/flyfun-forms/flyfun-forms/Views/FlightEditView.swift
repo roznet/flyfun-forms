@@ -431,6 +431,7 @@ struct FlightEditView: View {
     private func extraFieldsView(airport: String, formInfo: FormInfo) -> some View {
         let formKey = "\(airport)_\(formInfo.id)"
         let hiddenKeys: Set<String> = ["reason_for_visit", "responsible_person"]
+        let personSourcedKeys: Set<String> = ["telephone", "email"]
         ForEach(formInfo.extraFields.filter({ !hiddenKeys.contains($0.key) })) { field in
             switch field.type {
             case "choice":
@@ -453,7 +454,34 @@ struct FlightEditView: View {
                         .foregroundStyle(.secondary)
                 }
             default:
-                TextField(field.label, text: textExtraFieldBinding(formKey: formKey, fieldKey: field.key))
+                if personSourcedKeys.contains(field.key) {
+                    responsiblePersonFieldRow(field: field, formKey: formKey)
+                } else {
+                    TextField(field.label, text: textExtraFieldBinding(formKey: formKey, fieldKey: field.key))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func responsiblePersonFieldRow(field: ExtraFieldInfo, formKey: String) -> some View {
+        if let rp = flight.responsiblePerson {
+            let value: String? = field.key == "telephone" ? rp.phone : field.key == "email" ? rp.email : nil
+            if let value, !value.isEmpty {
+                LabeledContent(field.label, value: value)
+                    .foregroundStyle(.secondary)
+            } else {
+                LabeledContent(field.label) {
+                    Text("Set \(field.label.lowercased()) on \(rp.displayName)")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                }
+            }
+        } else {
+            LabeledContent(field.label) {
+                Text("Pick a responsible person")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
             }
         }
     }

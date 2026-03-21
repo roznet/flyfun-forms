@@ -1,6 +1,7 @@
 """PDF AcroForm filler using pypdf."""
 
 import copy
+import re
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -191,9 +192,92 @@ def fill_pdf(
     for page in writer.pages:
         writer.update_page_form_field_values(page, updates, auto_regenerate=flatten)
 
+    # Fix auto-size fields: pypdf uses field height as font size instead of
+    # calculating a size that fits the text width.  We rewrite the appearance
+    # stream for any field whose original /DA had font size 0.
+    if flatten:
+        _fix_autosize_fields(writer, updates)
+
     output = BytesIO()
     writer.write(output)
     return output.getvalue()
+
+
+# Average character width as fraction of font size for Helvetica.
+# Helvetica averages ~0.52 of the font size per character; we use a slightly
+# wider estimate to leave a small margin.
+_HELV_AVG_WIDTH_RATIO = 0.55
+_PADDING = 4  # 2px each side
+
+
+def _fix_autosize_fields(writer: PdfWriter, updates: dict):
+    """Rewrite appearance streams for fields whose template DA had font size 0."""
+    for page in writer.pages:
+        annots = page.get("/Annots", [])
+        for annot_ref in annots:
+            annot = annot_ref.get_object()
+            field_name = annot.get("/T")
+            if not field_name or field_name not in updates:
+                continue
+
+            # Check if this field's DA specifies auto-size (font size 0)
+            da = annot.get("/DA", "")
+            if not re.search(r"\b0\s+Tf\b", da):
+                continue
+
+            text = updates[field_name]
+            if not text:
+                continue
+
+            # Get field rectangle
+            rect = annot.get("/Rect")
+            if not rect:
+                continue
+            x1, y1, x2, y2 = [float(v) for v in rect]
+            field_width = abs(x2 - x1)
+            field_height = abs(y2 - y1)
+
+            if field_width <= 0 or field_height <= 0:
+                continue
+
+            # Calculate font size that fits: width-constrained then capped by height
+            usable_width = field_width - _PADDING
+            text_len = len(text)
+            if text_len == 0:
+                continue
+
+            size_by_width = usable_width / (text_len * _HELV_AVG_WIDTH_RATIO)
+            max_size = field_height - 2  # small vertical margin
+            font_size = min(size_by_width, max_size)
+            font_size = max(font_size, 4)  # floor at 4pt
+
+            # Rebuild the appearance stream
+            ap = annot.get("/AP")
+            if not ap or "/N" not in ap:
+                continue
+
+            stream_obj = ap["/N"].get_object()
+            try:
+                data = stream_obj.get_data().decode("latin-1")
+            except Exception:
+                continue
+
+            # Replace the Tf operator with our calculated size
+            new_data = re.sub(
+                r"/Helv\s+[\d.]+\s+Tf",
+                f"/Helv {font_size:.2f} Tf",
+                data,
+            )
+
+            # Fix the Td vertical offset to center text
+            y_offset = (field_height - font_size) / 2
+            new_data = re.sub(
+                r"(\d+(?:\.\d+)?)\s+[\d.]+\s+Td",
+                f"2 {y_offset:.1f} Td",
+                new_data,
+            )
+
+            stream_obj.set_data(new_data.encode("latin-1"))
 
 
 def _fill_person_fields(
