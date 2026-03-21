@@ -56,6 +56,8 @@ class MappingRegistry:
         if not self.mappings_dir.exists():
             return
         for path in sorted(self.mappings_dir.glob("*.json")):
+            if ".lookup." in path.name:
+                continue  # Skip lookup data files (e.g. myhandling_fbos.lookup.json)
             with open(path) as f:
                 data = json.load(f)
             mapping_id = path.stem
@@ -71,13 +73,16 @@ class MappingRegistry:
                 self._defaults.append(mapping)
 
     def get_forms_for_airport(self, icao: str) -> list[FormMapping]:
-        """Get all form mappings for an airport (exact match first, then prefix fallback)."""
-        if icao in self._by_icao:
-            return self._by_icao[icao]
+        """Get all form mappings for an airport.
+
+        Combines exact ICAO matches with prefix matches.  Falls back to
+        defaults only when neither exact nor prefix matches exist.
+        """
+        result = list(self._by_icao.get(icao, []))
         for prefix, mappings in self._by_prefix.items():
             if icao.startswith(prefix):
-                return mappings
-        return self._defaults
+                result.extend(mappings)
+        return result if result else self._defaults
 
     def get_form(self, icao: str, form_id: str) -> Optional[FormMapping]:
         """Get a specific form mapping by airport and form ID."""

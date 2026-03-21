@@ -83,8 +83,8 @@ def make_preview_request(
         origin = airport
         destination = "DEST"
 
-    num_crew = min(mapping.max_crew, 2)
-    num_pax = min(mapping.max_passengers, 2)
+    num_crew = max(min(mapping.max_crew, 2), 1)
+    num_pax = max(min(mapping.max_passengers, 2), 1)
 
     crew = [_make_person("Crew", i) for i in range(num_crew)]
     pax = [_make_person("Pax", i) for i in range(num_pax)]
@@ -184,6 +184,7 @@ FORM_AIRPORTS = {
     "gar": "EGKA",
     "gendec_form": "DEST",
     "gendec_icao": "DEST",
+    "myhandling": "LFMD",
 }
 
 # Forms where arrival vs departure changes what appears on the form

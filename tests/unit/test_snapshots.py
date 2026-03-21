@@ -57,7 +57,8 @@ def _extract_fields(form_id: str, doc_bytes: bytes, registry: MappingRegistry) -
         return extract_pdf_fields(doc_bytes)
 
     if ftype == "xlsx":
-        return extract_xlsx_fields(doc_bytes)
+        sheet = mapping.raw.get("sheet", "GAR")
+        return extract_xlsx_fields(doc_bytes, sheet=sheet)
 
     if ftype == "docx":
         tables = extract_docx_tables(doc_bytes)

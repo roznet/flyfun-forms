@@ -83,10 +83,10 @@ class TestMappingRegistry:
         assert forms[0].id == "lsgs"
 
     def test_prefix_fallback(self, registry):
-        """An LF airport not explicitly mapped should fall back to french_customs."""
+        """An LF airport should include french_customs via prefix match."""
         forms = registry.get_forms_for_airport("LFOH")
-        assert len(forms) >= 1
-        assert forms[0].id == "french_customs"
+        form_ids = [f.id for f in forms]
+        assert "french_customs" in form_ids
 
     def test_prefix_fallback_eg(self, registry):
         forms = registry.get_forms_for_airport("EGLL")

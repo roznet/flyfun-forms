@@ -83,7 +83,8 @@ class TestAirports:
         resp = client.get("/airports/LFOH")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["forms"][0]["id"] == "french_customs"
+        form_ids = [f["id"] for f in data["forms"]]
+        assert "french_customs" in form_ids
 
     def test_airport_detail_unknown_gets_default(self, client):
         resp = client.get("/airports/XXXX")
