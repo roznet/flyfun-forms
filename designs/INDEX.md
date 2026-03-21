@@ -10,12 +10,12 @@ Related: flyfun-common, rzflight
 
 ### api
 FastAPI backend: form generation, airport discovery, validation. Stateless — receives flight/people data, returns filled forms, never stores PII.
-Key exports: `/generate`, `/validate`, `/airports`, `/airports/{icao}`
+Key exports: `/generate`, `/validate`, `/airports`, `/airports/{icao}`, `/email-text`
 → Full doc: api.md
 
 ### form-system
-Template + mapping + filler architecture. How forms are discovered, configured via JSON mappings, and filled by pluggable fillers (PDF, DOCX, XLSX). Supports exact ICAO, prefix, and default fallback matching.
-Key exports: `MappingRegistry`, `fill_pdf`, `fill_french_customs`, `fill_docx`, `fill_xlsx`
+Template + mapping + filler architecture. How forms are discovered, configured via JSON mappings, and filled by pluggable fillers (PDF, DOCX, XLSX). Supports exact ICAO, icao_list, prefix, and default fallback matching.
+Key exports: `MappingRegistry`, `FormMapping`, `fill_pdf`, `fill_xlsx`
 → Full doc: form-system.md
 
 ### ios-app
