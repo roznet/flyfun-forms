@@ -27,7 +27,9 @@ final class Flight {
     var departureDateTime: Date {
         guard !departureTimeUTC.isEmpty,
               let (h, m) = parseTime(departureTimeUTC) else { return departureDate }
-        return Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: departureDate) ?? departureDate
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+        return utcCalendar.date(bySettingHour: h, minute: m, second: 0, of: departureDate) ?? departureDate
     }
 
     private func parseTime(_ time: String) -> (Int, Int)? {
@@ -47,4 +49,15 @@ final class Flight {
     var passengerList: [Person] { passengers ?? [] }
 
     init() {}
+
+    /// Create a new flight copying shared properties (aircraft, crew, passengers, nature, etc.)
+    func copyCommon(to newFlight: Flight) {
+        newFlight.aircraft = aircraft
+        newFlight.crew = crew
+        newFlight.passengers = passengers
+        newFlight.nature = nature
+        newFlight.contact = contact
+        newFlight.reasonForVisit = reasonForVisit
+        newFlight.responsiblePerson = responsiblePerson
+    }
 }

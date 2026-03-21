@@ -546,7 +546,7 @@ struct FlightEditView: View {
     private func fetchNotification(icao: String) {
         guard !icao.isEmpty, notifications[icao] == nil else { return }
         Task {
-            let url = URL(string: "https://maps.flyfun.aero/api/notifications/\(icao)")!
+            guard let url = URL(string: "https://maps.flyfun.aero/api/notifications/\(icao)") else { return }
             if let (data, _) = try? await URLSession.shared.data(from: url),
                let info = try? JSONDecoder().decode(NotificationInfo.self, from: data) {
                 notifications[icao] = info
@@ -815,33 +815,21 @@ struct FlightEditView: View {
 
     private func createReturnFlight() {
         let newFlight = Flight()
+        flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.destinationICAO
         newFlight.destinationICAO = flight.originICAO
         newFlight.departureDate = flight.arrivalDate
         newFlight.arrivalDate = flight.arrivalDate
-        newFlight.aircraft = flight.aircraft
-        newFlight.crew = flight.crew
-        newFlight.passengers = flight.passengers
-        newFlight.nature = flight.nature
-        newFlight.contact = flight.contact
-        newFlight.reasonForVisit = flight.reasonForVisit
-        newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
         switchToFlight(newFlight)
     }
 
     private func createNextLeg() {
         let newFlight = Flight()
+        flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.destinationICAO
         newFlight.departureDate = flight.arrivalDate
         newFlight.arrivalDate = flight.arrivalDate
-        newFlight.aircraft = flight.aircraft
-        newFlight.crew = flight.crew
-        newFlight.passengers = flight.passengers
-        newFlight.nature = flight.nature
-        newFlight.contact = flight.contact
-        newFlight.reasonForVisit = flight.reasonForVisit
-        newFlight.responsiblePerson = flight.responsiblePerson
         newFlight.trip = flight.trip
         newFlight.legOrder = flight.legOrder + 1
         modelContext.insert(newFlight)
@@ -850,20 +838,14 @@ struct FlightEditView: View {
 
     private func duplicateFlight() {
         let newFlight = Flight()
+        flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.originICAO
         newFlight.destinationICAO = flight.destinationICAO
         newFlight.departureDate = flight.departureDate
         newFlight.departureTimeUTC = flight.departureTimeUTC
         newFlight.arrivalDate = flight.arrivalDate
         newFlight.arrivalTimeUTC = flight.arrivalTimeUTC
-        newFlight.aircraft = flight.aircraft
-        newFlight.crew = flight.crew
-        newFlight.passengers = flight.passengers
-        newFlight.nature = flight.nature
-        newFlight.contact = flight.contact
         newFlight.observations = flight.observations
-        newFlight.reasonForVisit = flight.reasonForVisit
-        newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
         switchToFlight(newFlight)
     }
@@ -871,24 +853,23 @@ struct FlightEditView: View {
 
 // MARK: - Email helpers
 
+private let _emailDateFmt: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    f.locale = Locale(identifier: "en_US_POSIX")
+    return f
+}()
+
 private func emailSubject(formInfo: FormInfo, flight: Flight) -> String {
     let reg = flight.aircraft?.registration ?? ""
-    let date = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: flight.departureDate)
-    }()
+    let date = _emailDateFmt.string(from: flight.departureDate)
     let airport = flight.destinationICAO
     return "\(formInfo.label) - \(airport) - \(date) - \(reg)"
 }
 
 private func emailBody(formInfo: FormInfo, flight: Flight) -> String {
     let reg = flight.aircraft?.registration ?? ""
-    let date = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: flight.departureDate)
-    }()
+    let date = _emailDateFmt.string(from: flight.departureDate)
     return "Please find attached the \(formInfo.label) for flight \(flight.originICAO) \u{2192} \(flight.destinationICAO) on \(date), aircraft \(reg)."
 }
 

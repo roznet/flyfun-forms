@@ -34,13 +34,14 @@ async def lifespan(app: FastAPI):
             ensure_dev_user(session)
         finally:
             session.close()
-    if not is_dev_mode() and os.environ.get("JWT_SECRET") in (None, "", "change-me-in-production"):
-        raise RuntimeError("JWT_SECRET must be set to a secure value in production")
     logger.info("FlightForms API started (env=%s)", os.environ.get("ENVIRONMENT", "development"))
     yield
 
 
 def create_app() -> FastAPI:
+    if not is_dev_mode() and os.environ.get("JWT_SECRET") in (None, "", "change-me-in-production"):
+        raise RuntimeError("JWT_SECRET must be set to a secure value in production")
+
     app = FastAPI(
         title="FlightForms API",
         version="0.1.0",

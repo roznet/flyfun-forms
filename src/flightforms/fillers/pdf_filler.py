@@ -120,7 +120,14 @@ def fill_pdf(
     # Add extra fields
     if request.extra_fields:
         for key, val in request.extra_fields.items():
-            values[f"extra.{key}"] = val
+            if isinstance(val, dict):
+                # Person-type extra: flatten sub-fields (e.g. extra.responsible_person.name)
+                for sub_key, sub_val in val.items():
+                    values[f"extra.{key}.{sub_key}"] = sub_val
+                # Also store the name as the top-level value for simple text fields
+                values[f"extra.{key}"] = val.get("name", "")
+            else:
+                values[f"extra.{key}"] = val
 
     # Process connecting flight
     if request.connecting_flight:
@@ -244,11 +251,7 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
             # sensible default (Acrobat auto-size typically picks ~12pt for
             # standard form fields, never larger than the box allows).
             usable_width = field_width - _PADDING
-            text_len = len(text)
-            if text_len == 0:
-                continue
-
-            size_by_width = usable_width / (text_len * _HELV_AVG_WIDTH_RATIO)
+            size_by_width = usable_width / (len(text) * _HELV_AVG_WIDTH_RATIO)
             max_size = min(field_height - 2, 12)  # cap at 12pt
             font_size = min(size_by_width, max_size)
             font_size = max(font_size, 4)  # floor at 4pt
@@ -264,19 +267,21 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
             except Exception:
                 continue
 
-            # Replace the Tf operator with our calculated size
+            # Replace the Tf operator with our calculated size (first occurrence only)
             new_data = re.sub(
                 r"/Helv\s+[\d.]+\s+Tf",
                 f"/Helv {font_size:.2f} Tf",
                 data,
+                count=1,
             )
 
-            # Fix the Td vertical offset to center text
+            # Fix the Td vertical offset to center text (first occurrence only)
             y_offset = (field_height - font_size) / 2
             new_data = re.sub(
                 r"(\d+(?:\.\d+)?)\s+[\d.]+\s+Td",
                 f"2 {y_offset:.1f} Td",
                 new_data,
+                count=1,
             )
 
             stream_obj.set_data(new_data.encode("latin-1"))

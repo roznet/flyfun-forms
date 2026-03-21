@@ -39,7 +39,7 @@
     "LFMH": {"to": ["bsi42-ppf@douane.finances.gouv.fr"]},
     "LFMK": {"to": ["bsi-carcassonne@douane.finances.gouv.fr"], "cc": ["div-aude@douane.finances.gouv.fr"]},
     "LFMP": {"to": ["bsi-perpignan@douane.finances.gouv.fr"], "cc": ["operations.perpignan@aeroports-laregion.fr"]},
-    "LFMT": {"to": ["bse-frejorgues@douane.finance.gouv.fr"]},
+    "LFMT": {"to": ["bse-frejorgues@douane.finances.gouv.fr"]},
     "LFOH": {"to": ["bsep-le-havre@douane.finances.gouv.fr"], "cc": ["codt-lille@douane.finances.gouv.fr", "operations@lehavre.aeroport.fr"]},
     "LFOK": {"to": ["codt-metz@douane.finances.gouv.fr"]},
     "LFOV": {"to": ["preavis-vols-douane-le-mans@douane.finances.gouv.fr"], "cc": ["codt-idf@douane.finances.gouv.fr"]},

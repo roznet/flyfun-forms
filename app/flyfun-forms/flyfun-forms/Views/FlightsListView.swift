@@ -9,22 +9,20 @@ struct FlightsListView: View {
     @State private var showPastFlights = false
 
     private var sortedFlights: [Flight] {
-        flights.sorted { a, b in
-            let dateA = a.departureDateTime
-            let dateB = b.departureDateTime
-            return dateA > dateB
-        }
+        flights.sorted { $0.departureDateTime > $1.departureDateTime }
     }
 
-    private var upcomingFlights: [Flight] {
+    private var splitFlights: (upcoming: [Flight], past: [Flight]) {
         let startOfToday = Calendar.current.startOfDay(for: Date())
-        return sortedFlights.filter { $0.departureDate >= startOfToday }
+        let sorted = sortedFlights
+        return (
+            upcoming: sorted.filter { $0.departureDate >= startOfToday },
+            past: sorted.filter { $0.departureDate < startOfToday }
+        )
     }
 
-    private var pastFlights: [Flight] {
-        let startOfToday = Calendar.current.startOfDay(for: Date())
-        return sortedFlights.filter { $0.departureDate < startOfToday }
-    }
+    private var upcomingFlights: [Flight] { splitFlights.upcoming }
+    private var pastFlights: [Flight] { splitFlights.past }
 
     var body: some View {
         List {

@@ -6,7 +6,7 @@ struct ServerValidationError: Codable, Identifiable {
     var error: String
     var value: String?
 
-    var id: String { field }
+    var id: String { "\(field):\(error)" }
 
     /// Human-readable field label, e.g. "crew[0].id_number" → "Crew 1 — ID Number"
     var displayField: String {
@@ -95,10 +95,20 @@ struct FormService {
 
     // Fetches form details for an airport
     func airportDetail(icao: String) async throws -> AirportDetailResponse {
-        let url = baseURL.appendingPathComponent("airports/\(icao)")
+        let url = baseURL.appendingPathComponent("airports").appendingPathComponent(icao)
         var request = URLRequest(url: url)
         applyAuth(&request)
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw FormError.networkError(URLError(.badServerResponse))
+        }
+        if httpResponse.statusCode == 401 {
+            throw FormError.unauthorized
+        }
+        guard httpResponse.statusCode == 200 else {
+            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw FormError.serverError(httpResponse.statusCode, message)
+        }
         return try JSONDecoder().decode(AirportDetailResponse.self, from: data)
     }
 
@@ -160,8 +170,15 @@ struct FormService {
         applyAuth(&urlRequest)
 
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw FormError.networkError(URLError(.badServerResponse))
+        }
+        if httpResponse.statusCode == 401 {
+            throw FormError.unauthorized
+        }
+        guard httpResponse.statusCode == 200 else {
+            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw FormError.serverError(httpResponse.statusCode, message)
         }
         return try JSONDecoder().decode(EmailTextResponse.self, from: data)
     }

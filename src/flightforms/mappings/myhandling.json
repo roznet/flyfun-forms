@@ -28,7 +28,7 @@
   "max_crew": 99,
   "max_passengers": 99,
   "has_connecting_flight": true,
-  "date_format": "DD/MM/YYYY",
+  "date_format": "%d/%m/%Y",
   "time_format": "HH:MM",
   "extra_fields": [],
   "required_fields": {

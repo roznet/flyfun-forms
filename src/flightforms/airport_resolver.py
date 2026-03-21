@@ -62,7 +62,7 @@ class AirportResolver:
                 storage = DatabaseStorage(self._db_path)
                 self._model = storage.load_model()
             except Exception:
-                self._model = False  # mark as failed, don't retry
+                self._model = False  # permanent failure (missing db/module)
 
     def get_name(self, icao: str) -> str:
         """Get airport name, or return ICAO code if not found."""

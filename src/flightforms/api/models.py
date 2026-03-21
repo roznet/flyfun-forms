@@ -6,6 +6,27 @@ from pydantic import BaseModel, field_validator
 from typing import Optional, Union
 
 _ICAO_RE = re.compile(r"^[A-Z]{4}$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^\d{2}:\d{2}$")
+
+
+def _validate_icao(v: str) -> str:
+    v = v.upper()
+    if not _ICAO_RE.match(v):
+        raise ValueError("Invalid ICAO code")
+    return v
+
+
+def _validate_date(v: str) -> str:
+    if not _DATE_RE.match(v):
+        raise ValueError("Date must be YYYY-MM-DD")
+    return v
+
+
+def _validate_time(v: str) -> str:
+    if not _TIME_RE.match(v):
+        raise ValueError("Time must be HH:MM")
+    return v
 
 
 class FlightData(BaseModel):
@@ -17,6 +38,16 @@ class FlightData(BaseModel):
     arrival_time_utc: str  # HH:MM
     nature: str = "private"
     contact: Optional[str] = None
+
+    @field_validator("departure_date", "arrival_date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        return _validate_date(v)
+
+    @field_validator("departure_time_utc", "arrival_time_utc")
+    @classmethod
+    def validate_time(cls, v: str) -> str:
+        return _validate_time(v)
 
 
 class AircraftData(BaseModel):
@@ -51,6 +82,16 @@ class ConnectingFlightData(BaseModel):
     arrival_date: str
     arrival_time_utc: str
 
+    @field_validator("departure_date", "arrival_date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        return _validate_date(v)
+
+    @field_validator("departure_time_utc", "arrival_time_utc")
+    @classmethod
+    def validate_time(cls, v: str) -> str:
+        return _validate_time(v)
+
 
 class GenerateRequest(BaseModel):
     airport: str
@@ -58,11 +99,8 @@ class GenerateRequest(BaseModel):
 
     @field_validator("airport")
     @classmethod
-    def validate_icao(cls, v: str) -> str:
-        v = v.upper()
-        if not _ICAO_RE.match(v):
-            raise ValueError("Invalid ICAO code")
-        return v
+    def validate_airport(cls, v: str) -> str:
+        return _validate_icao(v)
 
     flight: FlightData
     aircraft: AircraftData
@@ -137,17 +175,19 @@ class EmailTextRequest(BaseModel):
 
     @field_validator("airport")
     @classmethod
-    def validate_icao(cls, v: str) -> str:
-        v = v.upper()
-        if not _ICAO_RE.match(v):
-            raise ValueError("Invalid ICAO code")
-        return v
+    def validate_airport(cls, v: str) -> str:
+        return _validate_icao(v)
 
     origin: str
     destination: str
     departure_date: str  # YYYY-MM-DD
     registration: str
     aircraft_type: Optional[str] = None
+
+    @field_validator("departure_date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        return _validate_date(v)
 
 
 class EmailTextResponse(BaseModel):

@@ -11,7 +11,7 @@ from ..api.models import GenerateRequest
 from ..registry import FormMapping
 
 
-def _parse_date(date_str: str, fmt: str) -> datetime:
+def _parse_date(date_str: str) -> datetime:
     """Parse ISO date string and return a datetime for Excel native date cells."""
     return datetime.strptime(date_str, "%Y-%m-%d")
 
@@ -29,7 +29,9 @@ def _load_fbo_lookup(mapping: FormMapping) -> dict[str, str]:
     if not fbo_file:
         return {}
     mappings_dir = Path(__file__).parent.parent / "mappings"
-    path = mappings_dir / fbo_file
+    path = (mappings_dir / fbo_file).resolve()
+    if not path.is_relative_to(mappings_dir.resolve()):
+        raise ValueError("Invalid fbo_lookup path")
     if not path.exists():
         return {}
     with open(path) as f:
@@ -63,10 +65,10 @@ def fill_xlsx(
     header_values = {
         "direction": direction_text,
         "arrival_icao": request.flight.destination,
-        "arrival_date": _parse_date(request.flight.arrival_date, date_fmt),
+        "arrival_date": _parse_date(request.flight.arrival_date),
         "arrival_time": _format_time(request.flight.arrival_time_utc, time_fmt),
         "departure_icao": request.flight.origin,
-        "departure_date": _parse_date(request.flight.departure_date, date_fmt),
+        "departure_date": _parse_date(request.flight.departure_date),
         "departure_time": _format_time(request.flight.departure_time_utc, time_fmt),
         "owner": request.aircraft.owner or "",
         "contact": request.flight.contact or "",
@@ -124,7 +126,7 @@ def fill_xlsx(
 
         # Build values for the arrival (main flight) side
         values = {
-            "arrival_date": _parse_date(request.flight.arrival_date, date_fmt),
+            "arrival_date": _parse_date(request.flight.arrival_date),
             "arrival_time": _format_time(request.flight.arrival_time_utc, time_fmt),
             "registration": request.aircraft.registration,
             "aircraft_type": request.aircraft.type,
@@ -151,7 +153,7 @@ def fill_xlsx(
                 request.flight.nature,
             )
             values.update({
-                "departure_date": _parse_date(cf.departure_date, date_fmt),
+                "departure_date": _parse_date(cf.departure_date),
                 "departure_time": _format_time(cf.departure_time_utc, time_fmt),
                 "departure_flight_number": "",
                 "departure_flight_type": dep_flight_type,
@@ -180,10 +182,10 @@ def _fill_person_row(ws, row: int, columns: dict, person, date_fmt: str):
         "last_name": person.last_name,
         "first_name": person.first_name,
         "sex": person.sex or "",
-        "dob": _parse_date(person.dob, date_fmt) if person.dob else "",
+        "dob": _parse_date(person.dob) if person.dob else "",
         "place_of_birth": person.place_of_birth or "",
         "nationality": person.nationality or "",
-        "id_expiry": _parse_date(person.id_expiry, date_fmt) if person.id_expiry else "",
+        "id_expiry": _parse_date(person.id_expiry) if person.id_expiry else "",
         "address": "",
     }
 
