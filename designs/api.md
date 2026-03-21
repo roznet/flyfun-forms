@@ -131,4 +131,3 @@ AppBase.metadata.create_all(get_engine())
 - [flyfun-common db](../../flyfun-common/designs/db.md) — UserRow, ApiTokenRow, shared DB
 - [Form system](./form-system.md) — template/mapping/filler architecture
 - [iOS app](./ios-app.md) — native client
-- Brainstorm: `designs/flight_forms_brainstorm.md` (detailed notes, template inventory)

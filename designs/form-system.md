@@ -246,4 +246,3 @@ After adding a new form via the `add-form` skill:
 ## References
 
 - [API](./api.md) — endpoint that drives form generation
-- Brainstorm: `designs/flight_forms_brainstorm.md` — detailed GAR XLSX cell layout, template inventory

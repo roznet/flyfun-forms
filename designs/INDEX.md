@@ -36,6 +36,3 @@ Multilingual support for the iOS/macOS app — English (base), French, German, S
 CSV format documentation for bulk importing crew and passengers. Covers required/optional columns, data formats, deduplication, and behaviour.
 → Full doc: people_import.md
 
-### flight_forms_brainstorm
-Original brainstorm and detailed reference notes. Contains GAR XLSX cell layout, template inventory, and implementation status. Not a structured design doc — use for detailed lookup.
-→ Full doc: flight_forms_brainstorm.md
