@@ -24,8 +24,6 @@ struct FlightEditView: View {
     @State private var validationErrors: [ServerValidationError] = []
     @State private var showingValidationErrors = false
     @State private var shareFileURL: URL?
-    @State private var emailFileURL: URL?
-    @State private var emailFormInfo: FormInfo?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
@@ -74,28 +72,13 @@ struct FlightEditView: View {
                 ActivityView(activityItems: [url])
             }
         }
-        .sheet(isPresented: Binding(
-            get: { emailFileURL != nil },
-            set: { if !$0 { emailFileURL = nil; emailFormInfo = nil } }
-        )) {
-            if let url = emailFileURL, let info = emailFormInfo {
-                MailComposeView(
-                    fileURL: url,
-                    formInfo: info,
-                    flight: flight
-                )
-            }
-        }
         #else
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
             set: { if !$0 { shareFileURL = nil } }
         )) {
             if let url = shareFileURL {
-                MacShareView(url: url, formInfo: emailFormInfo, flight: flight) {
-                    shareFileURL = nil
-                    emailFormInfo = nil
-                }
+                MacShareView(url: url, flight: flight) { shareFileURL = nil }
             }
         }
         #endif
@@ -373,6 +356,7 @@ struct FlightEditView: View {
                         } label: {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
+                        .buttonStyle(.borderless)
                         .disabled(isGenerating)
 
                         Spacer()
@@ -388,6 +372,7 @@ struct FlightEditView: View {
                         } label: {
                             Label("Email", systemImage: "envelope")
                         }
+                        .buttonStyle(.borderless)
                         .disabled(isGenerating)
                     }
                 }
@@ -525,20 +510,47 @@ struct FlightEditView: View {
 
     private func generateAndEmail(airport: String, formInfo: FormInfo) async {
         if let url = await generateForm(airport: airport, form: formInfo.id) {
-            emailFormInfo = formInfo
             #if os(iOS)
-            if MFMailComposeViewController.canSendMail() {
-                emailFileURL = url
-            } else {
-                // No mail account configured — fall back to share sheet
-                shareFileURL = url
-            }
+            presentMailCompose(url: url, formInfo: formInfo)
             #else
-            // On macOS, open email directly via NSSharingService
             sendEmailDirectly(url: url, formInfo: formInfo)
             #endif
         }
     }
+
+    #if os(iOS)
+    private func presentMailCompose(url: URL, formInfo: FormInfo) {
+        guard MFMailComposeViewController.canSendMail() else {
+            // No mail account — fall back to share sheet
+            shareFileURL = url
+            return
+        }
+        let vc = MFMailComposeViewController()
+
+        let toList = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
+        if !toList.isEmpty { vc.setToRecipients(toList) }
+        let ccList = formInfo.email?.cc ?? []
+        if !ccList.isEmpty { vc.setCcRecipients(ccList) }
+
+        vc.setSubject(emailSubject(formInfo: formInfo, flight: flight))
+        vc.setMessageBody(emailBody(formInfo: formInfo, flight: flight), isHTML: false)
+
+        if let data = try? Data(contentsOf: url) {
+            vc.addAttachmentData(data, mimeType: mimeType(for: url), fileName: url.lastPathComponent)
+        }
+
+        // Present via UIKit directly — no SwiftUI sheet
+        let delegate = MailDismissDelegate()
+        vc.mailComposeDelegate = delegate
+        objc_setAssociatedObject(vc, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
+
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.keyWindow?.rootViewController else { return }
+        var topVC = rootVC
+        while let presented = topVC.presentedViewController { topVC = presented }
+        topVC.present(vc, animated: true)
+    }
+    #endif
 
     #if os(macOS)
     private func sendEmailDirectly(url: URL, formInfo: FormInfo) {
@@ -741,49 +753,13 @@ struct ActivityView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
-// MARK: - Mail Compose
+// MARK: - Mail Compose Delegate
 
-struct MailComposeView: UIViewControllerRepresentable {
-    let fileURL: URL
-    let formInfo: FormInfo
-    let flight: Flight
-    @Environment(\.dismiss) private var dismiss
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(dismiss: dismiss)
-    }
-
-    func makeUIViewController(context: Context) -> MFMailComposeViewController {
-        let vc = MFMailComposeViewController()
-        vc.mailComposeDelegate = context.coordinator
-
-        // Recipients
-        let toList = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
-        if !toList.isEmpty { vc.setToRecipients(toList) }
-        let ccList = formInfo.email?.cc ?? []
-        if !ccList.isEmpty { vc.setCcRecipients(ccList) }
-
-        // Subject & body
-        vc.setSubject(emailSubject(formInfo: formInfo, flight: flight))
-        vc.setMessageBody(emailBody(formInfo: formInfo, flight: flight), isHTML: false)
-
-        // Attachment
-        if let data = try? Data(contentsOf: fileURL) {
-            vc.addAttachmentData(data, mimeType: mimeType(for: fileURL), fileName: fileURL.lastPathComponent)
-        }
-
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
-
-    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
-        let dismiss: DismissAction
-        init(dismiss: DismissAction) { self.dismiss = dismiss }
-
-        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-            dismiss()
-        }
+/// Delegate that dismisses the MFMailComposeViewController when the user finishes.
+/// Retained via objc_setAssociatedObject on the presented VC.
+class MailDismissDelegate: NSObject, MFMailComposeViewControllerDelegate {
+    func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+        controller.dismiss(animated: true)
     }
 }
 #else
@@ -791,7 +767,6 @@ struct MailComposeView: UIViewControllerRepresentable {
 
 struct MacShareView: View {
     let url: URL
-    var formInfo: FormInfo?
     var flight: Flight?
     let onDismiss: () -> Void
 
@@ -831,13 +806,6 @@ struct MacShareView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    sendEmail()
-                } label: {
-                    Label("Email", systemImage: "envelope")
-                }
-                .buttonStyle(.plain)
-
                 Section("Share") {
                     ForEach(sharingServices, id: \.title) { service in
                         Button {
@@ -861,21 +829,6 @@ struct MacShareView: View {
 
     private var sharingServices: [NSSharingService] {
         NSSharingService.sharingServices(forItems: [url])
-    }
-
-    private func sendEmail() {
-        guard let service = NSSharingService(named: .composeEmail) else {
-            // Fallback: open the file (user can email manually)
-            NSWorkspace.shared.open(url)
-            onDismiss()
-            return
-        }
-        if let info = formInfo, let fl = flight {
-            service.recipients = info.email?.to ?? (info.sendTo.map { [$0] } ?? [])
-            service.subject = emailSubject(formInfo: info, flight: fl)
-        }
-        service.perform(withItems: [url])
-        onDismiss()
     }
 
     private func saveToFile() {
