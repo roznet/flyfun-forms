@@ -11,6 +11,7 @@ Enable adding new airport forms **without code changes** — just drop a templat
 ```
 src/flightforms/
 ├── registry.py              # MappingRegistry: discovers and loads configs
+├── preview.py               # Dummy data builder + field extractors for testing
 ├── fillers/
 │   ├── pdf_filler.py        # pypdf AcroForm field filling
 │   ├── french_customs_filler.py  # French customs PDF (special layout)
@@ -21,7 +22,7 @@ src/flightforms/
 │   ├── french_customs.pdf
 │   ├── gendec_icao.pdf
 │   ├── gendec_form.pdf
-│   ├── lfqa_customs.docx
+│   ├── lfqa_customs_form.pdf
 │   └── gar_template.xlsx
 └── mappings/                # JSON mapping configs
     ├── lsgs.json
@@ -29,6 +30,8 @@ src/flightforms/
     ├── gendec_icao.json
     ├── gendec_form.json     # Default form for unmatched airports
     ├── lfqa.json
+    ├── lfqb.json            # Shares template with lfqa
+    ├── lfgj.json            # Shares template with lfqa
     └── gar.json
 ```
 
@@ -95,7 +98,11 @@ Used in `field_map` to map data to template fields. The PDF filler (`pdf_filler.
 
 **Derived:** `origin.country`, `destination.country`, `remote.country`, `airport.name`, `passengers.count`, `passengers.embarking`, `passengers.disembarking`, `routing.departure_place`, `routing.arrival_place`
 
-**Checkboxes:** `direction.inbound`, `direction.outbound`, `flight.nature.<value>` (e.g., `flight.nature.private`), `aircraft.airplane`, `aircraft.helicopter`
+**Direction-aware:** `flight.date`, `flight.time` (resolve to arrival or departure based on direction), `arrival.date`, `arrival.time`, `arrival.registration`, `arrival.type`, `arrival.owner`, `arrival.nature` (only filled when arriving), `departure.*` (same, only filled when departing), `airport.icao` (the form's target airport)
+
+**Direction marks:** `direction.inbound`, `direction.outbound` (checkboxes), `direction.arrival_mark`, `direction.departure_mark` (text "X" marks)
+
+**Checkboxes:** `flight.nature.<value>` (e.g., `flight.nature.private`), `aircraft.airplane`, `aircraft.helicopter`
 
 **Person arrays** (use `{i}` for 0-based, `{n}` for 1-based index): `crew[{i}].full_name`, `crew[{i}].first_name`, `crew[{i}].last_name`, `crew[{i}].function`, `crew[{i}].dob`, `crew[{i}].nationality`, `crew[{i}].id_number`, `crew[{i}].id_type`, `crew[{i}].id_issuing_country`, `crew[{i}].id_expiry`, `crew[{i}].sex`, `crew[{i}].place_of_birth` (same for `passengers[{i}]`)
 
@@ -149,7 +156,9 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 |------------|-------|--------|-------|
 | `lsgs` | LSGS (Sion, CH) | PDF AcroForm | Immigration Information |
 | `french_customs` | LF* (France) | PDF AcroForm (french) | Préavis Douane |
-| `lfqa` | LFQA (Reims) | DOCX | Customs Declaration |
+| `lfqa` | LFQA (Reims Prunay) | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `lfqb` | LFQB | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `lfgj` | LFGJ | PDF AcroForm | Préavis Douane (CODT Metz) |
 | `gar` | EG* (UK) | XLSX | General Aviation Report |
 | `gendec_form` | Default (all others) | PDF AcroForm | General Declaration |
 | `gendec_icao` | — (no scope, manually selectable) | PDF AcroForm | ICAO General Declaration |
@@ -168,6 +177,49 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 - **XLSX header_map targets value cells, not label cells:** In templates like GAR, labels are in columns A/C/E/G and values go in the adjacent columns B/D/F/H. The `header_map` must reference the **value** cells (e.g., `B3` not `A3`).
 - **Timezone handling:** Some forms want local time, others UTC. The mapping's `time_zone` + `time_reference` fields control conversion. If `time_reference` is `"utc"` (default), times stay UTC.
 - **Field naming conventions:** Canonical names use dot notation (`aircraft.registration`, `crew[{i}].last_name`). Array patterns use `{i}` (0-based) and `{n}` (1-based) for PDF field name resolution.
+
+## Testing Strategy
+
+Field mapping correctness is verified through a **visual check once, then automated snapshots lock it in** approach.
+
+### Preview CLI
+
+`flightforms preview` generates every form with self-describing dummy data (`CrewLast1`, `PaxFirst2`, `AcReg`, etc.) — no API server needed. Each value encodes its canonical field name so you can visually verify placement at a glance.
+
+- Both directions generated for direction-aware forms (arrival + departure)
+- `--form <id>` to preview a single form, `--output-dir` to choose output location
+
+### Python snapshot tests (`tests/unit/test_snapshots.py`)
+
+For each form × direction:
+1. Generate with the same dummy data as preview
+2. Extract field values from the output (PDF AcroForm fields, XLSX cells, DOCX table cells)
+3. Compare against golden JSON in `tests/snapshots/`
+
+Any change to a mapping, template, or filler that moves a value to a different field fails the test. Update after intentional changes: `pytest --snapshot-update` (after visual verification).
+
+### Swift payload snapshot test
+
+A test in `APITypesTests` encodes a full `GenerateRequest` with all fields populated and compares against `Snapshots/generate_request.json`. Proves the Swift model produces a stable JSON payload shape.
+
+### End-to-end coverage
+
+```
+Swift model → JSON payload (Swift snapshot guards this)
+                  ↓
+          API receives JSON
+                  ↓
+    Filler puts values in form fields (Python snapshots guard this)
+```
+
+### Adding a new form to the test suite
+
+After adding a new form via the `add-form` skill:
+1. Add the form's airport to `FORM_AIRPORTS` in `src/flightforms/preview.py`
+2. Add the form ID to `DIRECTION_AWARE_FORMS` if it has direction-dependent fields
+3. Run `flightforms preview --form <id>` to visually verify both directions
+4. Run `pytest --snapshot-update` to generate golden snapshots
+5. Run `pytest tests/unit/test_snapshots.py` to confirm they pass
 
 ## References
 

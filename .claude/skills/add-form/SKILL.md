@@ -73,13 +73,37 @@ Map PDF fields to canonical names using these conventions. Not all fields need t
 | `routing.departure_place` | Resolved name of origin airport |
 | `routing.arrival_place` | Resolved name of destination airport |
 | `airport.name` | Resolved name of the form's target airport |
+| `airport.icao` | The form's target airport ICAO code |
 
-### Direction checkboxes
+### Direction-aware fields (fill only one side)
+
+For forms with separate arrival/departure sections, use these — they only produce values for the matching direction:
 
 | Canonical name | Description |
 |---|---|
-| `direction.inbound` | Checked when airport is destination |
-| `direction.outbound` | Checked when airport is origin |
+| `flight.date` | Arrival date if arriving, departure date if departing |
+| `flight.time` | Arrival time if arriving, departure time if departing |
+| `arrival.date` | Arrival date (only filled when direction is arrival) |
+| `arrival.time` | Arrival time (only filled when arriving) |
+| `arrival.registration` | Aircraft registration (only filled when arriving) |
+| `arrival.type` | Aircraft type (only filled when arriving) |
+| `arrival.owner` | Aircraft owner (only filled when arriving) |
+| `arrival.nature` | Flight nature (only filled when arriving) |
+| `departure.date` | Departure date (only filled when departing) |
+| `departure.time` | Departure time (only filled when departing) |
+| `departure.registration` | Aircraft registration (only filled when departing) |
+| `departure.type` | Aircraft type (only filled when departing) |
+| `departure.owner` | Aircraft owner (only filled when departing) |
+| `departure.nature` | Flight nature (only filled when departing) |
+
+### Direction checkboxes and marks
+
+| Canonical name | Description |
+|---|---|
+| `direction.inbound` | Checkbox: checked when airport is destination |
+| `direction.outbound` | Checkbox: checked when airport is origin |
+| `direction.arrival_mark` | Text "X" when arriving, empty when departing |
+| `direction.departure_mark` | Text "X" when departing, empty when arriving |
 
 ### Nature enum checkboxes
 
@@ -131,10 +155,10 @@ Same patterns apply with `passengers[{i}]` prefix.
 
 ### Filler types
 
-- `pdf_acroform` — standard PDF AcroForm filler (most common, used for LSGS, ICAO GenDec)
+- `pdf_acroform` — standard PDF AcroForm filler (most common, used for LSGS, LFQA, ICAO GenDec)
 - `pdf_acroform_french` — French customs-specific filler with combined crew/pax list and local time conversion
 - `xlsx` — Excel filler (used for GAR)
-- `docx` — Word document filler (used for LFQA)
+- `docx` — Word document filler (legacy, not used for new forms)
 
 For new PDF templates, use `pdf_acroform` unless there's a special reason not to.
 
@@ -238,10 +262,48 @@ python3 -m pytest tests/ -x -q -k "not flatten"
 
 If any tests fail due to the new default/prefix mapping changing behavior (e.g., previously-unknown airports now returning forms), update the tests accordingly.
 
-## Step 7 — Report
+## Step 7 — Add to snapshot test suite
+
+Register the new form for preview and snapshot testing:
+
+1. **Add to `FORM_AIRPORTS`** in `src/flightforms/preview.py`:
+   ```python
+   FORM_AIRPORTS = {
+       ...
+       "<form_id>": "<target_icao>",
+   }
+   ```
+
+2. **Add to `DIRECTION_AWARE_FORMS`** in `src/flightforms/preview.py` if the form has direction-dependent fields (arrival/departure checkboxes, direction marks, or `arrival.*`/`departure.*` fields):
+   ```python
+   DIRECTION_AWARE_FORMS = {..., "<form_id>"}
+   ```
+
+3. **Generate preview files** for visual verification:
+   ```bash
+   python -m flightforms.cli preview --form <form_id> --output-dir /tmp/preview
+   open /tmp/preview/preview_<form_id>*.pdf
+   ```
+
+4. **Ask the user to visually verify** the previews. Each field value is self-describing (e.g., `CrewLast1`, `AcReg`, `OriginCountry`) so they can confirm data lands in the right spot. For direction-aware forms, both arrival and departure variants are generated.
+
+5. **Generate golden snapshots** once the user confirms:
+   ```bash
+   python -m pytest tests/unit/test_snapshots.py --snapshot-update -v
+   ```
+
+6. **Verify snapshots pass:**
+   ```bash
+   python -m pytest tests/unit/test_snapshots.py -v
+   ```
+
+From now on, any mapping or template change that moves a value will fail the snapshot test until explicitly re-approved.
+
+## Step 8 — Report
 
 Tell the user:
 - The template was added at `src/flightforms/templates/<form_id>.pdf`
 - The mapping was created at `src/flightforms/mappings/<form_id>.json`
 - Which airports/prefixes it applies to
+- Snapshot tests were generated and are passing
 - Remind them to run `/deploy` when ready to push to production

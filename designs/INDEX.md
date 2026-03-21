@@ -24,8 +24,8 @@ Key exports: `AppState`, `FormService`, `DocumentResolver`, Person/TravelDocumen
 → Full doc: ios-app.md
 
 ### cli
-Command-line client for batch form generation from CSV files. Uses API tokens for auth.
-Key exports: `cli.py` (generate, trip, airports commands)
+Command-line client for batch form generation from CSV files. Uses API tokens for auth. Includes `preview` command for generating forms with self-describing dummy data for visual verification.
+Key exports: `cli.py` (generate, trip, preview, airports commands)
 → Full doc: cli.md
 
 ### localisation

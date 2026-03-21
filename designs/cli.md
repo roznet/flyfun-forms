@@ -15,6 +15,7 @@ Single file: `src/flightforms/cli.py` using stdlib only (urllib, csv, argparse).
 - **`generate`** — Generate a single form for one flight
 - **`trip`** — Generate all applicable forms for a multi-leg trip
 - **`airports`** — List available airports/forms or show details for a specific ICAO
+- **`preview`** — Generate all forms with self-describing dummy data for visual verification (runs locally, no API server needed)
 
 ### Auth
 
