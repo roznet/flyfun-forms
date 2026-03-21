@@ -144,7 +144,7 @@ def fill_pdf(
 
     for canonical, pdf_field in field_map.items():
         # Skip person array fields (handled below)
-        if "[{i}]" in canonical:
+        if "[" in canonical and "]" in canonical:
             continue
 
         # Handle direction text marks (direction.arrival_mark / direction.departure_mark)
@@ -185,7 +185,10 @@ def fill_pdf(
             updates[pdf_field] = values[canonical]
 
     # Fill crew array fields
-    person_fields = {k: v for k, v in field_map.items() if "[{i}]" in k}
+    # Supports two patterns:
+    #   - "crew[{i}].field": "PDFField{n}"  (generic, {i}/{n} resolved per index)
+    #   - "crew[2].field": "PDFFieldExact"  (literal index for irregular templates)
+    person_fields = {k: v for k, v in field_map.items() if "[" in k and "]" in k}
     crew_fields = {k: v for k, v in person_fields.items() if k.startswith("crew[")}
     pax_fields = {k: v for k, v in person_fields.items() if k.startswith("passengers[")}
 
@@ -311,9 +314,18 @@ def _fill_person_fields(
         "place_of_birth": person.place_of_birth or "",
     }
 
-    for canonical_pattern, pdf_pattern in field_patterns.items():
+    for canonical_pattern, pdf_field_name in field_patterns.items():
         # Extract the field name after the last dot
         field_name = canonical_pattern.split(".")[-1]
-        if field_name in person_values:
-            pdf_field = _resolve_field_pattern(pdf_pattern, index)
+        if field_name not in person_values:
+            continue
+
+        if "[{i}]" in canonical_pattern:
+            # Generic pattern: resolve {i}/{n} placeholders
+            pdf_field = _resolve_field_pattern(pdf_field_name, index)
             updates[pdf_field] = person_values[field_name]
+        else:
+            # Literal index: "passengers[2].field" → only fill for that index
+            bracket_content = canonical_pattern.split("[")[1].split("]")[0]
+            if bracket_content.isdigit() and int(bracket_content) == index:
+                updates[pdf_field_name] = person_values[field_name]
