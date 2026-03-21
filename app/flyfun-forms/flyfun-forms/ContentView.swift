@@ -101,10 +101,26 @@ struct WideContentView: View {
     }
 }
 
+// MARK: - Email Language
+
+enum EmailLanguage: String, CaseIterable, Identifiable {
+    case english, local, both
+    var id: String { rawValue }
+
+    var label: LocalizedStringResource {
+        switch self {
+        case .english: "English"
+        case .local: "Local Language"
+        case .both: "Both (Local + English)"
+        }
+    }
+}
+
 // MARK: - Settings
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @AppStorage("emailLanguage") private var emailLanguage: String = EmailLanguage.local.rawValue
 
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
@@ -114,6 +130,14 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Email") {
+                Picker("Language", selection: $emailLanguage) {
+                    ForEach(EmailLanguage.allCases) { lang in
+                        Text(lang.label).tag(lang.rawValue)
+                    }
+                }
+            }
+
             Section {
                 Button("Sign Out", role: .destructive) {
                     appState.logout()

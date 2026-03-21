@@ -112,6 +112,38 @@ enum ExtraFieldValue: Codable {
     }
 }
 
+// MARK: - Email Text (POST /email-text)
+
+struct EmailTextRequest: Codable {
+    var airport: String
+    var form: String
+    var origin: String
+    var destination: String
+    var departureDate: String
+    var registration: String
+    var aircraftType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case airport, form, origin, destination, registration
+        case departureDate = "departure_date"
+        case aircraftType = "aircraft_type"
+    }
+}
+
+struct EmailTextResponse: Codable {
+    var subjectEn: String
+    var bodyEn: String
+    var subjectLocal: String
+    var bodyLocal: String
+
+    enum CodingKeys: String, CodingKey {
+        case subjectEn = "subject_en"
+        case bodyEn = "body_en"
+        case subjectLocal = "subject_local"
+        case bodyLocal = "body_local"
+    }
+}
+
 // MARK: - Generate Request (POST /generate)
 
 struct GenerateRequest: Codable {

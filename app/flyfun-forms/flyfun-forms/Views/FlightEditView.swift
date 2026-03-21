@@ -26,6 +26,7 @@ struct FlightEditView: View {
     @State private var shareFileURL: URL?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var notifications: [String: NotificationInfo] = [:]
+    @AppStorage("emailLanguage") private var emailLanguage: String = EmailLanguage.local.rawValue
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
     @State private var scheduleExpanded = true
@@ -602,19 +603,56 @@ struct FlightEditView: View {
     }
 
     private func generateAndEmail(airport: String, formInfo: FormInfo) async {
-        if let url = await generateForm(airport: airport, form: formInfo.id) {
-            #if os(iOS)
-            presentMailCompose(url: url, formInfo: formInfo)
-            stopGenerating()
-            #else
-            sendEmailDirectly(url: url, formInfo: formInfo)
-            stopGenerating()
-            #endif
+        // Fetch email text from server in parallel with form generation
+        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        let emailReq = EmailTextRequest(
+            airport: airport,
+            form: formInfo.id,
+            origin: flight.originICAO,
+            destination: flight.destinationICAO,
+            departureDate: dateFmt.string(from: flight.departureDate),
+            registration: flight.aircraft?.registration ?? "",
+            aircraftType: flight.aircraft?.type
+        )
+
+        async let formResult = generateForm(airport: airport, form: formInfo.id)
+        async let emailResult: EmailTextResponse? = {
+            try? await formService.emailText(request: emailReq)
+        }()
+
+        guard let url = await formResult else { return }
+        let emailText = await emailResult
+
+        let pref = EmailLanguage(rawValue: emailLanguage) ?? .local
+        let subject: String
+        let body: String
+
+        if let et = emailText {
+            subject = et.subjectLocal  // subject is language-neutral (codes + dates)
+            switch pref {
+            case .english:
+                body = et.bodyEn
+            case .local:
+                body = et.bodyLocal
+            case .both:
+                body = et.bodyLocal + "\n\n---\n\n" + et.bodyEn
+            }
+        } else {
+            subject = emailSubject(formInfo: formInfo, flight: flight)
+            body = emailBody(formInfo: formInfo, flight: flight)
         }
+
+        #if os(iOS)
+        presentMailCompose(url: url, formInfo: formInfo, subject: subject, body: body)
+        stopGenerating()
+        #else
+        sendEmailDirectly(url: url, formInfo: formInfo, subject: subject, body: body)
+        stopGenerating()
+        #endif
     }
 
     #if os(iOS)
-    private func presentMailCompose(url: URL, formInfo: FormInfo) {
+    private func presentMailCompose(url: URL, formInfo: FormInfo, subject: String, body: String) {
         guard MFMailComposeViewController.canSendMail() else {
             // No mail account — fall back to share sheet
             shareFileURL = url
@@ -627,8 +665,8 @@ struct FlightEditView: View {
         let ccList = formInfo.email?.cc ?? []
         if !ccList.isEmpty { vc.setCcRecipients(ccList) }
 
-        vc.setSubject(emailSubject(formInfo: formInfo, flight: flight))
-        vc.setMessageBody(emailBody(formInfo: formInfo, flight: flight), isHTML: false)
+        vc.setSubject(subject)
+        vc.setMessageBody(body, isHTML: false)
 
         if let data = try? Data(contentsOf: url) {
             vc.addAttachmentData(data, mimeType: mimeType(for: url), fileName: url.lastPathComponent)
@@ -648,16 +686,16 @@ struct FlightEditView: View {
     #endif
 
     #if os(macOS)
-    private func sendEmailDirectly(url: URL, formInfo: FormInfo) {
+    private func sendEmailDirectly(url: URL, formInfo: FormInfo, subject: String, body: String) {
         guard let service = NSSharingService(named: .composeEmail) else {
             // No email service — fall back to share sheet
             shareFileURL = url
             return
         }
         service.recipients = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
-        service.subject = emailSubject(formInfo: formInfo, flight: flight)
+        service.subject = subject
         service.perform(withItems: [
-            emailBody(formInfo: formInfo, flight: flight),
+            body,
             url,
         ])
     }

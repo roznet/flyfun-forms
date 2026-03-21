@@ -30,6 +30,21 @@ PREFIX_COUNTRIES = {
 }
 
 
+# Country code to primary language for email templates
+COUNTRY_LANGUAGES = {
+    "FR": "fr", "DE": "de", "AT": "de", "CH": "de",
+    "BE": "fr", "LU": "fr",
+    "NL": "nl", "ES": "es", "IT": "it", "PT": "pt",
+}
+
+# Prefix-level fallback for language when country code is unavailable
+_PREFIX_LANGUAGES = {
+    "LF": "fr", "ED": "de", "LS": "de", "LO": "de",
+    "EB": "fr", "EL": "fr",
+    "EH": "nl", "LE": "es", "LI": "it", "LP": "pt",
+}
+
+
 class AirportResolver:
     """Resolves airport ICAO codes to names and countries."""
 
@@ -82,3 +97,14 @@ class AirportResolver:
             if airport and airport.iso_country:
                 return airport.iso_country
         return ""
+
+    def get_language_code(self, icao: str) -> str:
+        """Get primary language code for an airport's country.
+
+        Returns empty string for English-speaking countries.
+        """
+        cc = self.get_country_code(icao)
+        if cc:
+            return COUNTRY_LANGUAGES.get(cc, "")
+        # Fallback to ICAO prefix
+        return _PREFIX_LANGUAGES.get(icao[:2], "")

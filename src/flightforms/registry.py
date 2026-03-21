@@ -33,10 +33,70 @@ class FormMapping:
         self.checkbox_on = data.get("checkbox_on", "/Yes")
         self.checkbox_off = data.get("checkbox_off", "/Off")
         self.email_overrides: dict = data.get("email_overrides", {})
+        self.email_templates: dict = data.get("email_templates", {})
 
     @property
     def required_fields(self) -> dict:
         return self.raw.get("required_fields", {})
+
+
+DEFAULT_EMAIL_TEMPLATES = {
+    "en": {
+        "subject": "{form_label} - {airport} - {date} - {registration}",
+        "body": (
+            "Dear Sir or Madam,\n\n"
+            "Please find attached the {form_label} for the following flight:\n\n"
+            "  Route: {origin} \u2192 {destination}\n"
+            "  Date: {date}\n"
+            "  Aircraft: {registration}\n\n"
+            "Kind regards"
+        ),
+    },
+    "fr": {
+        "subject": "{form_label} - {airport} - {date} - {registration}",
+        "body": (
+            "Bonjour,\n\n"
+            "Veuillez trouver ci-joint le {form_label} pour le vol suivant :\n\n"
+            "  Trajet : {origin} \u2192 {destination}\n"
+            "  Date : {date}\n"
+            "  A\u00e9ronef : {registration}\n\n"
+            "Cordialement"
+        ),
+    },
+    "de": {
+        "subject": "{form_label} - {airport} - {date} - {registration}",
+        "body": (
+            "Sehr geehrte Damen und Herren,\n\n"
+            "anbei finden Sie das {form_label} f\u00fcr folgenden Flug:\n\n"
+            "  Strecke: {origin} \u2192 {destination}\n"
+            "  Datum: {date}\n"
+            "  Luftfahrzeug: {registration}\n\n"
+            "Mit freundlichen Gr\u00fc\u00dfen"
+        ),
+    },
+    "es": {
+        "subject": "{form_label} - {airport} - {date} - {registration}",
+        "body": (
+            "Estimado/a,\n\n"
+            "Adjunto el {form_label} para el siguiente vuelo:\n\n"
+            "  Ruta: {origin} \u2192 {destination}\n"
+            "  Fecha: {date}\n"
+            "  Aeronave: {registration}\n\n"
+            "Un cordial saludo"
+        ),
+    },
+    "it": {
+        "subject": "{form_label} - {airport} - {date} - {registration}",
+        "body": (
+            "Gentilissimi,\n\n"
+            "in allegato il {form_label} per il seguente volo:\n\n"
+            "  Rotta: {origin} \u2192 {destination}\n"
+            "  Data: {date}\n"
+            "  Aeromobile: {registration}\n\n"
+            "Cordiali saluti"
+        ),
+    },
+}
 
 
 class MappingRegistry:
@@ -109,3 +169,14 @@ class MappingRegistry:
     def all_defaults(self) -> list[FormMapping]:
         """Return all default (catch-all) mappings."""
         return list(self._defaults)
+
+    def get_email_template(self, mapping: FormMapping, lang: str) -> dict[str, str]:
+        """Return {"subject": ..., "body": ...} for the given language.
+
+        Priority: mapping-specific -> global default -> English fallback.
+        """
+        if lang in mapping.email_templates:
+            return mapping.email_templates[lang]
+        if lang in DEFAULT_EMAIL_TEMPLATES:
+            return DEFAULT_EMAIL_TEMPLATES[lang]
+        return mapping.email_templates.get("en", DEFAULT_EMAIL_TEMPLATES["en"])

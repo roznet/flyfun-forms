@@ -190,3 +190,62 @@ class TestGenerate:
         body["aircraft"]["registration"] = ""
         resp = client.post("/generate", json=body)
         assert resp.status_code == 422
+
+
+# ── Email text endpoint ──────────────────────────────────────────────────────
+
+class TestEmailText:
+    def _body(self, airport="LOWS", form="gendec_form", **overrides):
+        base = {
+            "airport": airport,
+            "form": form,
+            "origin": "LFQA",
+            "destination": airport,
+            "departure_date": "2026-03-21",
+            "registration": "N122DR",
+        }
+        base.update(overrides)
+        return base
+
+    def test_default_english(self, client):
+        resp = client.post("/email-text", json=self._body())
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "N122DR" in data["subject_en"]
+        assert "General Declaration" in data["subject_en"]
+        assert "LFQA" in data["body_en"]
+        assert "LOWS" in data["body_en"]
+
+    def test_local_german_for_austria(self, client):
+        resp = client.post("/email-text", json=self._body(airport="LOWS"))
+        data = resp.json()
+        # Local should be German for Austrian airport
+        assert "Flug" in data["body_local"] or "Luftfahrzeug" in data["body_local"]
+        # English should still be English
+        assert "attached" in data["body_en"]
+
+    def test_local_french_for_lfqa(self, client):
+        resp = client.post("/email-text", json=self._body(
+            airport="LFQA", form="lfqa", destination="LFQA",
+        ))
+        data = resp.json()
+        assert "vol" in data["body_local"] or "a\u00e9ronef" in data["body_local"]
+
+    def test_english_country_matches(self, client):
+        """English-speaking airports should have local == English."""
+        resp = client.post("/email-text", json=self._body(
+            airport="EGKA", form="gar", destination="EGKA",
+        ))
+        data = resp.json()
+        assert data["subject_local"] == data["subject_en"]
+        assert data["body_local"] == data["body_en"]
+
+    def test_unknown_form_404(self, client):
+        resp = client.post("/email-text", json=self._body(form="nonexistent"))
+        assert resp.status_code == 404
+
+    def test_date_formatted(self, client):
+        resp = client.post("/email-text", json=self._body())
+        data = resp.json()
+        # gendec_form uses %d/%m/%Y format
+        assert "21/03/2026" in data["subject_en"]

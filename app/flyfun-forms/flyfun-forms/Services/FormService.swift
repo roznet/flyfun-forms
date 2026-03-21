@@ -151,6 +151,21 @@ struct FormService {
         return (data, filename)
     }
 
+    func emailText(request: EmailTextRequest) async throws -> EmailTextResponse {
+        let url = baseURL.appendingPathComponent("email-text")
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(request)
+        applyAuth(&urlRequest)
+
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw FormError.networkError(URLError(.badServerResponse))
+        }
+        return try JSONDecoder().decode(EmailTextResponse.self, from: data)
+    }
+
     private func applyAuth(_ request: inout URLRequest) {
         if let jwt {
             request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")

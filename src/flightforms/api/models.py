@@ -129,3 +129,29 @@ class AirportsResponse(BaseModel):
     airports: list[AirportInfo]
     prefixes: list[PrefixInfo]
     defaults: list[DefaultFormInfo] = []
+
+
+class EmailTextRequest(BaseModel):
+    airport: str
+    form: str
+
+    @field_validator("airport")
+    @classmethod
+    def validate_icao(cls, v: str) -> str:
+        v = v.upper()
+        if not _ICAO_RE.match(v):
+            raise ValueError("Invalid ICAO code")
+        return v
+
+    origin: str
+    destination: str
+    departure_date: str  # YYYY-MM-DD
+    registration: str
+    aircraft_type: Optional[str] = None
+
+
+class EmailTextResponse(BaseModel):
+    subject_en: str
+    body_en: str
+    subject_local: str
+    body_local: str
