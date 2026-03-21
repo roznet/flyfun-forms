@@ -5,7 +5,7 @@ import MessageUI
 #endif
 
 struct FlightEditView: View {
-    @Bindable var flight: Flight
+    @State var flight: Flight
     @Query(sort: \Aircraft.registration) private var allAircraft: [Aircraft]
     @Query(sort: \Person.lastName) private var allPeople: [Person]
     @Environment(\.airportCatalog) private var catalog
@@ -344,6 +344,11 @@ struct FlightEditView: View {
                 createReturnFlight()
             } label: {
                 Label("Create Return Flight", systemImage: "arrow.uturn.left")
+            }
+            Button {
+                createNextLeg()
+            } label: {
+                Label("Create Next Leg", systemImage: "arrow.right")
             }
             Button {
                 duplicateFlight()
@@ -734,6 +739,14 @@ struct FlightEditView: View {
 
     @Environment(\.modelContext) private var modelContext
 
+    private func switchToFlight(_ newFlight: Flight) {
+        // Reset cached state for the new flight
+        formDetails = [:]
+        notifications = [:]
+        extraFieldValues = [:]
+        flight = newFlight
+    }
+
     private func createReturnFlight() {
         let newFlight = Flight()
         newFlight.originICAO = flight.destinationICAO
@@ -748,6 +761,25 @@ struct FlightEditView: View {
         newFlight.reasonForVisit = flight.reasonForVisit
         newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
+        switchToFlight(newFlight)
+    }
+
+    private func createNextLeg() {
+        let newFlight = Flight()
+        newFlight.originICAO = flight.destinationICAO
+        newFlight.departureDate = flight.arrivalDate
+        newFlight.arrivalDate = flight.arrivalDate
+        newFlight.aircraft = flight.aircraft
+        newFlight.crew = flight.crew
+        newFlight.passengers = flight.passengers
+        newFlight.nature = flight.nature
+        newFlight.contact = flight.contact
+        newFlight.reasonForVisit = flight.reasonForVisit
+        newFlight.responsiblePerson = flight.responsiblePerson
+        newFlight.trip = flight.trip
+        newFlight.legOrder = flight.legOrder + 1
+        modelContext.insert(newFlight)
+        switchToFlight(newFlight)
     }
 
     private func duplicateFlight() {
@@ -767,6 +799,7 @@ struct FlightEditView: View {
         newFlight.reasonForVisit = flight.reasonForVisit
         newFlight.responsiblePerson = flight.responsiblePerson
         modelContext.insert(newFlight)
+        switchToFlight(newFlight)
     }
 }
 
