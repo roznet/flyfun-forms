@@ -534,11 +534,27 @@ struct FlightEditView: View {
                 shareFileURL = url
             }
             #else
-            // On macOS, reuse the share sheet which now includes email
-            shareFileURL = url
+            // On macOS, open email directly via NSSharingService
+            sendEmailDirectly(url: url, formInfo: formInfo)
             #endif
         }
     }
+
+    #if os(macOS)
+    private func sendEmailDirectly(url: URL, formInfo: FormInfo) {
+        guard let service = NSSharingService(named: .composeEmail) else {
+            // No email service — fall back to share sheet
+            shareFileURL = url
+            return
+        }
+        service.recipients = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
+        service.subject = emailSubject(formInfo: formInfo, flight: flight)
+        service.perform(withItems: [
+            emailBody(formInfo: formInfo, flight: flight),
+            url,
+        ])
+    }
+    #endif
 
     private func buildRequest(airport: String, form: String) -> GenerateRequest {
         // Derive contact name from responsible person
