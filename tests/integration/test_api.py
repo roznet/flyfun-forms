@@ -15,10 +15,12 @@ from tests.conftest import (
 
 
 class _NoOpSession:
-    """Minimal stand-in for SQLAlchemy Session — just swallows add/commit."""
+    """Minimal stand-in for SQLAlchemy Session — just swallows add/commit/flush."""
     def add(self, obj):
         pass
     def commit(self):
+        pass
+    def flush(self):
         pass
     def close(self):
         pass
