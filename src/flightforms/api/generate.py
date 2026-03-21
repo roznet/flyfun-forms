@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from ..airport_resolver import AirportResolver
+from flyfun_common.costs import record_cost
 from flyfun_common.db import current_user_id, get_db
 
 from ..db.models import Usage
@@ -87,6 +88,13 @@ def generate_form(
         airport_icao=request.airport,
         form_id=request.form,
     ))
+    record_cost(
+        db, user_id,
+        service="flyfun-forms",
+        action="generate",
+        cost=0.01,
+        metadata={"airport": request.airport, "form": request.form},
+    )
 
     # Response
     ext = EXTENSIONS.get(mapping.filler_type, "bin")
