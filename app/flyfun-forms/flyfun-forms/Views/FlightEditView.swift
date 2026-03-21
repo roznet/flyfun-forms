@@ -66,7 +66,7 @@ struct FlightEditView: View {
         #if os(iOS)
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
-            set: { if !$0 { shareFileURL = nil } }
+            set: { if !$0 { shareFileURL = nil; stopGenerating() } }
         )) {
             if let url = shareFileURL {
                 ActivityView(activityItems: [url])
@@ -75,10 +75,10 @@ struct FlightEditView: View {
         #else
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
-            set: { if !$0 { shareFileURL = nil } }
+            set: { if !$0 { shareFileURL = nil; stopGenerating() } }
         )) {
             if let url = shareFileURL {
-                MacShareView(url: url, flight: flight) { shareFileURL = nil }
+                MacShareView(url: url, flight: flight) { shareFileURL = nil; stopGenerating() }
             }
         }
         #endif
@@ -480,10 +480,6 @@ struct FlightEditView: View {
     private func generateForm(airport: String, form: String) async -> URL? {
         isGenerating = true
         generatingForm = "\(airport)_\(form)"
-        defer {
-            isGenerating = false
-            generatingForm = nil
-        }
 
         let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
         let request = buildRequest(airport: airport, form: form)
@@ -499,12 +495,21 @@ struct FlightEditView: View {
             errorMessage = error.localizedDescription
             showingError = true
         }
+        // Only clear spinner on error — callers clear on success
+        isGenerating = false
+        generatingForm = nil
         return nil
+    }
+
+    private func stopGenerating() {
+        isGenerating = false
+        generatingForm = nil
     }
 
     private func generateAndShare(airport: String, form: String) async {
         if let url = await generateForm(airport: airport, form: form) {
             shareFileURL = url
+            // Spinner keeps spinning until share sheet dismisses (cleared via onChange)
         }
     }
 
@@ -512,8 +517,10 @@ struct FlightEditView: View {
         if let url = await generateForm(airport: airport, form: formInfo.id) {
             #if os(iOS)
             presentMailCompose(url: url, formInfo: formInfo)
+            stopGenerating()
             #else
             sendEmailDirectly(url: url, formInfo: formInfo)
+            stopGenerating()
             #endif
         }
     }
