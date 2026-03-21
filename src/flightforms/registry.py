@@ -13,6 +13,7 @@ class FormMapping:
         self.id = mapping_id
         self.raw = data
         self.icao: Optional[str] = data.get("icao")
+        self.icao_list: list[str] = data.get("icao_list", [])
         self.icao_prefix: Optional[str] = data.get("icao_prefix")
         self.is_default: bool = data.get("default", False)
         self.template = data["template"]
@@ -61,6 +62,9 @@ class MappingRegistry:
             mapping = FormMapping(data, mapping_id)
             if mapping.icao:
                 self._by_icao.setdefault(mapping.icao, []).append(mapping)
+            elif mapping.icao_list:
+                for icao in mapping.icao_list:
+                    self._by_icao.setdefault(icao, []).append(mapping)
             elif mapping.icao_prefix:
                 self._by_prefix.setdefault(mapping.icao_prefix, []).append(mapping)
             elif mapping.is_default:
