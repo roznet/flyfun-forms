@@ -84,6 +84,11 @@ class ValidateResponse(BaseModel):
     errors: list[ValidationError] = []
 
 
+class EmailConfig(BaseModel):
+    to: list[str] = []
+    cc: list[str] = []
+
+
 class FormInfo(BaseModel):
     id: str
     label: str
@@ -95,6 +100,7 @@ class FormInfo(BaseModel):
     has_connecting_flight: bool
     time_reference: str
     send_to: Optional[str] = None
+    email: Optional[EmailConfig] = None
 
 
 class AirportInfo(BaseModel):

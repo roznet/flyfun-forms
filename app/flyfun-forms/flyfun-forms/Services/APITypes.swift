@@ -31,6 +31,11 @@ struct AirportDetailResponse: Codable {
     var forms: [FormInfo]
 }
 
+struct EmailConfig: Codable {
+    var to: [String]
+    var cc: [String]
+}
+
 struct FormInfo: Codable, Identifiable {
     var id: String
     var label: String
@@ -42,6 +47,7 @@ struct FormInfo: Codable, Identifiable {
     var hasConnectingFlight: Bool
     var timeReference: String
     var sendTo: String?
+    var email: EmailConfig?
 
     enum CodingKeys: String, CodingKey {
         case id, label, version
@@ -52,6 +58,7 @@ struct FormInfo: Codable, Identifiable {
         case hasConnectingFlight = "has_connecting_flight"
         case timeReference = "time_reference"
         case sendTo = "send_to"
+        case email
     }
 }
 

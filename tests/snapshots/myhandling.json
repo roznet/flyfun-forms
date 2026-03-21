@@ -28,9 +28,9 @@
   "L3": "From/TO",
   "L4": "ORIG",
   "M3": "PAX in",
-  "M4": "1",
+  "M4": "2",
   "N3": "Crew in",
-  "N4": "1",
+  "N4": "2",
   "O3": "Bags in Hold (in)",
   "P1": "Departure",
   "P2": "Mandatory: A or (B+C+D)",
@@ -50,7 +50,7 @@
   "X3": "From/TO",
   "X4": "CNXN",
   "Y3": "PAX out",
-  "Y4": "1",
+  "Y4": "2",
   "Z3": "Crew out",
-  "Z4": "1"
+  "Z4": "2"
 }

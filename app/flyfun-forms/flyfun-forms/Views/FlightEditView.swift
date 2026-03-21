@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if os(iOS)
+import MessageUI
+#endif
 
 struct FlightEditView: View {
     @Bindable var flight: Flight
@@ -21,6 +24,8 @@ struct FlightEditView: View {
     @State private var validationErrors: [ServerValidationError] = []
     @State private var showingValidationErrors = false
     @State private var shareFileURL: URL?
+    @State private var emailFileURL: URL?
+    @State private var emailFormInfo: FormInfo?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
@@ -69,13 +74,28 @@ struct FlightEditView: View {
                 ActivityView(activityItems: [url])
             }
         }
+        .sheet(isPresented: Binding(
+            get: { emailFileURL != nil },
+            set: { if !$0 { emailFileURL = nil; emailFormInfo = nil } }
+        )) {
+            if let url = emailFileURL, let info = emailFormInfo {
+                MailComposeView(
+                    fileURL: url,
+                    formInfo: info,
+                    flight: flight
+                )
+            }
+        }
         #else
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
             set: { if !$0 { shareFileURL = nil } }
         )) {
             if let url = shareFileURL {
-                MacShareView(url: url) { shareFileURL = nil }
+                MacShareView(url: url, formInfo: emailFormInfo, flight: flight) {
+                    shareFileURL = nil
+                    emailFormInfo = nil
+                }
             }
         }
         #endif
@@ -347,21 +367,29 @@ struct FlightEditView: View {
                 Section("\(airport) — \(formInfo.label) (\(direction))") {
                     extraFieldsView(airport: airport, formInfo: formInfo)
 
-                    Button {
-                        Task { await generateForm(airport: airport, form: formInfo.id) }
-                    } label: {
-                        HStack {
-                            Label("Generate", systemImage: "doc.text")
-                            Spacer()
-                            if generatingForm == "\(airport)_\(formInfo.id)" {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "arrow.down.circle")
-                                    .foregroundStyle(.blue)
-                            }
+                    HStack {
+                        Button {
+                            Task { await generateAndShare(airport: airport, form: formInfo.id) }
+                        } label: {
+                            Label("Share", systemImage: "square.and.arrow.up")
                         }
+                        .disabled(isGenerating)
+
+                        Spacer()
+
+                        if generatingForm == "\(airport)_\(formInfo.id)" {
+                            ProgressView()
+                        }
+
+                        Spacer()
+
+                        Button {
+                            Task { await generateAndEmail(airport: airport, formInfo: formInfo) }
+                        } label: {
+                            Label("Email", systemImage: "envelope")
+                        }
+                        .disabled(isGenerating)
                     }
-                    .disabled(isGenerating)
                 }
             }
         }
@@ -464,7 +492,7 @@ struct FlightEditView: View {
         }
     }
 
-    private func generateForm(airport: String, form: String) async {
+    private func generateForm(airport: String, form: String) async -> URL? {
         isGenerating = true
         generatingForm = "\(airport)_\(form)"
         defer {
@@ -478,13 +506,37 @@ struct FlightEditView: View {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
             try data.write(to: tempURL)
-            shareFileURL = tempURL
+            return tempURL
         } catch let FormService.FormError.validationErrors(errors) {
             validationErrors = errors
             showingValidationErrors = true
         } catch {
             errorMessage = error.localizedDescription
             showingError = true
+        }
+        return nil
+    }
+
+    private func generateAndShare(airport: String, form: String) async {
+        if let url = await generateForm(airport: airport, form: form) {
+            shareFileURL = url
+        }
+    }
+
+    private func generateAndEmail(airport: String, formInfo: FormInfo) async {
+        if let url = await generateForm(airport: airport, form: formInfo.id) {
+            emailFormInfo = formInfo
+            #if os(iOS)
+            if MFMailComposeViewController.canSendMail() {
+                emailFileURL = url
+            } else {
+                // No mail account configured — fall back to share sheet
+                shareFileURL = url
+            }
+            #else
+            // On macOS, reuse the share sheet which now includes email
+            shareFileURL = url
+            #endif
         }
     }
 
@@ -628,6 +680,38 @@ struct FlightEditView: View {
     }
 }
 
+// MARK: - Email helpers
+
+private func emailSubject(formInfo: FormInfo, flight: Flight) -> String {
+    let reg = flight.aircraft?.registration ?? ""
+    let date = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: flight.departureDate)
+    }()
+    let airport = flight.destinationICAO
+    return "\(formInfo.label) - \(airport) - \(date) - \(reg)"
+}
+
+private func emailBody(formInfo: FormInfo, flight: Flight) -> String {
+    let reg = flight.aircraft?.registration ?? ""
+    let date = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: flight.departureDate)
+    }()
+    return "Please find attached the \(formInfo.label) for flight \(flight.originICAO) \u{2192} \(flight.destinationICAO) on \(date), aircraft \(reg)."
+}
+
+private func mimeType(for url: URL) -> String {
+    switch url.pathExtension.lowercased() {
+    case "pdf": return "application/pdf"
+    case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    default: return "application/octet-stream"
+    }
+}
+
 #if os(iOS)
 // MARK: - Share Sheet
 
@@ -640,11 +724,59 @@ struct ActivityView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
+
+// MARK: - Mail Compose
+
+struct MailComposeView: UIViewControllerRepresentable {
+    let fileURL: URL
+    let formInfo: FormInfo
+    let flight: Flight
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(dismiss: dismiss)
+    }
+
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let vc = MFMailComposeViewController()
+        vc.mailComposeDelegate = context.coordinator
+
+        // Recipients
+        let toList = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
+        if !toList.isEmpty { vc.setToRecipients(toList) }
+        let ccList = formInfo.email?.cc ?? []
+        if !ccList.isEmpty { vc.setCcRecipients(ccList) }
+
+        // Subject & body
+        vc.setSubject(emailSubject(formInfo: formInfo, flight: flight))
+        vc.setMessageBody(emailBody(formInfo: formInfo, flight: flight), isHTML: false)
+
+        // Attachment
+        if let data = try? Data(contentsOf: fileURL) {
+            vc.addAttachmentData(data, mimeType: mimeType(for: fileURL), fileName: fileURL.lastPathComponent)
+        }
+
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let dismiss: DismissAction
+        init(dismiss: DismissAction) { self.dismiss = dismiss }
+
+        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+            dismiss()
+        }
+    }
+}
 #else
 // MARK: - macOS Share View
 
 struct MacShareView: View {
     let url: URL
+    var formInfo: FormInfo?
+    var flight: Flight?
     let onDismiss: () -> Void
 
     var body: some View {
@@ -683,6 +815,13 @@ struct MacShareView: View {
                 }
                 .buttonStyle(.plain)
 
+                Button {
+                    sendEmail()
+                } label: {
+                    Label("Email", systemImage: "envelope")
+                }
+                .buttonStyle(.plain)
+
                 Section("Share") {
                     ForEach(sharingServices, id: \.title) { service in
                         Button {
@@ -706,6 +845,21 @@ struct MacShareView: View {
 
     private var sharingServices: [NSSharingService] {
         NSSharingService.sharingServices(forItems: [url])
+    }
+
+    private func sendEmail() {
+        guard let service = NSSharingService(named: .composeEmail) else {
+            // Fallback: open the file (user can email manually)
+            NSWorkspace.shared.open(url)
+            onDismiss()
+            return
+        }
+        if let info = formInfo, let fl = flight {
+            service.recipients = info.email?.to ?? (info.sendTo.map { [$0] } ?? [])
+            service.subject = emailSubject(formInfo: info, flight: fl)
+        }
+        service.perform(withItems: [url])
+        onDismiss()
     }
 
     private func saveToFile() {

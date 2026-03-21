@@ -32,6 +32,7 @@ class FormMapping:
         self.send_to = data.get("send_to")
         self.checkbox_on = data.get("checkbox_on", "/Yes")
         self.checkbox_off = data.get("checkbox_off", "/Off")
+        self.email_overrides: dict = data.get("email_overrides", {})
 
     @property
     def required_fields(self) -> dict:

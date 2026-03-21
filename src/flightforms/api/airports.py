@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..airport_resolver import PREFIX_COUNTRIES, AirportResolver
 from flyfun_common.db import current_user_id
 from ..registry import MappingRegistry
-from .models import AirportDetail, AirportInfo, AirportsResponse, DefaultFormInfo, FormInfo, PrefixInfo
+from .models import AirportDetail, AirportInfo, AirportsResponse, DefaultFormInfo, EmailConfig, FormInfo, PrefixInfo
 
 _ICAO_RE = re.compile(r"^[A-Z]{4}$")
 
@@ -71,6 +71,18 @@ def get_airport(icao: str, user_id: str = Depends(current_user_id)):
             else:
                 extra.append(ef)
 
+        # Resolve email config: form-level send_to + per-airport overrides
+        email = None
+        to_list = [m.send_to] if m.send_to else []
+        cc_list = []
+        override = m.email_overrides.get(icao, {})
+        if "to" in override:
+            to_list = override["to"] if isinstance(override["to"], list) else [override["to"]]
+        if "cc" in override:
+            cc_list = override["cc"] if isinstance(override["cc"], list) else [override["cc"]]
+        if to_list or cc_list:
+            email = EmailConfig(to=to_list, cc=cc_list)
+
         forms.append(FormInfo(
             id=m.id,
             label=m.label,
@@ -82,6 +94,7 @@ def get_airport(icao: str, user_id: str = Depends(current_user_id)):
             has_connecting_flight=m.has_connecting_flight,
             time_reference=m.time_reference,
             send_to=m.send_to,
+            email=email,
         ))
 
     return AirportDetail(
