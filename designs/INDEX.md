@@ -32,6 +32,10 @@ Key exports: `cli.py` (generate, trip, preview, airports commands)
 Multilingual support for the iOS/macOS app — English (base), French, German, Spanish. Uses Xcode String Catalogs (`.xcstrings`). Documents code changes, what's localised vs not, and remaining steps for Mac.
 → Full doc: localisation.md
 
+### people-import
+CSV format documentation for bulk importing crew and passengers. Covers required/optional columns, data formats, deduplication, and behaviour.
+→ Full doc: people_import.md
+
 ### flight_forms_brainstorm
 Original brainstorm and detailed reference notes. Contains GAR XLSX cell layout, template inventory, and implementation status. Not a structured design doc — use for detailed lookup.
 → Full doc: flight_forms_brainstorm.md

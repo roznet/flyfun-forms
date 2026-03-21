@@ -26,7 +26,7 @@ app/flyfun-forms/flyfun-forms/
 │   ├── AircraftListView.swift
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
-│   ├── FlightEditView.swift      # Flight details + form generation via share sheet
+│   ├── FlightEditView.swift      # Flight details + form generation via share/email
 │   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
 │   ├── SinglePersonPickerView.swift # Searchable single-select person picker
 │   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
@@ -35,7 +35,8 @@ app/flyfun-forms/flyfun-forms/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
     ├── Environment.swift      # APIConfig (base URL, simulator vs device)
     ├── AuthService.swift      # Google OAuth + native Apple Sign-In
-    ├── FormService.swift      # API client for /airports, /generate, /validate; parses 422 into structured errors
+    ├── FormService.swift      # API client for /airports, /generate, /validate, /email-text; parses 422 into structured errors
+    ├── PeopleCSVImporter.swift # CSV parser + SwiftData importer for bulk people entry
     ├── DocumentResolver.swift # Picks best document per person + airport region (active only)
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
     └── APITypes.swift         # Codable request/response models
@@ -71,9 +72,10 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 `FormService` handles all server communication:
 - `GET /airports` — fetches available forms for airport discovery
-- `GET /airports/{icao}` — form details (required fields, extra fields)
+- `GET /airports/{icao}` — form details (required fields, extra fields). Status-checked: 401 triggers re-auth.
 - `POST /generate` — sends flight/people data, receives filled form file
 - `POST /validate` — dry-run validation before generation
+- `POST /email-text` — fetches localized email subject/body for pre-populating mail composer
 
 **Validation error handling:** 422 responses are parsed into `ServerValidationError` structs (field, error, value). `FormError.validationErrors` carries the structured list. `ServerValidationError.displayField` converts API field paths like `crew[0].id_number` into human-readable labels ("Crew 1 — ID Number"). `ValidationErrorsView` presents them in a sheet.
 
@@ -85,7 +87,7 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
-**Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder
+**Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder. `departureDateTime` computed property combines date + UTC time for sorting (uses UTC calendar). `copyCommon(to:)` copies shared properties for flight duplication.
 
 **Trip:** name, createdAt, legs (→ [Flight]), extraFields (JSON-encoded dict for form-specific fields)
 
@@ -116,7 +118,25 @@ On first launch after migration, existing Person flat id fields are converted to
 
 ### Form Export
 
-Generated forms are exported via the native share sheet: `UIActivityViewController` on iOS, a custom `MacShareView` (save to file / copy / Finder reveal) on macOS. Files are written to a temp directory first.
+Two export paths per form: **Share** (generic share sheet) and **Email** (pre-populated mail composer):
+
+- **Share:** `UIActivityViewController` on iOS, custom `MacShareView` (save/copy/Finder reveal) on macOS
+- **Email:** `MFMailComposeViewController` on iOS, `NSSharingService.composeEmail` on macOS. Pre-fills to/cc from `email_overrides` or `send_to` in the mapping, subject/body from `POST /email-text` (with language preference: local, English, or both). Falls back to client-side subject/body if the server call fails.
+
+Email language preference is stored in `@AppStorage("emailLanguage")` with options: `.local`, `.english`, `.both`.
+
+### NOTAM Notifications
+
+`FlightEditView` fetches notification info (NOTAMs, airport notices) from `maps.flyfun.aero` for both origin and destination airports. Displayed as collapsible rows in the Route section with summary + expandable detail.
+
+### Flight Actions
+
+Three flight duplication actions share common property copying via `Flight.copyCommon(to:)`:
+- **Create Return Flight** — swaps origin/destination, sets departure to arrival date
+- **Create Next Leg** — continues from destination, increments `legOrder`, preserves `trip`
+- **Duplicate Flight** — exact copy including times and observations
+
+All three navigate to the new flight immediately via `switchToFlight(_:)`.
 
 ### Responsible Person & Contact Auto-Fill
 
@@ -182,6 +202,12 @@ if appState.isAuthenticated {
 - Human-readable validation error display: **complete**
 - ICAO flight plan paste import (with auto-create aircraft): **complete**
 - Share sheet for form export (iOS + macOS): **complete**
+- Email with pre-populated composer (to/cc/subject/body/attachment): **complete**
+- Localized email text with language preference (local/English/both): **complete**
+- NOTAM notification display in route section: **complete**
+- Collapsible flight detail sections (schedule, details, crew, passengers): **complete**
+- Next Leg / Return Flight / Duplicate with shared property copying: **complete**
+- Past/upcoming flight split with collapsible past section: **complete**
 - Searchable responsible person picker with contact auto-fill: **complete**
 - Contact import from device contacts with fuzzy merge: **complete**
 - Account deletion (App Store guideline 5.1.1(v)): **complete**

@@ -23,15 +23,16 @@ src/flightforms/
 │   ├── gendec_icao.pdf
 │   ├── gendec_form.pdf
 │   ├── lfqa_customs_form.pdf
-│   └── gar_template.xlsx
+│   ├── gar_template.xlsx
+│   └── myhandling_request.xlsx
 └── mappings/                # JSON mapping configs
     ├── lsgs.json
-    ├── french_customs.json
+    ├── french_customs.json    # LF* prefix + 55 airport email_overrides
     ├── gendec_icao.json
-    ├── gendec_form.json     # Default form for unmatched airports
-    ├── lfqa.json
-    ├── lfqb.json            # Shares template with lfqa
-    ├── lfgj.json            # Shares template with lfqa
+    ├── gendec_form.json       # Default form for unmatched airports
+    ├── lfqa.json              # icao_list: LFQA, LFQB, LFGJ
+    ├── myhandling.json        # icao_list: 117 airports across EU
+    ├── myhandling_fbos.lookup.json  # ICAO → FBO ID lookup data
     └── gar.json
 ```
 
@@ -44,11 +45,12 @@ src/flightforms/
 
 ### JSON Mapping Structure
 
-Scope is set by exactly one of `icao`, `icao_prefix`, or `default`:
+Scope is set by exactly one of `icao`, `icao_list`, `icao_prefix`, or `default`:
 
 ```json
 {
-    "icao": "LSGS",              // exact airport match
+    "icao": "LSGS",              // exact single-airport match
+    "icao_list": ["LFQA","LFQB","LFGJ"], // OR explicit list of airports sharing a template
     "icao_prefix": "LF",         // OR country/region prefix match
     "default": true,             // OR catch-all fallback for unmatched airports
     "label": "Immigration Information",
@@ -64,7 +66,11 @@ Scope is set by exactly one of `icao`, `icao_prefix`, or `default`:
     "max_passengers": 20,
     "has_connecting_flight": false,
     "default_observations": "Nothing to declare",
-    "send_to": "email@example.com",
+    "send_to": "email@example.com",  // default email recipient
+    "email_overrides": {             // per-airport email overrides (to/cc)
+        "LFMT": {"to": ["customs@lfmt.example"]},
+        "LFOH": {"to": ["ops@lfoh.example"], "cc": ["cc@example"]}
+    },
     "required_fields": {         // arrays of required field names per section
         "flight": ["origin", "destination", "departure_date"],
         "aircraft": ["registration"],
@@ -80,6 +86,23 @@ Scope is set by exactly one of `icao`, `icao_prefix`, or `default`:
     }
 }
 ```
+
+### XLSX Column Map (myhandling-style forms)
+
+XLSX forms that represent a single flight movement per row use `column_map` instead of `header_map`/`person_columns`:
+
+```json
+{
+    "column_map": {"arrival_date": "A", "registration": "E", "fbo_id": "AC"},
+    "data_start_row": 4,
+    "fbo_lookup": "myhandling_fbos.lookup.json",
+    "flight_type_map": {"private": "2|Private", "commercial": "1|Commercial"}
+}
+```
+
+- `column_map` maps value names to column letters for a single data row
+- `fbo_lookup` references a `.lookup.json` file mapping ICAO → FBO ID (path-traversal validated)
+- `flight_type_map` maps `nature` values to form-specific enum values
 
 ### Fillers
 
@@ -106,7 +129,7 @@ Used in `field_map` to map data to template fields. The PDF filler (`pdf_filler.
 
 **Person arrays** (use `{i}` for 0-based, `{n}` for 1-based index): `crew[{i}].full_name`, `crew[{i}].first_name`, `crew[{i}].last_name`, `crew[{i}].function`, `crew[{i}].dob`, `crew[{i}].nationality`, `crew[{i}].id_number`, `crew[{i}].id_type`, `crew[{i}].id_issuing_country`, `crew[{i}].id_expiry`, `crew[{i}].sex`, `crew[{i}].place_of_birth` (same for `passengers[{i}]`)
 
-**Extra/connecting:** `extra.<key>`, `connecting.origin`, `connecting.destination`, etc.
+**Extra/connecting:** `extra.<key>` (text), `extra.<key>.name`, `extra.<key>.address` (person sub-fields), `connecting.origin`, `connecting.destination`, etc.
 
 ### Direction Derivation
 
@@ -155,10 +178,9 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 | Mapping ID | Scope | Format | Label |
 |------------|-------|--------|-------|
 | `lsgs` | LSGS (Sion, CH) | PDF AcroForm | Immigration Information |
-| `french_customs` | LF* (France) | PDF AcroForm (french) | Préavis Douane |
-| `lfqa` | LFQA (Reims Prunay) | PDF AcroForm | Préavis Douane (CODT Metz) |
-| `lfqb` | LFQB | PDF AcroForm | Préavis Douane (CODT Metz) |
-| `lfgj` | LFGJ | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `french_customs` | LF* (France, 55 airports with email overrides) | PDF AcroForm (french) | Préavis Douane |
+| `lfqa` | LFQA, LFQB, LFGJ (icao_list) | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `myhandling` | 117 airports across EU (icao_list) | XLSX (column_map) | Handling Request (myhandling) |
 | `gar` | EG* (UK) | XLSX | General Aviation Report |
 | `gendec_form` | Default (all others) | PDF AcroForm | General Declaration |
 | `gendec_icao` | — (no scope, manually selectable) | PDF AcroForm | ICAO General Declaration |
@@ -166,7 +188,7 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 ## Key Choices
 
 - **JSON mappings, not code:** New forms don't require Python changes — just template + JSON. This is the core extensibility mechanism.
-- **Three-tier resolution:** Exact ICAO match → prefix match → default fallback. Covers specific airports, country-level forms, and a General Declaration form (`gendec_form`) as the catch-all default. The ICAO GenDec (`gendec_icao`) is available but no longer the default.
+- **Four-tier resolution:** Exact ICAO match → `icao_list` match → prefix match → default fallback. `icao_list` allows multiple airports to share one mapping without duplicating JSON files (e.g., LFQA/LFQB/LFGJ share one CODT Metz form, myhandling covers 117 airports).
 - **Separate fillers per format:** PDF, DOCX, XLSX have fundamentally different filling mechanics. No shared abstraction forced.
 - **Templates bundled in Docker image:** Templates ship with the code. No external template storage needed.
 

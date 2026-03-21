@@ -17,7 +17,8 @@ src/flightforms/
 │   ├── generate.py     # POST /generate — fills and returns form file
 │   ├── validate.py     # POST /validate — dry-run validation
 │   ├── airports.py     # GET /airports, GET /airports/{icao}
-│   └── models.py       # Pydantic request/response schemas
+│   ├── email_text.py   # POST /email-text — localized email subject/body
+│   └── models.py       # Pydantic request/response schemas (with date/time/ICAO validation)
 ├── db/
 │   ├── models.py       # Usage table (app-specific)
 │   ├── engine.py       # Shim → flyfun-common.db
@@ -61,6 +62,9 @@ Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).
 - **Direction derived automatically:** form airport == destination → arrival; form airport == origin → departure
 - **Connecting flight:** optional, for forms at intermediate stops that reference both arrival and departure
 
+### `POST /email-text`
+Returns localized email subject and body text for a form submission. Used by the iOS app to pre-populate the mail composer. Returns both English and local-language versions (based on the airport's country). Templates are defined per-language in `registry.py` (DEFAULT_EMAIL_TEMPLATES) and can be overridden per-mapping.
+
 ### `POST /validate`
 Same body as `/generate`, returns validation errors without generating. Each `ValidationError` includes `field`, `error`, and optional `value` (the submitted value that failed). The 422 response body is `{"detail": [ValidationError, ...]}` — the iOS app parses this into structured UI.
 
@@ -102,7 +106,10 @@ AppBase.metadata.create_all(get_engine())
 - **Stateless form generation:** No server-side storage of flight/people data. Each request is self-contained. This simplifies GDPR compliance and means the server can't leak PII.
 - **Direction derived, not specified:** Avoids user confusion and errors. The server compares the form's airport against origin/destination.
 - **Multiple forms per airport:** An airport can have customs + immigration. Each is a separate form ID.
-- **Exact match over prefix match:** LFQA uses its specific DOCX form; other LF* airports fall back to the generic French customs PDF.
+- **Exact match over prefix match:** LFQA uses its specific PDF form; other LF* airports fall back to the generic French customs PDF.
+- **Localized email templates:** `POST /email-text` returns subject/body in English + local language (fr/de/es/it/nl/pt based on airport country). iOS app lets user choose language preference.
+- **Input validation at boundary:** Date (`YYYY-MM-DD`), time (`HH:MM`), and ICAO format validated by Pydantic validators on request models — malformed values return 422 instead of causing 500s in fillers.
+- **JWT secret fail-fast:** Production JWT secret check runs in `create_app()` before middleware setup, not in async lifespan.
 
 ## Deployment
 
