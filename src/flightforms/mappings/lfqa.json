@@ -1,5 +1,5 @@
 {
-  "icao_list": ["LFQA", "LFQB", "LFGJ"],
+  "icao_list": ["LFQA", "LFQB", "LFGJ", "LFGA", "LFLA", "LFOK", "LFQM", "LFSD", "LFSG", "LFSM", "LFSN"],
   "label": "Préavis Douane (CODT Metz)",
   "template": "lfqa_customs_form.pdf",
   "type": "pdf_acroform",
@@ -8,6 +8,9 @@
   "max_crew": 3,
   "max_passengers": 3,
   "send_to": "codt-metz@douane.finances.gouv.fr",
+  "email_overrides": {
+    "LFSD": {"cc": ["bsi-dijon@douane.finances.gouv.fr"]}
+  },
   "default_observations": "Rien à déclarer",
   "date_format": "%d/%m/%Y",
   "has_connecting_flight": false,
