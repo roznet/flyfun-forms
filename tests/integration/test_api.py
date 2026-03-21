@@ -159,12 +159,12 @@ class TestGenerate:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/pdf"
 
-    def test_generate_lfqa_docx(self, client):
+    def test_generate_lfqa_pdf(self, client):
         resp = client.post("/generate", json=self._body(
             airport="LFQA", form="lfqa", destination="LFQA",
         ))
         assert resp.status_code == 200
-        assert "wordprocessingml" in resp.headers["content-type"]
+        assert resp.headers["content-type"] == "application/pdf"
 
     def test_generate_gar_xlsx(self, client):
         body = self._body(airport="EGKA", form="gar", destination="EGKA")

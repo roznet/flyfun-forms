@@ -1,0 +1,96 @@
+{
+  "aircraft" : {
+    "is_airplane" : true,
+    "owner" : "AcOwner",
+    "owner_address" : "AcOwnerAddr",
+    "registration" : "AcReg",
+    "type" : "AcType",
+    "usual_base" : "ORIG"
+  },
+  "airport" : "EGKA",
+  "connecting_flight" : {
+    "arrival_date" : "2099-02-20",
+    "arrival_time_utc" : "16:30",
+    "departure_date" : "2099-02-20",
+    "departure_time_utc" : "14:00",
+    "destination" : "CNXN",
+    "origin" : "EGKA"
+  },
+  "crew" : [
+    {
+      "address" : "CrewAddr1",
+      "dob" : "2001-01-11",
+      "first_name" : "CrewFirst1",
+      "function" : "CrewFunc1",
+      "id_expiry" : "2031-01-11",
+      "id_issuing_country" : "CrewIdCountry1",
+      "id_number" : "CrewId1",
+      "id_type" : "CrewIdType1",
+      "last_name" : "CrewLast1",
+      "nationality" : "CrewNat1",
+      "place_of_birth" : "CrewPOB1",
+      "sex" : "Male"
+    },
+    {
+      "address" : "CrewAddr2",
+      "dob" : "2002-02-12",
+      "first_name" : "CrewFirst2",
+      "function" : "CrewFunc2",
+      "id_expiry" : "2032-02-12",
+      "id_issuing_country" : "CrewIdCountry2",
+      "id_number" : "CrewId2",
+      "id_type" : "CrewIdType2",
+      "last_name" : "CrewLast2",
+      "nationality" : "CrewNat2",
+      "place_of_birth" : "CrewPOB2",
+      "sex" : "Female"
+    }
+  ],
+  "extra_fields" : {
+    "reason_for_visit" : "Based",
+    "responsible_person" : {
+      "address" : "Extraresponsible_personAddr",
+      "name" : "Extraresponsible_personName"
+    }
+  },
+  "flight" : {
+    "arrival_date" : "2099-01-15",
+    "arrival_time_utc" : "10:45",
+    "contact" : "PreviewContact",
+    "departure_date" : "2099-01-15",
+    "departure_time_utc" : "08:30",
+    "destination" : "EGKA",
+    "nature" : "private",
+    "origin" : "ORIG"
+  },
+  "form" : "gar",
+  "observations" : "PreviewObs",
+  "passengers" : [
+    {
+      "address" : "PaxAddr1",
+      "dob" : "2001-01-11",
+      "first_name" : "PaxFirst1",
+      "id_expiry" : "2031-01-11",
+      "id_issuing_country" : "PaxIdCountry1",
+      "id_number" : "PaxId1",
+      "id_type" : "PaxIdType1",
+      "last_name" : "PaxLast1",
+      "nationality" : "PaxNat1",
+      "place_of_birth" : "PaxPOB1",
+      "sex" : "Male"
+    },
+    {
+      "address" : "PaxAddr2",
+      "dob" : "2002-02-12",
+      "first_name" : "PaxFirst2",
+      "id_expiry" : "2032-02-12",
+      "id_issuing_country" : "PaxIdCountry2",
+      "id_number" : "PaxId2",
+      "id_type" : "PaxIdType2",
+      "last_name" : "PaxLast2",
+      "nationality" : "PaxNat2",
+      "place_of_birth" : "PaxPOB2",
+      "sex" : "Female"
+    }
+  ]
+}

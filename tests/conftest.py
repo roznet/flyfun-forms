@@ -3,6 +3,15 @@
 import pytest
 from pathlib import Path
 
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--snapshot-update",
+        action="store_true",
+        default=False,
+        help="Regenerate snapshot golden files instead of comparing",
+    )
+
 from flightforms.api.models import (
     AircraftData,
     ConnectingFlightData,

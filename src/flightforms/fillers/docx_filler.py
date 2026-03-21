@@ -34,6 +34,35 @@ def _append_after_colon(paragraph, value: str):
         run.font.size = paragraph.runs[0].font.size if paragraph.runs else None
 
 
+def _insert_values_after_colons(paragraph, values: list[str]):
+    """Insert values after each colon-ending run in a multi-label paragraph.
+
+    *values* is matched positionally to each ``:`` in the paragraph.
+    For example a paragraph with labels ``Owner: Registration: Type:``
+    and values ``["AcOwner", "AcReg", "AcType"]`` will insert each
+    value after the corresponding colon run.
+    """
+    from docx.oxml.ns import qn
+    from copy import deepcopy
+
+    # Find runs whose text ends with ":"
+    colon_indices = []
+    for i, run in enumerate(paragraph.runs):
+        if run.text.rstrip().endswith(":"):
+            colon_indices.append(i)
+
+    # Walk backwards so inserting doesn't shift indices
+    for idx, colon_pos in enumerate(reversed(colon_indices)):
+        val_idx = len(colon_indices) - 1 - idx
+        if val_idx >= len(values) or not values[val_idx]:
+            continue
+        ref_run = paragraph.runs[colon_pos]
+        new_el = deepcopy(ref_run._r)
+        new_el.text = f" {values[val_idx]}"
+        # Insert right after the colon run
+        ref_run._r.addnext(new_el)
+
+
 def _fill_flight_details_cell(cell, data: dict, mapping: FormMapping):
     """Fill the flight details in a table 1 cell (arrival or departure side)."""
     for paragraph in cell.paragraphs:
@@ -41,12 +70,13 @@ def _fill_flight_details_cell(cell, data: dict, mapping: FormMapping):
         if "Date" in text and "Heure" in text:
             _append_after_colon(paragraph, f"{data['date']}  {data['time']}")
         elif "Propriétaire" in text or "Owner" in text:
-            parts = []
-            if data.get("owner"):
-                parts.append(data["owner"])
-            parts.append(data["registration"])
-            parts.append(data["aircraft_type"])
-            _append_after_colon(paragraph, "  ".join(parts))
+            # Multi-label paragraph: Owner : Registration: Type: Flight number:
+            _insert_values_after_colons(paragraph, [
+                data.get("owner", ""),
+                data["registration"],
+                data["aircraft_type"],
+                "",  # flight number — not used for GA
+            ])
         elif "Provenance" in text or "Destination" in text:
             airport_text = f"{data['airport']} ({data['airport_name']})"
             _append_after_colon(paragraph, airport_text)

@@ -56,11 +56,18 @@ def fill_pdf(
 
     # Build values dict for simple fields
     observations = request.observations or mapping.default_observations or ""
+
+    # Direction-aware date/time: resolves to arrival or departure based on direction
+    local_date = request.flight.arrival_date if is_arrival else request.flight.departure_date
+    local_time = request.flight.arrival_time_utc if is_arrival else request.flight.departure_time_utc
+
     values = {
         "flight.departure_date": _parse_date(request.flight.departure_date, mapping.date_format),
         "flight.arrival_date": _parse_date(request.flight.arrival_date, mapping.date_format),
         "flight.departure_time_utc": request.flight.departure_time_utc,
         "flight.arrival_time_utc": request.flight.arrival_time_utc,
+        "flight.date": _parse_date(local_date, mapping.date_format),
+        "flight.time": local_time,
         "flight.origin": request.flight.origin,
         "flight.destination": request.flight.destination,
         "flight.remote": remote_icao,
@@ -81,7 +88,33 @@ def fill_pdf(
         "routing.departure_place": airport_resolver.get_name(request.flight.origin),
         "routing.arrival_place": airport_resolver.get_name(request.flight.destination),
         "airport.name": airport_resolver.get_name(request.airport),
+        "airport.icao": request.airport,
+        # Direction-dependent text marks (e.g. "X" on the right side)
+        "direction.arrival_mark": "X" if is_arrival else "",
+        "direction.departure_mark": "X" if not is_arrival else "",
     }
+
+    # Direction-conditional values: arrival.* only filled for arrivals,
+    # departure.* only filled for departures.  Lets forms with separate
+    # arrival/departure sections fill only the relevant side.
+    if is_arrival:
+        values.update({
+            "arrival.date": _parse_date(request.flight.arrival_date, mapping.date_format),
+            "arrival.time": request.flight.arrival_time_utc,
+            "arrival.registration": request.aircraft.registration,
+            "arrival.type": request.aircraft.type,
+            "arrival.owner": request.aircraft.owner or "",
+            "arrival.nature": request.flight.nature,
+        })
+    else:
+        values.update({
+            "departure.date": _parse_date(request.flight.departure_date, mapping.date_format),
+            "departure.time": request.flight.departure_time_utc,
+            "departure.registration": request.aircraft.registration,
+            "departure.type": request.aircraft.type,
+            "departure.owner": request.aircraft.owner or "",
+            "departure.nature": request.flight.nature,
+        })
 
     # Add extra fields
     if request.extra_fields:
@@ -106,7 +139,13 @@ def fill_pdf(
         if "[{i}]" in canonical:
             continue
 
-        # Handle direction checkboxes
+        # Handle direction text marks (direction.arrival_mark / direction.departure_mark)
+        if canonical in ("direction.arrival_mark", "direction.departure_mark"):
+            if canonical in values:
+                updates[pdf_field] = values[canonical]
+            continue
+
+        # Handle direction checkboxes (direction.inbound / direction.outbound)
         if canonical.startswith("direction."):
             check_dir = canonical.split(".")[-1]
             on_val = checkbox_on_values.get(pdf_field, mapping.checkbox_on)

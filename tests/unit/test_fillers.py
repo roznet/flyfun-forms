@@ -1,4 +1,4 @@
-"""Tests for document fillers — PDF, French customs PDF, DOCX, XLSX.
+"""Tests for document fillers — PDF, French customs PDF, XLSX.
 
 Each test generates a real document from the production template and verifies
 the output is valid and contains expected data.
@@ -9,13 +9,11 @@ from pathlib import Path
 
 import pytest
 from pypdf import PdfReader
-from docx import Document
 from openpyxl import load_workbook
 
 from flightforms.api.models import GenerateRequest
 from flightforms.fillers.pdf_filler import fill_pdf, _parse_date, _resolve_field_pattern
 from flightforms.fillers.french_customs_filler import fill_french_customs, _suffix
-from flightforms.fillers.docx_filler import fill_docx
 from flightforms.fillers.xlsx_filler import fill_xlsx
 from flightforms.registry import MappingRegistry
 from tests.conftest import (
@@ -241,9 +239,9 @@ class TestFrenchCustomsFiller:
         assert len(result) > 0
 
 
-# ── DOCX filler (LFQA) ───────────────────────────────────────────────────────
+# ── PDF filler (LFQA customs) ────────────────────────────────────────────────
 
-class TestDocxFiller:
+class TestPdfFillerLFQA:
     @pytest.fixture
     def registry(self):
         return MappingRegistry(str(MAPPINGS_DIR), str(TEMPLATES_DIR))
@@ -252,96 +250,79 @@ class TestDocxFiller:
     def resolver(self):
         return StubAirportResolver()
 
-    def _generate(self, registry, resolver) -> bytes:
+    def _generate(self, registry, resolver, origin="ZZZZ", destination="LFQA") -> bytes:
         mapping = registry.get_form("LFQA", "lfqa")
         request = GenerateRequest(
             airport="LFQA",
             form="lfqa",
-            flight=make_flight(origin="ZZZZ", destination="LFQA"),
+            flight=make_flight(origin=origin, destination=destination),
             aircraft=make_aircraft(),
             crew=[make_pilot()],
             passengers=[make_passenger()],
             observations="Fictional test observation",
         )
-        return fill_docx(
+        return fill_pdf(
             registry.get_template_path(mapping), mapping, request, resolver
         )
 
-    def test_output_is_valid_docx(self, registry, resolver):
-        docx_bytes = self._generate(registry, resolver)
-        doc = Document(BytesIO(docx_bytes))
-        assert len(doc.tables) >= 4
+    def test_output_is_valid_pdf(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        assert len(reader.pages) >= 1
 
     def test_arrival_mark(self, registry, resolver):
-        mapping = registry.get_form("LFQA", "lfqa")
-        request = GenerateRequest(
-            airport="LFQA",
-            form="lfqa",
-            flight=make_flight(origin="ZZZZ", destination="LFQA"),
-            aircraft=make_aircraft(),
-            crew=[make_pilot()],
-        )
-        docx_bytes = fill_docx(
-            registry.get_template_path(mapping), mapping, request, resolver
-        )
-        doc = Document(BytesIO(docx_bytes))
-        # Table 0, row 0: arrival is cell 1, departure is cell 4
-        assert doc.tables[0].rows[0].cells[1].text == "X"
+        pdf_bytes = self._generate(registry, resolver, origin="ZZZZ", destination="LFQA")
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert fields["DEMANDE DARRIVEE"].get("/V") == "X"
+        assert fields["DEMANDE DE DEPART"].get("/V") in ("", None)
 
     def test_departure_mark(self, registry, resolver):
-        mapping = registry.get_form("LFQA", "lfqa")
-        request = GenerateRequest(
-            airport="LFQA",
-            form="lfqa",
-            flight=make_flight(origin="LFQA", destination="ZZZZ"),
-            aircraft=make_aircraft(),
-            crew=[make_pilot()],
-        )
-        docx_bytes = fill_docx(
-            registry.get_template_path(mapping), mapping, request, resolver
-        )
-        doc = Document(BytesIO(docx_bytes))
-        assert doc.tables[0].rows[0].cells[4].text == "X"
+        pdf_bytes = self._generate(registry, resolver, origin="LFQA", destination="ZZZZ")
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert fields["DEMANDE DE DEPART"].get("/V") == "X"
+        assert fields["DEMANDE DARRIVEE"].get("/V") in ("", None)
 
-    def test_crew_table_filled(self, registry, resolver):
-        docx_bytes = self._generate(registry, resolver)
-        doc = Document(BytesIO(docx_bytes))
-        crew_table = doc.tables[2]
-        # Row 2 is the first data row
-        assert crew_table.rows[2].cells[0].text == "Kowalski"
-        assert crew_table.rows[2].cells[1].text == "Zara"
+    def test_arrival_fills_arrival_side_only(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver, origin="ZZZZ", destination="LFQA")
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert "ZZ-TST" in str(fields["ARRIVALAIRCRAFTREG"].get("/V", ""))
+        assert fields.get("DEPARTUREAIRCRAFTREG", {}).get("/V") is None
 
-    def test_passenger_table_filled(self, registry, resolver):
-        docx_bytes = self._generate(registry, resolver)
-        doc = Document(BytesIO(docx_bytes))
-        pax_table = doc.tables[3]
-        assert pax_table.rows[2].cells[0].text == "Petrova"
-        assert pax_table.rows[2].cells[1].text == "Lina"
+    def test_departure_fills_departure_side_only(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver, origin="LFQA", destination="ZZZZ")
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert "ZZ-TST" in str(fields["DEPARTUREAIRCRAFTREG"].get("/V", ""))
+        assert fields.get("ARRIVALAIRCRAFTREG", {}).get("/V") is None
+
+    def test_crew_filled(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert str(fields["NOM NAMERow1"].get("/V", "")) == "Kowalski"
+        assert str(fields["PRENOMRow1"].get("/V", "")) == "Zara"
+
+    def test_passenger_filled(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert str(fields["NOM NAMERow1_2"].get("/V", "")) == "Petrova"
+        assert str(fields["PRENOMRow1_2"].get("/V", "")) == "Lina"
 
     def test_observations_filled(self, registry, resolver):
-        docx_bytes = self._generate(registry, resolver)
-        doc = Document(BytesIO(docx_bytes))
-        obs_text = " ".join(p.text for p in doc.paragraphs)
-        assert "Fictional test observation" in obs_text
+        pdf_bytes = self._generate(registry, resolver)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert str(fields["OBSERVATIONS"].get("/V", "")) == "Fictional test observation"
 
-    def test_multiple_crew_adds_rows(self, registry, resolver):
-        mapping = registry.get_form("LFQA", "lfqa")
-        request = GenerateRequest(
-            airport="LFQA",
-            form="lfqa",
-            flight=make_flight(origin="ZZZZ", destination="LFQA"),
-            aircraft=make_aircraft(),
-            crew=[make_pilot(), make_crew_member()],
-            passengers=[],
-        )
-        docx_bytes = fill_docx(
-            registry.get_template_path(mapping), mapping, request, resolver
-        )
-        doc = Document(BytesIO(docx_bytes))
-        crew_table = doc.tables[2]
-        # Should have at least 4 rows: header + labels + 2 data
-        assert len(crew_table.rows) >= 4
-        assert crew_table.rows[3].cells[0].text == "Bergström"
+    def test_airport_icao_filled(self, registry, resolver):
+        pdf_bytes = self._generate(registry, resolver)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        fields = reader.get_fields() or {}
+        assert str(fields["AIRPORTICAO"].get("/V", "")) == "LFQA"
 
 
 # ── XLSX filler (GAR) ─────────────────────────────────────────────────────────

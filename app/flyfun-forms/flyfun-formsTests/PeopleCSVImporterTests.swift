@@ -305,6 +305,87 @@ struct APITypesTests {
         #expect(detail.forms[0].hasConnectingFlight == false)
     }
 
+    /// Build the same fully-populated request that the Python ``preview`` module
+    /// generates for the GAR form, encode it to JSON and compare against the
+    /// checked-in snapshot.  Any change to the Swift payload model that alters
+    /// the JSON shape will cause this test to fail.
+    @Test("Full GenerateRequest snapshot matches golden JSON")
+    func generateRequestSnapshot() throws {
+        let request = GenerateRequest(
+            airport: "EGKA",
+            form: "gar",
+            flight: FlightPayload(
+                origin: "ORIG", destination: "EGKA",
+                departureDate: "2099-01-15", departureTimeUtc: "08:30",
+                arrivalDate: "2099-01-15", arrivalTimeUtc: "10:45",
+                nature: "private", contact: "PreviewContact"
+            ),
+            aircraft: AircraftPayload(
+                registration: "AcReg", type: "AcType",
+                owner: "AcOwner", ownerAddress: "AcOwnerAddr",
+                isAirplane: true, usualBase: "ORIG"
+            ),
+            crew: [
+                PersonPayload(
+                    function: "CrewFunc1", firstName: "CrewFirst1", lastName: "CrewLast1",
+                    dob: "2001-01-11", nationality: "CrewNat1",
+                    idNumber: "CrewId1", idType: "CrewIdType1",
+                    idIssuingCountry: "CrewIdCountry1", idExpiry: "2031-01-11",
+                    sex: "Male", placeOfBirth: "CrewPOB1", address: "CrewAddr1"
+                ),
+                PersonPayload(
+                    function: "CrewFunc2", firstName: "CrewFirst2", lastName: "CrewLast2",
+                    dob: "2002-02-12", nationality: "CrewNat2",
+                    idNumber: "CrewId2", idType: "CrewIdType2",
+                    idIssuingCountry: "CrewIdCountry2", idExpiry: "2032-02-12",
+                    sex: "Female", placeOfBirth: "CrewPOB2", address: "CrewAddr2"
+                ),
+            ],
+            passengers: [
+                PersonPayload(
+                    firstName: "PaxFirst1", lastName: "PaxLast1",
+                    dob: "2001-01-11", nationality: "PaxNat1",
+                    idNumber: "PaxId1", idType: "PaxIdType1",
+                    idIssuingCountry: "PaxIdCountry1", idExpiry: "2031-01-11",
+                    sex: "Male", placeOfBirth: "PaxPOB1", address: "PaxAddr1"
+                ),
+                PersonPayload(
+                    firstName: "PaxFirst2", lastName: "PaxLast2",
+                    dob: "2002-02-12", nationality: "PaxNat2",
+                    idNumber: "PaxId2", idType: "PaxIdType2",
+                    idIssuingCountry: "PaxIdCountry2", idExpiry: "2032-02-12",
+                    sex: "Female", placeOfBirth: "PaxPOB2", address: "PaxAddr2"
+                ),
+            ],
+            connectingFlight: FlightPayload(
+                origin: "EGKA", destination: "CNXN",
+                departureDate: "2099-02-20", departureTimeUtc: "14:00",
+                arrivalDate: "2099-02-20", arrivalTimeUtc: "16:30"
+            ),
+            extraFields: [
+                "reason_for_visit": .text("Based"),
+                "responsible_person": .person(["name": "Extraresponsible_personName", "address": "Extraresponsible_personAddr"]),
+            ],
+            observations: "PreviewObs"
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(request)
+
+        // Load golden snapshot relative to this test file
+        let testDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let snapshotURL = testDir.appendingPathComponent("Snapshots/generate_request.json")
+        let expectedData = try Data(contentsOf: snapshotURL)
+
+        // Compare as parsed JSON to avoid whitespace differences between
+        // Swift's JSONEncoder and Python's json.dumps
+        let actualObj = try JSONSerialization.jsonObject(with: data) as! NSDictionary
+        let expectedObj = try JSONSerialization.jsonObject(with: expectedData) as! NSDictionary
+
+        #expect(actualObj == expectedObj, "Swift payload JSON does not match snapshot. Update Snapshots/generate_request.json if this is intentional.")
+    }
+
     @Test("PersonPayload encodes all snake_case fields")
     func personPayloadEncoding() throws {
         let person = PersonPayload(

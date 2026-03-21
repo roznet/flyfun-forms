@@ -299,6 +299,52 @@ def cmd_trip(args):
                 print(f"Generated: {out_path}")
 
 
+def cmd_preview(args):
+    from .preview import (
+        DIRECTION_AWARE_FORMS,
+        FILLER_EXTENSIONS,
+        FORM_AIRPORTS,
+        PreviewAirportResolver,
+        _find_mapping_by_id,
+        generate_preview,
+    )
+    from .registry import MappingRegistry
+
+    src_dir = Path(__file__).parent
+    registry = MappingRegistry(str(src_dir / "mappings"), str(src_dir / "templates"))
+    resolver = PreviewAirportResolver()
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determine which forms to preview
+    if args.form:
+        form_ids = [args.form]
+    else:
+        form_ids = list(FORM_AIRPORTS.keys())
+
+    for form_id in form_ids:
+        airport = FORM_AIRPORTS.get(form_id, "ZZZZ")
+        mapping = registry.get_form(airport, form_id)
+        if mapping is None:
+            mapping = _find_mapping_by_id(registry, form_id)
+        if mapping is None:
+            print(f"Skipping unknown form: {form_id}", file=sys.stderr)
+            continue
+
+        ext = FILLER_EXTENSIONS.get(mapping.filler_type, ".bin")
+
+        # Generate both directions for direction-aware forms
+        directions = ["arrival", "departure"] if form_id in DIRECTION_AWARE_FORMS else ["arrival"]
+        for direction in directions:
+            doc_bytes = generate_preview(registry, form_id, resolver, direction=direction)
+            suffix = f"_{direction}" if len(directions) > 1 else ""
+            out_path = output_dir / f"preview_{form_id}{suffix}{ext}"
+            with open(out_path, "wb") as f:
+                f.write(doc_bytes)
+            print(f"Generated: {out_path}")
+
+
 def cmd_airports(args):
     base_url = args.url or DEFAULT_URL
     api_key = args.api_key or os.environ.get("FLIGHTFORMS_API_KEY", "")
@@ -363,6 +409,12 @@ def main():
     trip.add_argument("--extra", nargs="*", help="Extra fields as key=value")
     trip.add_argument("--output-dir", default=".")
     trip.set_defaults(func=cmd_trip)
+
+    # preview command
+    preview = sub.add_parser("preview", help="Generate all forms with self-describing dummy data for visual inspection")
+    preview.add_argument("--output-dir", default=".", help="Output directory (default: current dir)")
+    preview.add_argument("--form", help="Generate only this form ID (default: all forms)")
+    preview.set_defaults(func=cmd_preview)
 
     # airports command
     airports_cmd = sub.add_parser("airports", help="List available airports and forms")

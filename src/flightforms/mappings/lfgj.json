@@ -1,5 +1,5 @@
 {
-  "icao": "LFQA",
+  "icao": "LFGJ",
   "label": "Préavis Douane (CODT Metz)",
   "template": "lfqa_customs_form.pdf",
   "type": "pdf_acroform",
