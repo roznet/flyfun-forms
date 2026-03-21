@@ -56,7 +56,7 @@ DEFAULT_EMAIL_TEMPLATES = {
         "subject": "{form_label} - {airport} - {date} - {registration}",
         "body": (
             "Bonjour,\n\n"
-            "Veuillez trouver ci-joint le {form_label} pour le vol suivant :\n\n"
+            "Veuillez trouver ci-joint le formulaire de pr\u00e9avis de vol pour :\n\n"
             "  Trajet : {origin} \u2192 {destination}\n"
             "  Date : {date}\n"
             "  A\u00e9ronef : {registration}\n\n"
