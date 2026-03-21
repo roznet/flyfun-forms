@@ -25,8 +25,13 @@ struct FlightEditView: View {
     @State private var showingValidationErrors = false
     @State private var shareFileURL: URL?
     @State private var formDetails: [String: [FormInfo]] = [:]
+    @State private var notifications: [String: NotificationInfo] = [:]
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
+    @State private var scheduleExpanded = true
+    @State private var flightDetailsExpanded = true
+    @State private var crewExpanded = true
+    @State private var passengersExpanded = true
 
     private let dateFmt: DateFormatter = {
         let f = DateFormatter()
@@ -93,9 +98,11 @@ struct FlightEditView: View {
         }
         .onChange(of: flight.originICAO) {
             fetchFormDetails(icao: flight.originICAO)
+            fetchNotification(icao: flight.originICAO)
         }
         .onChange(of: flight.destinationICAO) {
             fetchFormDetails(icao: flight.destinationICAO)
+            fetchNotification(icao: flight.destinationICAO)
         }
         .onChange(of: flight.departureDate) { oldValue, newValue in
             autoSyncArrivalDate(oldDeparture: oldValue, newDeparture: newValue)
@@ -104,6 +111,8 @@ struct FlightEditView: View {
             previousDepartureDate = flight.departureDate
             fetchFormDetails(icao: flight.originICAO)
             fetchFormDetails(icao: flight.destinationICAO)
+            fetchNotification(icao: flight.originICAO)
+            fetchNotification(icao: flight.destinationICAO)
         }
     }
 
@@ -113,7 +122,6 @@ struct FlightEditView: View {
         Form {
             routeSection
             scheduleSection
-            aircraftSection
             flightDetailsSection
             peopleButton
             crewSection
@@ -128,7 +136,6 @@ struct FlightEditView: View {
             Form {
                 routeSection
                 scheduleSection
-                aircraftSection
                 flightDetailsSection
                 formSections
                 actionsSection
@@ -163,40 +170,63 @@ struct FlightEditView: View {
                 }
             }
             .buttonStyle(.plain)
+
+            notificationRow(icao: flight.originICAO, label: "Departure")
+            notificationRow(icao: flight.destinationICAO, label: "Arrival")
+        }
+    }
+
+    @ViewBuilder
+    private func notificationRow(icao: String, label: String) -> some View {
+        if let info = notifications[icao], info.found, let summary = info.summary {
+            let detail = info.rawText ?? info.pretty
+            if let detail {
+                DisclosureGroup {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(label) — \(icao)")
+                            .font(.caption.bold())
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(label) — \(icao)")
+                        .font(.caption.bold())
+                    Text(summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
     @ViewBuilder
     private var scheduleSection: some View {
-        Section("Schedule") {
-            DatePicker("Departure Date", selection: $flight.departureDate, displayedComponents: .date)
-            LabeledContent("Departure Time") {
-                TimeEntryView(
-                    utcTimeString: $flight.departureTimeUTC,
-                    airportICAO: flight.originICAO,
-                    originICAO: flight.originICAO,
-                    destinationICAO: flight.destinationICAO
-                )
-            }
-            DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
-            LabeledContent("Arrival Time") {
-                TimeEntryView(
-                    utcTimeString: $flight.arrivalTimeUTC,
-                    airportICAO: flight.destinationICAO,
-                    originICAO: flight.originICAO,
-                    destinationICAO: flight.destinationICAO
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var aircraftSection: some View {
-        Section("Aircraft") {
-            Picker("Aircraft", selection: $flight.aircraft) {
-                Text("None").tag(nil as Aircraft?)
-                ForEach(allAircraft) { ac in
-                    Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
+        Section {
+            DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
+                DatePicker("Departure Date", selection: $flight.departureDate, displayedComponents: .date)
+                LabeledContent("Departure Time") {
+                    TimeEntryView(
+                        utcTimeString: $flight.departureTimeUTC,
+                        airportICAO: flight.originICAO,
+                        originICAO: flight.originICAO,
+                        destinationICAO: flight.destinationICAO
+                    )
+                }
+                DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
+                LabeledContent("Arrival Time") {
+                    TimeEntryView(
+                        utcTimeString: $flight.arrivalTimeUTC,
+                        airportICAO: flight.destinationICAO,
+                        originICAO: flight.originICAO,
+                        destinationICAO: flight.destinationICAO
+                    )
                 }
             }
         }
@@ -204,43 +234,51 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var flightDetailsSection: some View {
-        Section("Flight Details") {
-            Picker("Nature", selection: $flight.nature) {
-                Text("Private", comment: "Flight nature").tag("private")
-                Text("Commercial", comment: "Flight nature").tag("commercial")
-            }
-            Picker("Reason for Visit", selection: reasonForVisitBinding) {
-                Text("—").tag("")
-                ForEach(Self.reasonOptions, id: \.self) { reason in
-                    Text(LocalizedStringKey(reason)).tag(reason)
+        Section {
+            DisclosureGroup("Flight Details", isExpanded: $flightDetailsExpanded) {
+                Picker("Aircraft", selection: $flight.aircraft) {
+                    Text("None").tag(nil as Aircraft?)
+                    ForEach(allAircraft) { ac in
+                        Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
+                    }
                 }
-            }
-            Button {
-                showResponsiblePersonPicker = true
-            } label: {
-                HStack {
-                    Text("Responsible Person")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text(flight.responsiblePerson?.displayName ?? "—")
-                        .foregroundStyle(.secondary)
+                Picker("Nature", selection: $flight.nature) {
+                    Text("Private", comment: "Flight nature").tag("private")
+                    Text("Commercial", comment: "Flight nature").tag("commercial")
                 }
-            }
-            if let person = flight.responsiblePerson {
-                if let phone = person.phone, !phone.isEmpty {
-                    LabeledContent("Phone", value: phone)
-                        .foregroundStyle(.secondary)
+                Picker("Reason for Visit", selection: reasonForVisitBinding) {
+                    Text("—").tag("")
+                    ForEach(Self.reasonOptions, id: \.self) { reason in
+                        Text(LocalizedStringKey(reason)).tag(reason)
+                    }
                 }
-                if let address = person.address, !address.isEmpty {
-                    LabeledContent("Address", value: address)
-                        .foregroundStyle(.secondary)
+                Button {
+                    showResponsiblePersonPicker = true
+                } label: {
+                    HStack {
+                        Text("Responsible Person")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(flight.responsiblePerson?.displayName ?? "—")
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                if let person = flight.responsiblePerson {
+                    if let phone = person.phone, !phone.isEmpty {
+                        LabeledContent("Phone", value: phone)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let address = person.address, !address.isEmpty {
+                        LabeledContent("Address", value: address)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                TextField("Observations", text: Binding(
+                    get: { flight.observations ?? "" },
+                    set: { flight.observations = $0.isEmpty ? nil : $0 }
+                ), axis: .vertical)
+                .lineLimit(2...4)
             }
-            TextField("Observations", text: Binding(
-                get: { flight.observations ?? "" },
-                set: { flight.observations = $0.isEmpty ? nil : $0 }
-            ), axis: .vertical)
-            .lineLimit(2...4)
         }
     }
 
@@ -259,28 +297,32 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var crewSection: some View {
-        Section("Crew") {
-            ForEach(flight.crewList) { person in
-                Text(person.displayName)
-                    .swipeActions {
-                        Button("Remove", role: .destructive) {
-                            flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
+        Section {
+            DisclosureGroup("Crew (\(flight.crewList.count))", isExpanded: $crewExpanded) {
+                ForEach(flight.crewList) { person in
+                    Text(person.displayName)
+                        .swipeActions {
+                            Button("Remove", role: .destructive) {
+                                flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
+                            }
                         }
-                    }
+                }
             }
         }
     }
 
     @ViewBuilder
     private var passengersSection: some View {
-        Section("Passengers") {
-            ForEach(flight.passengerList) { person in
-                Text(person.displayName)
-                    .swipeActions {
-                        Button("Remove", role: .destructive) {
-                            flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
+        Section {
+            DisclosureGroup("Passengers (\(flight.passengerList.count))", isExpanded: $passengersExpanded) {
+                ForEach(flight.passengerList) { person in
+                    Text(person.displayName)
+                        .swipeActions {
+                            Button("Remove", role: .destructive) {
+                                flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
+                            }
                         }
-                    }
+                }
             }
         }
     }
@@ -463,6 +505,19 @@ struct FlightEditView: View {
                 }
             }
         )
+    }
+
+    // MARK: - Fetch notifications
+
+    private func fetchNotification(icao: String) {
+        guard !icao.isEmpty, notifications[icao] == nil else { return }
+        Task {
+            let url = URL(string: "https://maps.flyfun.aero/api/notifications/\(icao)")!
+            if let (data, _) = try? await URLSession.shared.data(from: url),
+               let info = try? JSONDecoder().decode(NotificationInfo.self, from: data) {
+                notifications[icao] = info
+            }
+        }
     }
 
     // MARK: - Fetch form details
@@ -854,3 +909,18 @@ struct MacShareView: View {
     }
 }
 #endif
+
+// MARK: - Notification Info
+
+struct NotificationInfo: Codable {
+    var found: Bool
+    var icao: String
+    var summary: String?
+    var rawText: String?
+    var pretty: String?
+
+    enum CodingKeys: String, CodingKey {
+        case found, icao, summary, pretty
+        case rawText = "raw_text"
+    }
+}
