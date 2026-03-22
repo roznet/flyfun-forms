@@ -1,0 +1,17 @@
+{
+  "Arrival at": "EBOS",
+  "Date": "15/01/2099",
+  "Departure from": "ORIG",
+  "Disembarking": "2",
+  "Embarking": "2",
+  "Marks of Nationality and Registration": "AcReg",
+  "NAMES OF CREWRow1": "CrewLast1 CrewFirst1",
+  "NAMES OF CREWRow2": "CrewLast2 CrewFirst2",
+  "Operator": "AcOwner",
+  "PLACERow1": "OriginCity",
+  "PLACERow4": "EBOSCity",
+  "Point of disembarkation": "EBOSCity",
+  "Point of embarkation": "OriginCity",
+  "passenger_1": "PaxLast1 PaxFirst1",
+  "passenger_2": "PaxLast2 PaxFirst2"
+}

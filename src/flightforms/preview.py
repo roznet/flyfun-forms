@@ -185,6 +185,8 @@ FORM_AIRPORTS = {
     "gendec_form": "DEST",
     "gendec_icao": "DEST",
     "myhandling": "LFMD",
+    "gendec_with_manifest": "EBOS",
+    "extended_gendec": "DEST",
 }
 
 # Forms where arrival vs departure changes what appears on the form
