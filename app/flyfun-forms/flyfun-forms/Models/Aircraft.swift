@@ -10,6 +10,8 @@ final class Aircraft {
     var isAirplane: Bool = true
     var usualBase: String?
     var ownerPerson: Person?
+    var useCompanyOperator: Bool = false
+    var operatorName: String?
 
     // CloudKit inverse
     @Relationship(inverse: \Flight.aircraft)

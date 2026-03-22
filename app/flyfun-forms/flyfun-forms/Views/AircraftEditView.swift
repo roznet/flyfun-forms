@@ -27,33 +27,43 @@ struct AircraftEditView: View {
                 }
             }
 
-            Section("Owner") {
-                Button {
-                    showOwnerPicker = true
-                } label: {
-                    HStack {
-                        Text("Owner")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(aircraft.ownerPerson?.displayName ?? "Select…")
-                            .foregroundStyle(aircraft.ownerPerson == nil ? .secondary : .primary)
-                    }
-                }
+            Section("Operator") {
+                Toggle("Company operator", isOn: $aircraft.useCompanyOperator)
 
-                if let person = aircraft.ownerPerson {
-                    if let email = person.email, !email.isEmpty {
-                        LabeledContent("Email", value: email)
-                            .foregroundStyle(.secondary)
+                if aircraft.useCompanyOperator {
+                    TextField("Company name & address", text: Binding(
+                        get: { aircraft.operatorName ?? "" },
+                        set: { aircraft.operatorName = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(2...4)
+                } else {
+                    Button {
+                        showOwnerPicker = true
+                    } label: {
+                        HStack {
+                            Text("Owner")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(aircraft.ownerPerson?.displayName ?? "Select…")
+                                .foregroundStyle(aircraft.ownerPerson == nil ? .secondary : .primary)
+                        }
                     }
-                    if let phone = person.phone, !phone.isEmpty {
-                        LabeledContent("Phone", value: phone)
-                            .foregroundStyle(.secondary)
-                    }
-                    if let address = person.address, !address.isEmpty {
-                        LabeledContent("Address") {
-                            Text(address)
+
+                    if let person = aircraft.ownerPerson {
+                        if let email = person.email, !email.isEmpty {
+                            LabeledContent("Email", value: email)
                                 .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
+                        }
+                        if let phone = person.phone, !phone.isEmpty {
+                            LabeledContent("Phone", value: phone)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let address = person.address, !address.isEmpty {
+                            LabeledContent("Address") {
+                                Text(address)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.trailing)
+                            }
                         }
                     }
                 }
@@ -103,12 +113,31 @@ struct AircraftEditView: View {
         }
         .onChange(of: aircraft.ownerPerson) {
             // Sync owner fields from the selected person for API payloads
-            if let person = aircraft.ownerPerson {
+            if !aircraft.useCompanyOperator {
+                if let person = aircraft.ownerPerson {
+                    aircraft.owner = person.displayName
+                    aircraft.ownerAddress = person.address
+                } else {
+                    aircraft.owner = nil
+                    aircraft.ownerAddress = nil
+                }
+            }
+        }
+        .onChange(of: aircraft.useCompanyOperator) {
+            if aircraft.useCompanyOperator {
+                aircraft.owner = aircraft.operatorName
+                aircraft.ownerAddress = nil
+            } else if let person = aircraft.ownerPerson {
                 aircraft.owner = person.displayName
                 aircraft.ownerAddress = person.address
             } else {
                 aircraft.owner = nil
                 aircraft.ownerAddress = nil
+            }
+        }
+        .onChange(of: aircraft.operatorName) {
+            if aircraft.useCompanyOperator {
+                aircraft.owner = aircraft.operatorName
             }
         }
     }
