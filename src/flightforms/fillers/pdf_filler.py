@@ -205,8 +205,7 @@ def fill_pdf(
     # Fix auto-size fields: pypdf uses field height as font size instead of
     # calculating a size that fits the text width.  We rewrite the appearance
     # stream for any field whose original /DA had font size 0.
-    if flatten:
-        _fix_autosize_fields(writer, updates)
+    _fix_autosize_fields(writer, updates)
 
     output = BytesIO()
     writer.write(output)
@@ -270,21 +269,28 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
             except Exception:
                 continue
 
-            # Replace the Tf operator with our calculated size (first occurrence only)
-            new_data = re.sub(
-                r"/Helv\s+[\d.]+\s+Tf",
-                f"/Helv {font_size:.2f} Tf",
-                data,
-                count=1,
-            )
-
-            # Fix the Td vertical offset to center text (first occurrence only)
+            # Build a clean appearance stream from scratch.  pypdf encodes
+            # text as UTF-16BE hex (<0041…>) but /Helv is a standard Type1
+            # font that expects single-byte codes.  Viewers fall back to
+            # wider CID default widths for 2-byte codes, causing clipping.
+            # Writing a simple single-byte stream avoids this entirely.
             y_offset = (field_height - font_size) / 2
-            new_data = re.sub(
-                r"(\d+(?:\.\d+)?)\s+[\d.]+\s+Td",
-                f"2 {y_offset:.1f} Td",
-                new_data,
-                count=1,
+            # Escape PDF string special chars
+            escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            new_data = (
+                "q\n"
+                "/Tx BMC \n"
+                "q\n"
+                f"1 1 {field_width - 2:.2f} {field_height - 2:.2f} re\n"
+                "W\n"
+                "BT\n"
+                f"/Helv {font_size:.2f} Tf 0 g\n"
+                f"2 {y_offset:.1f} Td\n"
+                f"({escaped}) Tj\n"
+                "ET\n"
+                "Q\n"
+                "EMC\n"
+                "Q\n"
             )
 
             stream_obj.set_data(new_data.encode("latin-1"))
