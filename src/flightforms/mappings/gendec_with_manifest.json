@@ -30,6 +30,9 @@
     "passengers.embarking": "Embarking",
     "passengers.disembarking": "Disembarking",
     "crew[{i}].full_name": "NAMES OF CREWRow{n}",
+    "manifest.operator": "Manifest Operator",
+    "manifest.registration": "Manifest Registration",
+    "manifest.date": "Manifest Date",
     "routing.embarkation": "Point of embarkation",
     "routing.disembarkation": "Point of disembarkation",
     "passengers[{i}].full_name": "passenger_{n}"

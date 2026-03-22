@@ -90,6 +90,11 @@ def fill_pdf(
         "routing.arrival_place": airport_resolver.get_name(request.flight.destination),
         "routing.embarkation": airport_resolver.get_name(request.flight.origin),
         "routing.disembarkation": airport_resolver.get_name(request.flight.destination),
+        # Aliases for multi-page forms where the same data appears on a second
+        # page with differently-named fields (e.g. gendec + passenger manifest).
+        "manifest.operator": request.aircraft.owner or "",
+        "manifest.registration": request.aircraft.registration,
+        "manifest.date": _parse_date(request.flight.departure_date, mapping.date_format),
         "airport.name": airport_resolver.get_name(request.airport),
         "airport.icao": request.airport,
         # Direction-dependent text marks (e.g. "X" on the right side)
