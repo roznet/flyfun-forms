@@ -48,17 +48,20 @@ def fill_french_customs(
     writer.append(reader)
 
     field_map = mapping.raw.get("field_map", {})
-    tz_name = mapping.raw.get("time_zone", "Europe/Paris")
 
     observations = request.observations or mapping.default_observations or ""
 
-    # Convert UTC times to local
-    dep_time_local = _utc_to_local(
-        request.flight.departure_time_utc, request.flight.departure_date, tz_name
-    )
-    arr_time_local = _utc_to_local(
-        request.flight.arrival_time_utc, request.flight.arrival_date, tz_name
-    )
+    # Use local time conversion only when time_reference is "local"
+    if mapping.time_reference == "local" and mapping.time_zone:
+        dep_time = _utc_to_local(
+            request.flight.departure_time_utc, request.flight.departure_date, mapping.time_zone
+        )
+        arr_time = _utc_to_local(
+            request.flight.arrival_time_utc, request.flight.arrival_date, mapping.time_zone
+        )
+    else:
+        dep_time = request.flight.departure_time_utc
+        arr_time = request.flight.arrival_time_utc
 
     # Build contact from pilot (first crew member) name + flight contact
     pilot = request.crew[0] if request.crew else None
@@ -77,8 +80,8 @@ def fill_french_customs(
         "aircraft_type": request.aircraft.type,
         "departure_date": _parse_date(request.flight.departure_date, mapping.date_format),
         "arrival_date": _parse_date(request.flight.arrival_date, mapping.date_format),
-        "departure_time": dep_time_local,
-        "arrival_time": arr_time_local,
+        "departure_time": dep_time,
+        "arrival_time": arr_time,
         "contact": contact,
         "airport": request.airport,
         "observations": observations,

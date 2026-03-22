@@ -32,6 +32,7 @@ class FormMapping:
         self.send_to = data.get("send_to")
         self.checkbox_on = data.get("checkbox_on", "/Yes")
         self.checkbox_off = data.get("checkbox_off", "/Off")
+        self.preferred_prefix: Optional[str] = data.get("preferred_prefix")
         self.email_overrides: dict = data.get("email_overrides", {})
         self.email_templates: dict = data.get("email_templates", {})
 
@@ -136,14 +137,45 @@ class MappingRegistry:
     def get_forms_for_airport(self, icao: str) -> list[FormMapping]:
         """Get all form mappings for an airport.
 
-        Combines exact ICAO matches with prefix matches.  Falls back to
-        defaults only when neither exact nor prefix matches exist.
+        Returns exact ICAO matches first, then prefix matches, then
+        defaults.  Among defaults, forms whose preferred_prefix matches
+        the airport are sorted first.
         """
-        result = list(self._by_icao.get(icao, []))
+        seen_ids: set[str] = set()
+        result: list[FormMapping] = []
+
+        # 1. Exact ICAO matches (most specific)
+        for m in self._by_icao.get(icao, []):
+            if m.id not in seen_ids:
+                result.append(m)
+                seen_ids.add(m.id)
+
+        # 2. Prefix matches
         for prefix, mappings in self._by_prefix.items():
             if icao.startswith(prefix):
-                result.extend(mappings)
-        return result if result else self._defaults
+                for m in mappings:
+                    if m.id not in seen_ids:
+                        result.append(m)
+                        seen_ids.add(m.id)
+
+        # 3. Defaults: preferred match first, then no-preference, then non-matching
+        preferred = []
+        no_pref = []
+        non_matching = []
+        for m in self._defaults:
+            if m.id in seen_ids:
+                continue
+            if m.preferred_prefix and icao.startswith(m.preferred_prefix):
+                preferred.append(m)
+            elif not m.preferred_prefix:
+                no_pref.append(m)
+            else:
+                non_matching.append(m)
+        result.extend(preferred)
+        result.extend(no_pref)
+        result.extend(non_matching)
+
+        return result
 
     def get_form(self, icao: str, form_id: str) -> Optional[FormMapping]:
         """Get a specific form mapping by airport and form ID."""
