@@ -393,37 +393,53 @@ struct FlightEditView: View {
     @ViewBuilder
     private func formSection(airport: String, direction: String) -> some View {
         let forms = formDetails[airport] ?? []
-        if !forms.isEmpty {
-            ForEach(forms) { formInfo in
-                Section("\(airport) — \(formInfo.label) (\(direction))") {
-                    extraFieldsView(airport: airport, formInfo: formInfo)
+        if let primary = forms.first {
+            Section("\(airport) — \(direction)") {
+                formRow(airport: airport, formInfo: primary)
 
-                    HStack {
-                        Button {
-                            Task { await generateAndShare(airport: airport, form: formInfo.id) }
-                        } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                if forms.count > 1 {
+                    DisclosureGroup("Other forms") {
+                        ForEach(forms.dropFirst()) { formInfo in
+                            formRow(airport: airport, formInfo: formInfo)
                         }
-                        .buttonStyle(.borderless)
-                        .disabled(isGenerating)
-
-                        Spacer()
-
-                        if generatingForm == "\(airport)_\(formInfo.id)" {
-                            ProgressView()
-                        }
-
-                        Spacer()
-
-                        Button {
-                            Task { await generateAndEmail(airport: airport, formInfo: formInfo) }
-                        } label: {
-                            Label("Email", systemImage: "envelope")
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(isGenerating)
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func formRow(airport: String, formInfo: FormInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(formInfo.label)
+                .font(.subheadline.bold())
+
+            extraFieldsView(airport: airport, formInfo: formInfo)
+
+            HStack {
+                Button {
+                    Task { await generateAndShare(airport: airport, form: formInfo.id) }
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isGenerating)
+
+                Spacer()
+
+                if generatingForm == "\(airport)_\(formInfo.id)" {
+                    ProgressView()
+                }
+
+                Spacer()
+
+                Button {
+                    Task { await generateAndEmail(airport: airport, formInfo: formInfo) }
+                } label: {
+                    Label("Email", systemImage: "envelope")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isGenerating)
             }
         }
     }
