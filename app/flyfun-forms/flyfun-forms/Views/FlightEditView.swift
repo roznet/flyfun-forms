@@ -978,7 +978,7 @@ struct MacShareView: View {
         panel.nameFieldStringValue = url.lastPathComponent
         panel.canCreateDirectories = true
         if panel.runModal() == .OK, let dest = panel.url {
-            try? FileManager.default.copyItem(at: url, to: dest)
+            try? FileManager.default.replaceItemAt(dest, withItemAt: url)
         }
         onDismiss()
     }
