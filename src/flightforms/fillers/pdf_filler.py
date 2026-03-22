@@ -88,6 +88,8 @@ def fill_pdf(
         "passengers.disembarking": str(len(request.passengers)),
         "routing.departure_place": airport_resolver.get_name(request.flight.origin),
         "routing.arrival_place": airport_resolver.get_name(request.flight.destination),
+        "routing.embarkation": airport_resolver.get_name(request.flight.origin),
+        "routing.disembarkation": airport_resolver.get_name(request.flight.destination),
         "airport.name": airport_resolver.get_name(request.airport),
         "airport.icao": request.airport,
         # Direction-dependent text marks (e.g. "X" on the right side)
