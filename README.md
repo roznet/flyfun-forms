@@ -17,10 +17,11 @@ PII is never stored server-side. Passenger and crew data exists only in memory d
 | Region | Form | Format |
 |--------|------|--------|
 | LSGS (Sion, Switzerland) | Immigration | PDF |
-| LF* (France) | Customs declaration | PDF |
-| LFQA (Reims) | Customs declaration | DOCX |
+| LF* (France) | Customs declaration (Préavis Douane) | PDF |
+| LFQA + 10 airports (CODT Metz) | Customs declaration | PDF |
 | EG* (United Kingdom) | General Aviation Report (GAR) | XLSX |
-| All other airports | ICAO General Declaration | PDF |
+| 50+ European airports | MyHandling FBO Request | XLSX |
+| All other airports | General Declaration (3 variants) | PDF |
 
 New forms are added by dropping a template file and a JSON mapping into `src/flightforms/templates/` and `src/flightforms/mappings/` — no code changes required.
 
@@ -34,6 +35,7 @@ Base URL: `https://forms.flyfun.aero`
 | `/airports/{icao}` | GET | Form details for an airport (required fields, max crew/pax) |
 | `/generate` | POST | Generate a filled form (returns the file) |
 | `/validate` | POST | Dry-run validation without generating |
+| `/email-text` | POST | Localized email subject and body for a form |
 | `/health` | GET | Health check |
 
 ## Getting Started
@@ -64,14 +66,20 @@ The service runs on port 8030 behind a Caddy reverse proxy in production.
 ### CLI
 
 ```bash
-# List available airports
+# List available airports and forms
 flightforms airports
 
-# Generate a form
+# Generate a single form
 flightforms generate --origin LFPB --destination LSGS \
   --registration HB-ABC --aircraft-type PA28 \
   --crew crew.csv --passengers pax.csv \
   --date 2026-03-15 --time 14:30
+
+# Generate forms for a multi-leg trip
+flightforms trip --trip trip.json --people people.csv
+
+# Preview all forms with self-describing dummy data
+flightforms preview --output-dir previews/
 ```
 
 ## iOS/macOS App
@@ -79,7 +87,7 @@ flightforms generate --origin LFPB --destination LSGS \
 The SwiftUI app lives in `app/flyfun-forms/` and requires:
 
 - Xcode 15+, iOS 17+ / macOS 14+
-- Dependencies: [RZUtilsSwift](https://github.com/nicklama/rzutils), [RZFlight](https://github.com/nicklama/rzflight)
+- Dependencies: [RZUtils](https://github.com/roznet/rzutils), [RZFlight](https://github.com/roznet/rzflight)
 
 Features include passport MRZ scanning, multi-document support per person, timezone-aware time entry, and CSV import for bulk data entry.
 
@@ -88,7 +96,7 @@ Features include passport MRZ scanning, multi-document support per person, timez
 ```
 src/flightforms/
 ├── api/            # FastAPI endpoints and Pydantic models
-├── fillers/        # PDF, DOCX, XLSX form fillers
+├── fillers/        # PDF, DOCX, XLSX form filler modules
 ├── templates/      # Blank form template files
 ├── mappings/       # JSON field mappings per airport/form
 ├── registry.py     # Discovers and loads form configurations
