@@ -2,6 +2,7 @@
 
 import copy
 import re
+import unicodedata
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -11,6 +12,36 @@ from pypdf.generic import NameObject
 
 from ..api.models import GenerateRequest
 from ..registry import FormMapping
+
+
+# Characters that don't decompose via NFKD but have obvious Latin base letters.
+_LATIN1_FALLBACK: dict[str, str] = {
+    "Đ": "D", "đ": "d", "Ħ": "H", "ħ": "h", "Ł": "L", "ł": "l",
+    "Ŋ": "N", "ŋ": "n", "Ŧ": "T", "ŧ": "t",
+}
+
+
+def _latin1_safe(text: str) -> str:
+    """Ensure *text* can be encoded as latin-1 for standard Type1 fonts.
+
+    Characters that latin-1 supports (é, ü, ñ …) are kept as-is.
+    Characters outside latin-1 (ń, ł, č …) are replaced with their
+    closest Latin base letter so customs-form names stay as accurate
+    as the font allows.
+    """
+    result: list[str] = []
+    for c in text:
+        try:
+            c.encode("latin-1")
+            result.append(c)
+        except UnicodeEncodeError:
+            if c in _LATIN1_FALLBACK:
+                result.append(_LATIN1_FALLBACK[c])
+                continue
+            decomposed = unicodedata.normalize("NFKD", c)
+            fallback = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+            result.append(fallback if fallback else "?")
+    return "".join(result)
 
 
 def _parse_date(date_str: str, fmt: str) -> str:
@@ -282,8 +313,9 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
             # wider CID default widths for 2-byte codes, causing clipping.
             # Writing a simple single-byte stream avoids this entirely.
             y_offset = (field_height - font_size) / 2
-            # Escape PDF string special chars
-            escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            # Escape PDF string special chars; ensure latin-1 safe for Type1 font
+            safe_text = _latin1_safe(text)
+            escaped = safe_text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
             new_data = (
                 "q\n"
                 "/Tx BMC \n"
