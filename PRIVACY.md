@@ -26,6 +26,23 @@ The FlightForms API server (`forms.flyfun.aero`) is **stateless with respect to 
 - **HTTPS enforced** — all communication uses TLS encryption. HSTS headers ensure browsers and clients never downgrade to plain HTTP.
 - **Authenticated access** — form generation requires authentication (OAuth or API token). Unauthenticated requests are rejected.
 
+## Why Form Generation Uses a Server
+
+A natural question is: why not generate forms entirely on-device, avoiding the server altogether?
+
+The short answer is that Apple's built-in PDF framework (PDFKit) cannot reliably do what form filling requires, and the alternatives are commercial SDKs with enterprise pricing that would be disproportionate for this use case.
+
+Specifically, the server-side Python library (pypdf) handles several operations that PDFKit does not support or supports unreliably:
+
+- **Auto-sizing text** — official forms have fields of varying sizes. The server calculates font sizes to fit each field; PDFKit has no equivalent.
+- **Appearance stream generation** — filled fields need valid PDF appearance streams to display correctly across viewers. PDFKit's generated streams are unreliable, sometimes producing blank fields.
+- **Flattening** — baking field values into the page content so the form looks correct in any viewer. PDFKit has no flattening API.
+- **Non-PDF formats** — several airports require DOCX or XLSX forms. No Swift equivalent exists for the Python libraries used (python-docx, openpyxl).
+
+Building a custom PDF engine to replace these capabilities would be a large undertaking with ongoing maintenance burden. Commercial SDKs (PSPDFKit, Foxit, Apryse) cover all these gaps but cost thousands per year — not justified for a niche general aviation tool.
+
+The server-side approach lets us use mature, well-tested open-source libraries while keeping the privacy tradeoff minimal: personal data is transmitted over TLS, held in memory only for the duration of form generation, and never stored or logged.
+
 ## What the Server Does Store
 
 The server stores only:
