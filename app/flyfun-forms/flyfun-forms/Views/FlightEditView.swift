@@ -774,6 +774,44 @@ struct FlightEditView: View {
             }
         }
 
+        // Derive connecting flight from adjacent leg in trip if the form supports it
+        let connectingPayload: FlightPayload? = {
+            let formInfo = formDetails[airport]?.first(where: { $0.id == form })
+            guard formInfo?.hasConnectingFlight == true,
+                  let legs = flight.trip?.sortedLegs,
+                  let idx = legs.firstIndex(where: { $0.persistentModelID == flight.persistentModelID })
+            else { return nil }
+
+            let isArrival = airport == flight.destinationICAO
+
+            if isArrival, idx + 1 < legs.count {
+                // Next leg must depart from this airport (immediate next only)
+                let next = legs[idx + 1]
+                guard next.originICAO == airport else { return nil }
+                return FlightPayload(
+                    origin: next.originICAO, destination: next.destinationICAO,
+                    departureDate: dateFmt.string(from: next.departureDate),
+                    departureTimeUtc: next.departureTimeUTC,
+                    arrivalDate: dateFmt.string(from: next.arrivalDate),
+                    arrivalTimeUtc: next.arrivalTimeUTC,
+                    nature: next.nature, contact: next.responsiblePerson?.displayName ?? next.contact
+                )
+            } else if !isArrival, idx - 1 >= 0 {
+                // Previous leg must arrive at this airport (immediate previous only)
+                let prev = legs[idx - 1]
+                guard prev.destinationICAO == airport else { return nil }
+                return FlightPayload(
+                    origin: prev.originICAO, destination: prev.destinationICAO,
+                    departureDate: dateFmt.string(from: prev.departureDate),
+                    departureTimeUtc: prev.departureTimeUTC,
+                    arrivalDate: dateFmt.string(from: prev.arrivalDate),
+                    arrivalTimeUtc: prev.arrivalTimeUTC,
+                    nature: prev.nature, contact: prev.responsiblePerson?.displayName ?? prev.contact
+                )
+            }
+            return nil
+        }()
+
         return GenerateRequest(
             airport: airport,
             form: form,
@@ -781,6 +819,7 @@ struct FlightEditView: View {
             aircraft: aircraftPayload,
             crew: crewPayloads,
             passengers: paxPayloads,
+            connectingFlight: connectingPayload,
             extraFields: extras.isEmpty ? nil : extras,
             observations: flight.observations
         )
