@@ -177,6 +177,33 @@ def fill_pdf(
         values["connecting.arrival_date"] = _parse_date(cf.arrival_date, mapping.date_format)
         values["connecting.arrival_time_utc"] = cf.arrival_time_utc
 
+    # Airport-centric leg values: for forms that show both an arrival and a
+    # departure section at the target airport (e.g. Jersey GenDec).  The
+    # arriving leg comes from the main flight when arriving, or from the
+    # connecting flight when departing — and vice-versa for the departing leg.
+    if is_arrival:
+        values["airport.arrival.from"] = request.flight.origin
+        values["airport.arrival.from_name"] = airport_resolver.get_name(request.flight.origin)
+        values["airport.arrival.date"] = _parse_date(request.flight.arrival_date, mapping.date_format)
+        values["airport.arrival.time"] = request.flight.arrival_time_utc
+        if request.connecting_flight:
+            cf = request.connecting_flight
+            values["airport.departure.to"] = cf.destination
+            values["airport.departure.to_name"] = airport_resolver.get_name(cf.destination)
+            values["airport.departure.date"] = _parse_date(cf.departure_date, mapping.date_format)
+            values["airport.departure.time"] = cf.departure_time_utc
+    else:
+        values["airport.departure.to"] = request.flight.destination
+        values["airport.departure.to_name"] = airport_resolver.get_name(request.flight.destination)
+        values["airport.departure.date"] = _parse_date(request.flight.departure_date, mapping.date_format)
+        values["airport.departure.time"] = request.flight.departure_time_utc
+        if request.connecting_flight:
+            cf = request.connecting_flight
+            values["airport.arrival.from"] = cf.origin
+            values["airport.arrival.from_name"] = airport_resolver.get_name(cf.origin)
+            values["airport.arrival.date"] = _parse_date(cf.arrival_date, mapping.date_format)
+            values["airport.arrival.time"] = cf.arrival_time_utc
+
     # Fill fields
     updates = {}
 
@@ -198,8 +225,18 @@ def fill_pdf(
             updates[pdf_field] = on_val if check_dir == direction else mapping.checkbox_off
             continue
 
-        # Handle enum-to-checkbox (e.g. flight.nature.private)
+        # Handle enum-to-radio (e.g. flight.nature.private=Pleasure)
+        # Maps an enum value to a specific radio button state.
         parts = canonical.split(".")
+        if len(parts) == 3 and "=" in parts[2] and parts[0] + "." + parts[1] in values:
+            enum_key = parts[0] + "." + parts[1]
+            enum_val = values[enum_key].lower()
+            check_val, radio_state = parts[2].split("=", 1)
+            if enum_val == check_val.lower():
+                updates[pdf_field] = f"/{radio_state}"
+            continue
+
+        # Handle enum-to-checkbox (e.g. flight.nature.private)
         if len(parts) == 3 and parts[0] + "." + parts[1] in values:
             enum_key = parts[0] + "." + parts[1]
             enum_val = values[enum_key].lower()
@@ -218,6 +255,11 @@ def fill_pdf(
             updates[pdf_field] = mapping.checkbox_off if request.aircraft.is_airplane else on_val
             continue
 
+        # Static checkbox/radio values (e.g. "static./No" → always set to /No)
+        if canonical.startswith("static."):
+            updates[pdf_field] = canonical[len("static."):]
+            continue
+
         # Simple text field
         if canonical in values:
             updates[pdf_field] = values[canonical]
@@ -231,10 +273,12 @@ def fill_pdf(
     pax_fields = {k: v for k, v in person_fields.items() if k.startswith("passengers[")}
 
     for i, crew in enumerate(request.crew):
-        _fill_person_fields(crew_fields, "crew", i, crew, mapping, updates)
+        _fill_person_fields(crew_fields, "crew", i, crew, mapping, updates,
+                            checkbox_on_values, direction)
 
     for i, pax in enumerate(request.passengers):
-        _fill_person_fields(pax_fields, "passengers", i, pax, mapping, updates)
+        _fill_person_fields(pax_fields, "passengers", i, pax, mapping, updates,
+                            checkbox_on_values, direction)
 
     # Apply all updates
     for page in writer.pages:
@@ -342,11 +386,15 @@ def _fill_person_fields(
     person,
     mapping: FormMapping,
     updates: dict,
+    checkbox_on_values: dict | None = None,
+    direction: str = "inbound",
 ):
     """Fill person (crew/passenger) array fields."""
+    person_type = "Crew" if prefix == "crew" else "Passenger"
     person_values = {
         "full_name": f"{person.last_name} {person.first_name}".strip(),
         "function": person.function or "",
+        "type": person_type,
         "first_name": person.first_name,
         "last_name": person.last_name,
         "dob": _parse_date(person.dob, mapping.date_format) if person.dob else "",
@@ -357,20 +405,27 @@ def _fill_person_fields(
         "id_expiry": _parse_date(person.id_expiry, mapping.date_format) if person.id_expiry else "",
         "sex": person.sex or "",
         "place_of_birth": person.place_of_birth or "",
+        "address": person.address or "",
     }
 
     for canonical_pattern, pdf_field_name in field_patterns.items():
-        # Extract the field name after the last dot
-        field_name = canonical_pattern.split(".")[-1]
-        if field_name not in person_values:
+        # Resolve the PDF field name for this index
+        if "[{i}]" in canonical_pattern:
+            pdf_field = _resolve_field_pattern(pdf_field_name, index)
+        else:
+            bracket_content = canonical_pattern.split("[")[1].split("]")[0]
+            if not (bracket_content.isdigit() and int(bracket_content) == index):
+                continue
+            pdf_field = pdf_field_name
+
+        # Per-person direction checkboxes (e.g. crew[{i}].direction.inbound)
+        field_suffix = canonical_pattern.split(".")[-1]
+        if ".direction." in canonical_pattern:
+            check_dir = field_suffix  # "inbound" or "outbound"
+            on_val = (checkbox_on_values or {}).get(pdf_field, mapping.checkbox_on)
+            updates[pdf_field] = on_val if check_dir == direction else mapping.checkbox_off
             continue
 
-        if "[{i}]" in canonical_pattern:
-            # Generic pattern: resolve {i}/{n} placeholders
-            pdf_field = _resolve_field_pattern(pdf_field_name, index)
-            updates[pdf_field] = person_values[field_name]
-        else:
-            # Literal index: "passengers[2].field" → only fill for that index
-            bracket_content = canonical_pattern.split("[")[1].split("]")[0]
-            if bracket_content.isdigit() and int(bracket_content) == index:
-                updates[pdf_field_name] = person_values[field_name]
+        if field_suffix not in person_values:
+            continue
+        updates[pdf_field] = person_values[field_suffix]
