@@ -33,13 +33,13 @@ struct PersonEditView: View {
                     Form {
                         personInfoSections
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(minWidth: 300, maxWidth: .infinity)
                     NavigationStack {
                         Form {
                             documentsSections
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(minWidth: 300, maxWidth: .infinity)
                 }
                 .padding(.horizontal)
             }

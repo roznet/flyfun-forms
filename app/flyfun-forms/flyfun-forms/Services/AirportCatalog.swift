@@ -8,12 +8,10 @@ final class AirportCatalog {
     private(set) var lastSynced: Date?
     private(set) var isLoading = false
 
-    private let baseURL: URL
     var jwt: String?
     private let cacheFileURL: URL
 
-    init(baseURL: URL) {
-        self.baseURL = baseURL
+    init(baseURL: URL = APIConfig.baseURL) {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let appDir = appSupport.appendingPathComponent("FlightForms", isDirectory: true)
         try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
@@ -47,7 +45,7 @@ final class AirportCatalog {
         isLoading = true
         defer { isLoading = false }
 
-        let url = baseURL.appendingPathComponent("airports")
+        let url = APIConfig.baseURL.appendingPathComponent("airports")
         do {
             var request = URLRequest(url: url)
             if let jwt {

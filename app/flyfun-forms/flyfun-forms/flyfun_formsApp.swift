@@ -49,6 +49,9 @@ struct flyfun_formsApp: App {
             .task { await preloadAirportData() }
         }
         .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        .defaultSize(width: 1100, height: 700)
+        #endif
     }
 
     /// Preload the airport database and warm timezone cache for airports used in recent flights.

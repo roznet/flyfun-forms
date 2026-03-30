@@ -7,6 +7,7 @@ import MessageUI
 struct FlightEditView: View {
     @State var flight: Flight
     @Query(sort: \Aircraft.registration) private var allAircraft: [Aircraft]
+    @Query(sort: \Flight.departureDate) private var allFlights: [Flight]
     @Query(sort: \Person.lastName) private var allPeople: [Person]
     @Environment(\.airportCatalog) private var catalog
     @Environment(AppState.self) private var appState
@@ -141,14 +142,14 @@ struct FlightEditView: View {
                 formSections
                 actionsSection
             }
-            .frame(minWidth: 0, maxWidth: .infinity)
+            .frame(minWidth: 300, maxWidth: .infinity)
 
             Form {
                 peopleButton
                 crewSection
                 passengersSection
             }
-            .frame(minWidth: 0, maxWidth: .infinity)
+            .frame(minWidth: 300, maxWidth: .infinity)
         }
     }
 
@@ -774,40 +775,37 @@ struct FlightEditView: View {
             }
         }
 
-        // Derive connecting flight from adjacent leg in trip if the form supports it
+        // Dynamically find the connecting flight: look at the immediately
+        // next/previous flight by time (within 2 weeks) whose route connects
+        // at this airport.  No trip linkage required.
         let connectingPayload: FlightPayload? = {
             let formInfo = formDetails[airport]?.first(where: { $0.id == form })
-            guard formInfo?.hasConnectingFlight == true,
-                  let legs = flight.trip?.sortedLegs,
-                  let idx = legs.firstIndex(where: { $0.persistentModelID == flight.persistentModelID })
-            else { return nil }
+            guard formInfo?.hasConnectingFlight == true else { return nil }
 
             let isArrival = airport == flight.destinationICAO
+            let thisID = flight.persistentModelID
+            let twoWeeks: TimeInterval = 14 * 24 * 3600
 
-            if isArrival, idx + 1 < legs.count {
-                // Next leg must depart from this airport (immediate next only)
-                let next = legs[idx + 1]
-                guard next.originICAO == airport else { return nil }
-                return FlightPayload(
-                    origin: next.originICAO, destination: next.destinationICAO,
-                    departureDate: dateFmt.string(from: next.departureDate),
-                    departureTimeUtc: next.departureTimeUTC,
-                    arrivalDate: dateFmt.string(from: next.arrivalDate),
-                    arrivalTimeUtc: next.arrivalTimeUTC,
-                    nature: next.nature, contact: next.responsiblePerson?.displayName ?? next.contact
-                )
-            } else if !isArrival, idx - 1 >= 0 {
-                // Previous leg must arrive at this airport (immediate previous only)
-                let prev = legs[idx - 1]
-                guard prev.destinationICAO == airport else { return nil }
-                return FlightPayload(
-                    origin: prev.originICAO, destination: prev.destinationICAO,
-                    departureDate: dateFmt.string(from: prev.departureDate),
-                    departureTimeUtc: prev.departureTimeUTC,
-                    arrivalDate: dateFmt.string(from: prev.arrivalDate),
-                    arrivalTimeUtc: prev.arrivalTimeUTC,
-                    nature: prev.nature, contact: prev.responsiblePerson?.displayName ?? prev.contact
-                )
+            // Only consider nearby flights, sorted by departure time
+            let nearby = allFlights
+                .filter { $0.persistentModelID != thisID
+                    && abs($0.departureDateTime.timeIntervalSince(flight.departureDateTime)) < twoWeeks }
+                .sorted { $0.departureDateTime < $1.departureDateTime }
+
+            if isArrival {
+                // Immediate next flight departing from this airport
+                if let next = nearby.first(where: {
+                    $0.departureDateTime >= flight.departureDateTime && $0.originICAO == airport
+                }) {
+                    return makeFlightPayload(from: next)
+                }
+            } else {
+                // Immediate previous flight arriving at this airport
+                if let prev = nearby.last(where: {
+                    $0.departureDateTime <= flight.departureDateTime && $0.destinationICAO == airport
+                }) {
+                    return makeFlightPayload(from: prev)
+                }
             }
             return nil
         }()
@@ -854,6 +852,17 @@ struct FlightEditView: View {
     private func applyPeopleSelection() {
         flight.crew = editingCrew.isEmpty ? nil : editingCrew
         flight.passengers = editingPassengers.isEmpty ? nil : editingPassengers
+    }
+
+    private func makeFlightPayload(from leg: Flight) -> FlightPayload {
+        FlightPayload(
+            origin: leg.originICAO, destination: leg.destinationICAO,
+            departureDate: dateFmt.string(from: leg.departureDate),
+            departureTimeUtc: leg.departureTimeUTC,
+            arrivalDate: dateFmt.string(from: leg.arrivalDate),
+            arrivalTimeUtc: leg.arrivalTimeUTC,
+            nature: leg.nature, contact: leg.responsiblePerson?.displayName ?? leg.contact
+        )
     }
 
     // MARK: - Return / Duplicate

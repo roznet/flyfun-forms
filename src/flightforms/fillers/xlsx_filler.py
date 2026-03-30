@@ -16,6 +16,12 @@ def _parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d")
 
 
+def _format_date(date_str: str, fmt: str) -> str:
+    """Parse ISO date string and return formatted string (e.g. '03/04/2026')."""
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    return dt.strftime(fmt)
+
+
 def _format_time(time_str: str, fmt: str) -> str:
     """Format HH:MM to HH:MM:SS if needed."""
     if fmt == "HH:MM:SS" and len(time_str) == 5:
@@ -126,7 +132,7 @@ def fill_xlsx(
 
         # Build values for the arrival (main flight) side
         values = {
-            "arrival_date": _parse_date(request.flight.arrival_date),
+            "arrival_date": _format_date(request.flight.arrival_date, date_fmt),
             "arrival_time": _format_time(request.flight.arrival_time_utc, time_fmt),
             "registration": request.aircraft.registration,
             "aircraft_type": request.aircraft.type,
@@ -153,7 +159,7 @@ def fill_xlsx(
                 request.flight.nature,
             )
             values.update({
-                "departure_date": _parse_date(cf.departure_date),
+                "departure_date": _format_date(cf.departure_date, date_fmt),
                 "departure_time": _format_time(cf.departure_time_utc, time_fmt),
                 "departure_flight_number": "",
                 "departure_flight_type": dep_flight_type,

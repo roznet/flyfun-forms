@@ -121,6 +121,7 @@ enum EmailLanguage: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @AppStorage("emailLanguage") private var emailLanguage: String = EmailLanguage.local.rawValue
+    @AppStorage("useDevServer") private var useDevServer = false
 
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
@@ -135,6 +136,15 @@ struct SettingsView: View {
                     ForEach(EmailLanguage.allCases) { lang in
                         Text(lang.label).tag(lang.rawValue)
                     }
+                }
+            }
+
+            if APIConfig.canToggleServer {
+                Section("Server") {
+                    Toggle("Use Dev Server", isOn: $useDevServer)
+                    Text(APIConfig.baseURL.absoluteString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
