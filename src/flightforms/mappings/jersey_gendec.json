@@ -15,9 +15,9 @@
     "subject": "General Declaration - {registration} - {date}"
   },
   "extra_fields": [
-    {"key": "phone", "label": "Crew phone", "type": "text"},
-    {"key": "email", "label": "Crew email", "type": "text"},
-    {"key": "owner_email", "label": "Owner email", "type": "text"}
+    {"key": "phone", "label": "Crew phone", "type": "text", "required": false},
+    {"key": "email", "label": "Crew email", "type": "text", "required": false},
+    {"key": "owner_email", "label": "Owner email", "type": "text", "required": false}
   ],
   "required_fields": {
     "flight": ["origin", "destination", "departure_date", "arrival_date", "arrival_time_utc"],

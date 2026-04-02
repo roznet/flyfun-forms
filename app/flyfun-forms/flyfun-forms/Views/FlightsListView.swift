@@ -82,9 +82,11 @@ struct FlightsListView: View {
         }
         .navigationDestination(for: Flight.self) { flight in
             FlightEditView(flight: flight)
+                .id(flight.persistentModelID)
         }
         .navigationDestination(item: $selectedFlight) { flight in
             FlightEditView(flight: flight)
+                .id(flight.persistentModelID)
         }
     }
 

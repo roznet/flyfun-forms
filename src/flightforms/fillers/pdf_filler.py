@@ -303,6 +303,13 @@ _PADDING = 4  # 2px each side
 
 def _fix_autosize_fields(writer: PdfWriter, updates: dict):
     """Rewrite appearance streams for fields whose template DA had font size 0."""
+    # Get form-level DA as fallback for fields that inherit it
+    acroform = writer._root_object.get("/AcroForm")
+    form_da = ""
+    if acroform:
+        af = acroform.get_object() if hasattr(acroform, "get_object") else acroform
+        form_da = af.get("/DA", "")
+
     for page in writer.pages:
         annots = page.get("/Annots", [])
         for annot_ref in annots:
@@ -312,7 +319,8 @@ def _fix_autosize_fields(writer: PdfWriter, updates: dict):
                 continue
 
             # Check if this field's DA specifies auto-size (font size 0)
-            da = annot.get("/DA", "")
+            # Fall back to form-level DA if the annotation has none
+            da = annot.get("/DA", "") or form_da
             if not re.search(r"\b0\s+Tf\b", da):
                 continue
 

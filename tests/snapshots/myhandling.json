@@ -7,7 +7,7 @@
   "AB3": "private comment",
   "AC2": "Mandatory",
   "AC3": "FBO location (ICAO) ",
-  "AC4": "36",
+  "AC4": "36|CANNES \u2013 SKY VALET",
   "B3": "Day of week (1 - 7)",
   "C3": "Start date dd/MM/yyyy",
   "D3": "End date dd/MM/yyyy",
