@@ -1,4 +1,5 @@
 import AuthenticationServices
+import FlyFunCommon
 import SwiftUI
 
 struct LoginView: View {
@@ -7,7 +8,12 @@ struct LoginView: View {
     @State private var isSigningIn = false
     @State private var errorMessage: String?
 
-    private let authService = AuthService()
+    private var authService: FlyFunAuthService {
+        FlyFunAuthService(config: .init(
+            baseURL: APIConfig.baseURL,
+            callbackScheme: "flyfunforms"
+        ))
+    }
 
     var body: some View {
         VStack(spacing: 32) {
@@ -81,12 +87,8 @@ struct LoginView: View {
                 errorMessage = String(localized: "Unexpected credential type.")
                 return
             }
-            let token = try await authService.exchangeAppleCredential(credential, baseURL: APIConfig.baseURL)
-            guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
-                errorMessage = String(localized: "Failed to create authentication URL.")
-                return
-            }
-            appState.handleAuthCallback(url: callbackURL)
+            let token = try await authService.exchangeAppleCredential(credential)
+            appState.signIn(token: token)
         } catch {
             if (error as? ASAuthorizationError)?.code != .canceled {
                 errorMessage = error.localizedDescription
@@ -99,12 +101,8 @@ struct LoginView: View {
         errorMessage = nil
         defer { isSigningIn = false }
         do {
-            let token = try await authService.signIn(baseURL: APIConfig.baseURL, provider: provider)
-            guard let callbackURL = URL(string: "flyfunforms://auth/callback?token=\(token)") else {
-                errorMessage = String(localized: "Failed to create authentication URL.")
-                return
-            }
-            appState.handleAuthCallback(url: callbackURL)
+            let token = try await authService.signIn(provider: provider)
+            appState.signIn(token: token)
         } catch {
             if (error as? ASWebAuthenticationSessionError)?.code != .canceledLogin {
                 errorMessage = error.localizedDescription

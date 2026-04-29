@@ -10,6 +10,7 @@
 		420D04712F5C09D200664F90 /* RZUtils in Frameworks */ = {isa = PBXBuildFile; productRef = 420D04702F5C09D200664F90 /* RZUtils */; };
 		420D04752F5C09DF00664F90 /* RZUtilsSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 420D04742F5C09DF00664F90 /* RZUtilsSwift */; };
 		420D047A2F5C0BA000664F90 /* RZFlight in Frameworks */ = {isa = PBXBuildFile; productRef = 420D047B2F5C0BA000664F90 /* RZFlight */; };
+		FFC0011A2F5C09D200664F00 /* FlyFunCommon in Frameworks */ = {isa = PBXBuildFile; productRef = FFC0021B2F5C09D200664F00 /* FlyFunCommon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +62,7 @@
 				420D04712F5C09D200664F90 /* RZUtils in Frameworks */,
 				420D04752F5C09DF00664F90 /* RZUtilsSwift in Frameworks */,
 				420D047A2F5C0BA000664F90 /* RZFlight in Frameworks */,
+				FFC0011A2F5C09D200664F00 /* FlyFunCommon in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +125,7 @@
 				420D04702F5C09D200664F90 /* RZUtils */,
 				420D04742F5C09DF00664F90 /* RZUtilsSwift */,
 				420D047B2F5C0BA000664F90 /* RZFlight */,
+				FFC0021B2F5C09D200664F00 /* FlyFunCommon */,
 			);
 			productName = "flyfun-forms";
 			productReference = 42FD27AE2F5BFFBA00A1BC5A /* flyfun-forms.app */;
@@ -185,6 +188,7 @@
 			packageReferences = (
 				420D044C2F5C001B00664F90 /* XCRemoteSwiftPackageReference "rzutils" */,
 				420D04792F5C0B9D00664F90 /* XCRemoteSwiftPackageReference "rzflight" */,
+				FFC0031C2F5C09D200664F00 /* XCLocalSwiftPackageReference "../../../../flyfun-common" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 42FD27AF2F5BFFBA00A1BC5A /* Products */;
@@ -562,6 +566,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		FFC0031C2F5C09D200664F00 /* XCLocalSwiftPackageReference "../../../../flyfun-common" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../../../flyfun-common";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		420D044C2F5C001B00664F90 /* XCRemoteSwiftPackageReference "rzutils" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -596,6 +607,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 420D04792F5C0B9D00664F90 /* XCRemoteSwiftPackageReference "rzflight" */;
 			productName = RZFlight;
+		};
+		FFC0021B2F5C09D200664F00 /* FlyFunCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FFC0031C2F5C09D200664F00 /* XCLocalSwiftPackageReference "../../../../flyfun-common" */;
+			productName = FlyFunCommon;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

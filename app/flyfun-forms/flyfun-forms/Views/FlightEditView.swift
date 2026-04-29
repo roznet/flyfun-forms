@@ -1,3 +1,4 @@
+import FlyFunCommon
 import SwiftUI
 import SwiftData
 #if os(iOS)
@@ -575,7 +576,7 @@ struct FlightEditView: View {
 
     private func fetchFormDetails(icao: String) {
         guard !icao.isEmpty, formDetails[icao] == nil else { return }
-        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
         Task {
             if let detail = try? await formService.airportDetail(icao: icao) {
                 formDetails[icao] = detail.forms
@@ -587,7 +588,7 @@ struct FlightEditView: View {
         isGenerating = true
         generatingForm = "\(airport)_\(form)"
 
-        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
         let request = buildRequest(airport: airport, form: form)
         do {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
@@ -621,7 +622,7 @@ struct FlightEditView: View {
 
     private func generateAndEmail(airport: String, formInfo: FormInfo) async {
         // Fetch email text from server in parallel with form generation
-        let formService = FormService(baseURL: APIConfig.baseURL, jwt: appState.jwt)
+        let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
         let emailReq = EmailTextRequest(
             airport: airport,
             form: formInfo.id,

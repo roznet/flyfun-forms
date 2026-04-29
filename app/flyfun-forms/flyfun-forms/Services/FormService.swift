@@ -1,23 +1,16 @@
+import FlyFunCommon
 import Foundation
 import OSLog
 
-struct ServerValidationError: Codable, Identifiable {
-    var field: String
-    var error: String
-    var value: String?
-
-    var id: String { "\(field):\(error)" }
-
+extension ServerValidationError {
     /// Human-readable field label, e.g. "crew[0].id_number" → "Crew 1 — ID Number"
     var displayField: String {
         var s = field
 
-        // Strip common prefixes
         for prefix in ["extra_fields.", "flight.", "aircraft."] {
             if s.hasPrefix(prefix) { s = String(s.dropFirst(prefix.count)) }
         }
 
-        // Convert indexed fields: "crew[0].dob" → "Crew 1 — Date of Birth"
         if let openBracket = s.firstIndex(of: "["),
            let closeBracket = s.firstIndex(of: "]"),
            openBracket < closeBracket {
@@ -56,28 +49,21 @@ struct ServerValidationError: Codable, Identifiable {
     }
 }
 
-private struct ValidationErrorResponse: Codable {
-    var detail: [ServerValidationError]
-}
-
+/// Form-generation API wrapper. All authenticated calls flow through the
+/// shared `RollingBearerSession`, so 401s clear the keychain and trigger
+/// the `onUnauthorized` callback configured on `AppState`.
 struct FormService {
     private static let logger = Logger(subsystem: "net.ro-z.flyfun-forms", category: "FormService")
     let baseURL: URL
-    let jwt: String?
+    let session: RollingBearerSession
 
     enum FormError: LocalizedError {
-        case notAuthenticated
-        case unauthorized
         case validationErrors([ServerValidationError])
         case serverError(Int, String)
         case networkError(Error)
 
         var errorDescription: String? {
             switch self {
-            case .notAuthenticated:
-                return String(localized: "Not signed in. Please sign in to generate forms.")
-            case .unauthorized:
-                return String(localized: "Session expired. Please sign in again.")
             case .validationErrors(let errors):
                 let lines = errors.map { e in
                     var line = "• \(e.displayField): \(e.error)"
@@ -93,26 +79,16 @@ struct FormService {
         }
     }
 
-    // Fetches form details for an airport
     func airportDetail(icao: String) async throws -> AirportDetailResponse {
         let url = baseURL.appendingPathComponent("airports").appendingPathComponent(icao)
-        var request = URLRequest(url: url)
-        applyAuth(&request)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FormError.networkError(URLError(.badServerResponse))
-        }
-        if httpResponse.statusCode == 401 {
-            throw FormError.unauthorized
-        }
-        guard httpResponse.statusCode == 200 else {
+        let (data, http) = try await session.data(for: URLRequest(url: url))
+        guard http.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw FormError.serverError(httpResponse.statusCode, message)
+            throw FormError.serverError(http.statusCode, message)
         }
         return try JSONDecoder().decode(AirportDetailResponse.self, from: data)
     }
 
-    // Generates a filled form, returns the file data and suggested filename
     func generate(request: GenerateRequest, flatten: Bool = false) async throws -> (Data, String) {
         var url = baseURL.appendingPathComponent("generate")
         if flatten {
@@ -122,42 +98,31 @@ struct FormService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body = try JSONEncoder().encode(request)
-        urlRequest.httpBody = body
-        applyAuth(&urlRequest)
+        urlRequest.httpBody = try JSONEncoder().encode(request)
 
         Self.logger.debug("POST /generate for airport=\(request.airport) form=\(request.form)")
+        let (data, http) = try await session.data(for: urlRequest)
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FormError.networkError(URLError(.badServerResponse))
-        }
-
-        if httpResponse.statusCode == 401 {
-            Self.logger.error("401 Unauthorized from \(url)")
-            throw FormError.unauthorized
-        }
-
-        if httpResponse.statusCode == 422 {
+        if http.statusCode == 422 {
             Self.logger.error("422 Validation error from \(url)")
-            if let parsed = try? JSONDecoder().decode(ValidationErrorResponse.self, from: data), !parsed.detail.isEmpty {
+            if let parsed = try? JSONDecoder().decode(ServerValidationErrorResponse.self, from: data),
+               !parsed.detail.isEmpty {
                 throw FormError.validationErrors(parsed.detail)
             }
             let message = String(data: data, encoding: .utf8) ?? "Validation error"
             throw FormError.serverError(422, message)
         }
 
-        guard httpResponse.statusCode == 200 else {
+        guard http.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            Self.logger.error("Server error \(httpResponse.statusCode) from \(url): \(message)")
-            throw FormError.serverError(httpResponse.statusCode, message)
+            Self.logger.error("Server error \(http.statusCode) from \(url): \(message)")
+            throw FormError.serverError(http.statusCode, message)
         }
 
-        let filename = httpResponse.value(forHTTPHeaderField: "Content-Disposition")
+        let filename = http.value(forHTTPHeaderField: "Content-Disposition")
             .flatMap { header in
                 header.components(separatedBy: "filename=").last?.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
             } ?? "\(request.airport)_\(request.form).pdf"
-
         return (data, filename)
     }
 
@@ -167,25 +132,11 @@ struct FormService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)
-        applyAuth(&urlRequest)
-
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FormError.networkError(URLError(.badServerResponse))
-        }
-        if httpResponse.statusCode == 401 {
-            throw FormError.unauthorized
-        }
-        guard httpResponse.statusCode == 200 else {
+        let (data, http) = try await session.data(for: urlRequest)
+        guard http.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw FormError.serverError(httpResponse.statusCode, message)
+            throw FormError.serverError(http.statusCode, message)
         }
         return try JSONDecoder().decode(EmailTextResponse.self, from: data)
-    }
-
-    private func applyAuth(_ request: inout URLRequest) {
-        if let jwt {
-            request.setValue("Bearer \(jwt)", forHTTPHeaderField: "Authorization")
-        }
     }
 }

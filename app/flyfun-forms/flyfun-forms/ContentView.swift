@@ -1,3 +1,4 @@
+import FlyFunCommon
 import SwiftUI
 import SwiftData
 
@@ -127,7 +128,12 @@ struct SettingsView: View {
     @State private var isDeletingAccount = false
     @State private var errorMessage: String?
 
-    private let authService = AuthService()
+    private var authService: FlyFunAuthService {
+        FlyFunAuthService(config: .init(
+            baseURL: APIConfig.baseURL,
+            callbackScheme: "flyfunforms"
+        ))
+    }
 
     var body: some View {
         Form {
@@ -196,7 +202,7 @@ struct SettingsView: View {
         errorMessage = nil
         defer { isDeletingAccount = false }
         do {
-            try await authService.deleteAccount(baseURL: APIConfig.baseURL, jwt: jwt)
+            try await authService.deleteAccount(jwt: jwt)
             appState.logout()
         } catch {
             errorMessage = error.localizedDescription
