@@ -39,3 +39,30 @@ class TestPrefixCountriesMapping:
         assert _COUNTRY_NAMES["FR"] == "France"
         assert _COUNTRY_NAMES["GB"] == "United Kingdom"
         assert _COUNTRY_NAMES["CH"] == "Switzerland"
+
+
+class TestLanguageResolution:
+    """Per-airport overrides take precedence over country-level mapping."""
+
+    @pytest.fixture
+    def resolver(self):
+        return AirportResolver(airports_db_path="/nonexistent/path.db")
+
+    def test_swiss_french_airports_override_to_fr(self, resolver):
+        # Without override, the LS prefix → CH → de.
+        for icao in ("LSGG", "LSGS", "LSGL", "LSGN"):
+            assert resolver.get_language_code(icao) == "fr", icao
+
+    def test_swiss_italian_airports_override_to_it(self, resolver):
+        for icao in ("LSZA", "LSZL"):
+            assert resolver.get_language_code(icao) == "it", icao
+
+    def test_swiss_german_airport_falls_back_to_country(self, resolver):
+        # No override → CH → de via prefix fallback (no euro_aip DB here).
+        assert resolver.get_language_code("LSZH") == "de"  # Zurich
+
+    def test_french_airport_unaffected(self, resolver):
+        assert resolver.get_language_code("LFPG") == "fr"  # CDG
+
+    def test_unknown_airport_returns_empty(self, resolver):
+        assert resolver.get_language_code("ZZZZ") == ""

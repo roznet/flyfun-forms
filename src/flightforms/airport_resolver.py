@@ -30,11 +30,33 @@ PREFIX_COUNTRIES = {
 }
 
 
-# Country code to primary language for email templates
+# Country code to primary language for email templates.
+# Per-airport overrides below handle multi-language countries.
 COUNTRY_LANGUAGES = {
     "FR": "fr", "DE": "de", "AT": "de", "CH": "de",
     "BE": "fr", "LU": "fr",
     "NL": "nl", "ES": "es", "IT": "it", "PT": "pt",
+}
+
+# Per-airport overrides for countries with multiple official languages.
+# Country-level mapping is the wrong granularity for Switzerland (DE / FR /
+# IT regions), Belgium (FR / NL), etc. — populate this incrementally as
+# airports come up. Keys are ICAO codes.
+_AIRPORT_LANGUAGE_OVERRIDES = {
+    # Swiss Romandy (French)
+    "LSGG": "fr",  # Geneva
+    "LSGS": "fr",  # Sion
+    "LSGL": "fr",  # Lausanne-Blécherette
+    "LSGN": "fr",  # Neuchâtel
+    "LSGY": "fr",  # Yverdon-les-Bains
+    "LSGB": "fr",  # Bex
+    "LSGE": "fr",  # Ecuvillens
+    "LSGT": "fr",  # Gruyères
+    "LSGC": "fr",  # Les Eplatures (La Chaux-de-Fonds)
+    "LSGP": "fr",  # La Côte (Prangins)
+    # Swiss Ticino (Italian)
+    "LSZA": "it",  # Lugano-Agno
+    "LSZL": "it",  # Locarno
 }
 
 # Prefix-level fallback for language when country code is unavailable
@@ -101,8 +123,12 @@ class AirportResolver:
     def get_language_code(self, icao: str) -> str:
         """Get primary language code for an airport's country.
 
-        Returns empty string for English-speaking countries.
+        Returns empty string for English-speaking countries. Per-airport
+        overrides take precedence over country-level mapping for multi-
+        language countries (Switzerland, Belgium, etc.).
         """
+        if icao in _AIRPORT_LANGUAGE_OVERRIDES:
+            return _AIRPORT_LANGUAGE_OVERRIDES[icao]
         cc = self.get_country_code(icao)
         if cc:
             return COUNTRY_LANGUAGES.get(cc, "")

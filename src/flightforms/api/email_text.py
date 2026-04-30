@@ -73,4 +73,5 @@ def email_text(
         body_en=body_en,
         subject_local=subject_local,
         body_local=body_local,
+        local_language=lang or "",
     )

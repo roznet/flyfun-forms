@@ -195,3 +195,8 @@ class EmailTextResponse(BaseModel):
     body_en: str
     subject_local: str
     body_local: str
+    # ISO 639-1 code for the airport's local language ("fr", "de", "it",
+    # …), or "" when the airport is in an English-speaking country / no
+    # local mapping. Clients use this to pick body_local vs body_en
+    # against the user's spoken languages.
+    local_language: str = ""
