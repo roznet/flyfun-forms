@@ -102,18 +102,44 @@ struct WideContentView: View {
     }
 }
 
-// MARK: - Email Language
+// MARK: - Spoken Languages
 
-enum EmailLanguage: String, CaseIterable, Identifiable {
-    case english, local, both
+/// Languages a pilot may declare they speak, beyond English. When an
+/// airport's local language matches, emails go out in that language;
+/// otherwise English. Codes are ISO 639-1, matching the server's
+/// EmailTextResponse.localLanguage.
+enum SpokenLanguage: String, CaseIterable, Identifiable {
+    case french = "fr"
+    case german = "de"
+    case italian = "it"
+    case spanish = "es"
+    case portuguese = "pt"
+    case dutch = "nl"
+
     var id: String { rawValue }
 
     var label: LocalizedStringResource {
         switch self {
-        case .english: "English"
-        case .local: "Local Language"
-        case .both: "Both (Local + English)"
+        case .french: "Français"
+        case .german: "Deutsch"
+        case .italian: "Italiano"
+        case .spanish: "Español"
+        case .portuguese: "Português"
+        case .dutch: "Nederlands"
         }
+    }
+}
+
+/// Helpers for the comma-separated `@AppStorage("spokenLanguageCodes")`.
+enum SpokenLanguageStorage {
+    static let key = "spokenLanguageCodes"
+
+    static func parse(_ raw: String) -> Set<String> {
+        Set(raw.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
+
+    static func serialize(_ codes: Set<String>) -> String {
+        codes.sorted().joined(separator: ",")
     }
 }
 
@@ -121,8 +147,19 @@ enum EmailLanguage: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @AppStorage("emailLanguage") private var emailLanguage: String = EmailLanguage.local.rawValue
+    @AppStorage(SpokenLanguageStorage.key) private var spokenLanguageCodes: String = ""
     @AppStorage("useDevServer") private var useDevServer = false
+
+    private func languageBinding(for lang: SpokenLanguage) -> Binding<Bool> {
+        Binding(
+            get: { SpokenLanguageStorage.parse(spokenLanguageCodes).contains(lang.rawValue) },
+            set: { isOn in
+                var set = SpokenLanguageStorage.parse(spokenLanguageCodes)
+                if isOn { set.insert(lang.rawValue) } else { set.remove(lang.rawValue) }
+                spokenLanguageCodes = SpokenLanguageStorage.serialize(set)
+            }
+        )
+    }
 
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
@@ -137,12 +174,14 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Email") {
-                Picker("Language", selection: $emailLanguage) {
-                    ForEach(EmailLanguage.allCases) { lang in
-                        Text(lang.label).tag(lang.rawValue)
-                    }
+            Section {
+                ForEach(SpokenLanguage.allCases) { lang in
+                    Toggle(String(localized: lang.label), isOn: languageBinding(for: lang))
                 }
+            } header: {
+                Text("Languages You Speak")
+            } footer: {
+                Text("When an airport's local language matches one you speak, emails are written in that language. Otherwise English is used.")
             }
 
             if APIConfig.canToggleServer {
@@ -153,6 +192,21 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            #if DEBUG
+            Section {
+                Button {
+                    Task { await simulateExpiredToken() }
+                } label: {
+                    Text("Simulate Expired Token")
+                        .foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Debug")
+            } footer: {
+                Text("Corrupts the stored JWT and fires an authenticated request so the server returns 401. Verifies the rolling-session unauthorized callback flips back to the login screen.")
+            }
+            #endif
 
             Section {
                 Button("Sign Out", role: .destructive) {
@@ -208,6 +262,17 @@ struct SettingsView: View {
             errorMessage = error.localizedDescription
         }
     }
+
+    #if DEBUG
+    private func simulateExpiredToken() async {
+        appState.tokenStore.token = "expired-test-token"
+        // Trigger an authenticated call so the server (must not be the
+        // dev server, which auto-accepts) returns 401 and the rolling
+        // session's onUnauthorized callback fires.
+        let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
+        _ = try? await formService.airportDetail(icao: "LFMD")
+    }
+    #endif
 }
 
 #Preview {

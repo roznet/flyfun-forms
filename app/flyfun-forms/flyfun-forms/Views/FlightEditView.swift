@@ -28,7 +28,7 @@ struct FlightEditView: View {
     @State private var shareFileURL: URL?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var notifications: [String: NotificationInfo] = [:]
-    @AppStorage("emailLanguage") private var emailLanguage: String = EmailLanguage.local.rawValue
+    @AppStorage(SpokenLanguageStorage.key) private var spokenLanguageCodes: String = ""
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
     @State private var previousDepartureDate: Date?
     @State private var scheduleExpanded = true
@@ -641,20 +641,16 @@ struct FlightEditView: View {
         guard let url = await formResult else { return }
         let emailText = await emailResult
 
-        let pref = EmailLanguage(rawValue: emailLanguage) ?? .local
         let subject: String
         let body: String
 
         if let et = emailText {
-            subject = et.subjectLocal  // subject is language-neutral (codes + dates)
-            switch pref {
-            case .english:
-                body = et.bodyEn
-            case .local:
-                body = et.bodyLocal
-            case .both:
-                body = et.bodyLocal + "\n\n---\n\n" + et.bodyEn
-            }
+            subject = et.subjectLocal  // language-neutral (codes + dates)
+            let userSpeaksLocal: Bool = {
+                guard let local = et.localLanguage, !local.isEmpty else { return false }
+                return SpokenLanguageStorage.parse(spokenLanguageCodes).contains(local)
+            }()
+            body = userSpeaksLocal ? et.bodyLocal : et.bodyEn
         } else {
             subject = emailSubject(formInfo: formInfo, flight: flight)
             body = emailBody(formInfo: formInfo, flight: flight)

@@ -135,12 +135,17 @@ struct EmailTextResponse: Codable {
     var bodyEn: String
     var subjectLocal: String
     var bodyLocal: String
+    /// ISO 639-1 code for the airport's local language (e.g. "fr", "de"),
+    /// or nil/empty when unknown / English-speaking. Optional so older
+    /// servers without this field keep parsing.
+    var localLanguage: String?
 
     enum CodingKeys: String, CodingKey {
         case subjectEn = "subject_en"
         case bodyEn = "body_en"
         case subjectLocal = "subject_local"
         case bodyLocal = "body_local"
+        case localLanguage = "local_language"
     }
 }
 
