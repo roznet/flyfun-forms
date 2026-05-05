@@ -6,7 +6,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from flyfun_common.auth import create_auth_router, get_jwt_secret, is_dev_mode
+from flyfun_common.auth import (
+    SlidingSessionMiddleware,
+    create_auth_router,
+    get_jwt_secret,
+    is_dev_mode,
+)
 from flyfun_common.db import SessionLocal, ensure_dev_user, get_engine, init_shared_db
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -75,6 +80,10 @@ def create_app() -> FastAPI:
         same_site="none",
         https_only=not is_dev_mode(),
     )
+
+    # Rolling JWTs: when a request's token is near expiry, mint a successor
+    # and surface it via Set-Cookie (browser) or X-Renewed-Token (Bearer).
+    app.add_middleware(SlidingSessionMiddleware)
 
     if is_dev_mode():
         from starlette.middleware.cors import CORSMiddleware

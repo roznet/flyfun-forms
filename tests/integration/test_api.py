@@ -53,6 +53,45 @@ class TestHealth:
         assert resp.json()["status"] == "ok"
 
 
+# ── Sliding session middleware ────────────────────────────────────────────────
+
+class TestSlidingSession:
+    """The SlidingSessionMiddleware must emit X-Renewed-Token when a Bearer
+    JWT is inside the refresh window, so the iOS app can roll its keychain
+    token forward without forcing the user back to login."""
+
+    @staticmethod
+    def _forge_bearer(secret: str, days_until_expiry: int) -> str:
+        from datetime import datetime, timedelta, timezone
+        import jwt as pyjwt
+        from flyfun_common.auth.jwt_utils import JWT_ALGORITHM
+        now = datetime.now(timezone.utc)
+        return pyjwt.encode(
+            {
+                "sub": "test-user-001",
+                "email": "u@example.com",
+                "name": "U",
+                "iat": now,
+                "exp": now + timedelta(days=days_until_expiry),
+            },
+            secret,
+            algorithm=JWT_ALGORITHM,
+        )
+
+    def test_renews_bearer_near_expiry(self, client):
+        token = self._forge_bearer(os.environ["JWT_SECRET"], days_until_expiry=5)
+        resp = client.get("/health", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        renewed = resp.headers.get("x-renewed-token")
+        assert renewed and renewed != token
+
+    def test_does_not_renew_fresh_bearer(self, client):
+        token = self._forge_bearer(os.environ["JWT_SECRET"], days_until_expiry=25)
+        resp = client.get("/health", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert resp.headers.get("x-renewed-token") is None
+
+
 # ── Airports endpoints ────────────────────────────────────────────────────────
 
 class TestAirports:
