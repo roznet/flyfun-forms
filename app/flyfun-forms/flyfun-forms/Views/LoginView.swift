@@ -4,6 +4,7 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var isSigningIn = false
     @State private var errorMessage: String?
@@ -39,33 +40,27 @@ struct LoginView: View {
                     .padding(.horizontal)
             }
 
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.fullName, .email]
                 } onCompletion: { result in
                     Task { await handleAppleSignIn(result) }
                 }
-                .signInWithAppleButtonStyle(.black)
-                .frame(maxWidth: 280)
-                .frame(height: 50)
+                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                .frame(width: 175, height: 40)
                 .disabled(isSigningIn)
 
                 Button {
                     Task { await signIn(provider: "google") }
                 } label: {
-                    HStack(spacing: 8) {
-                        if isSigningIn {
-                            ProgressView()
-                                .tint(.primary)
+                    Image("SignInWithGoogle")
+                        .resizable()
+                        .frame(width: 175, height: 40)
+                        .overlay {
+                            if isSigningIn {
+                                ProgressView().controlSize(.small)
+                            }
                         }
-                        Text("Sign in with Google")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: 280, minHeight: 50)
-                    .background {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.primary.opacity(0.3), lineWidth: 1)
-                    }
                 }
                 .buttonStyle(.plain)
                 .disabled(isSigningIn)
@@ -109,4 +104,17 @@ struct LoginView: View {
             }
         }
     }
+}
+
+#Preview("Light") {
+    LoginView()
+        .environment(AppState())
+        .frame(width: 500, height: 500)
+}
+
+#Preview("Dark") {
+    LoginView()
+        .environment(AppState())
+        .frame(width: 500, height: 500)
+        .preferredColorScheme(.dark)
 }
