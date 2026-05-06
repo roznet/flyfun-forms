@@ -135,7 +135,7 @@ struct FlightEditView: View {
     }
 
     private var wideLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .top, spacing: 16) {
             Form {
                 routeSection
                 scheduleSection
@@ -152,6 +152,7 @@ struct FlightEditView: View {
             }
             .frame(minWidth: 300, maxWidth: .infinity)
         }
+        .padding(.horizontal, 12)
     }
 
     // MARK: - Sections
