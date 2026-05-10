@@ -784,6 +784,12 @@ struct FlightEditView: View {
             let thisID = flight.persistentModelID
             let twoWeeks: TimeInterval = 14 * 24 * 3600
 
+            // Skip candidates with unset times — the API requires HH:MM and
+            // a partially-filled connecting leg shouldn't render on the form.
+            let hasTimes: (Flight) -> Bool = {
+                !$0.departureTimeUTC.isEmpty && !$0.arrivalTimeUTC.isEmpty
+            }
+
             // Only consider nearby flights, sorted by departure time
             let nearby = allFlights
                 .filter { $0.persistentModelID != thisID
@@ -793,14 +799,18 @@ struct FlightEditView: View {
             if isArrival {
                 // Immediate next flight departing from this airport
                 if let next = nearby.first(where: {
-                    $0.departureDateTime >= flight.departureDateTime && $0.originICAO == airport
+                    $0.departureDateTime >= flight.departureDateTime
+                        && $0.originICAO == airport
+                        && hasTimes($0)
                 }) {
                     return makeFlightPayload(from: next)
                 }
             } else {
                 // Immediate previous flight arriving at this airport
                 if let prev = nearby.last(where: {
-                    $0.departureDateTime <= flight.departureDateTime && $0.destinationICAO == airport
+                    $0.departureDateTime <= flight.departureDateTime
+                        && $0.destinationICAO == airport
+                        && hasTimes($0)
                 }) {
                     return makeFlightPayload(from: prev)
                 }

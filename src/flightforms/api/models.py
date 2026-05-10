@@ -2,7 +2,7 @@
 
 import re
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, Union
 
 _ICAO_RE = re.compile(r"^[A-Z]{4}$")
@@ -109,6 +109,20 @@ class GenerateRequest(BaseModel):
     connecting_flight: Optional[ConnectingFlightData] = None
     extra_fields: Optional[dict[str, Union[str, dict[str, str]]]] = None
     observations: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_incomplete_connecting_flight(cls, data):
+        # Older app builds auto-detect a nearby flight as the connecting leg
+        # and may forward empty time strings when those fields are unset on
+        # the source flight. Treat that as no connecting flight rather than
+        # failing the whole request.
+        if isinstance(data, dict):
+            cf = data.get("connecting_flight")
+            if isinstance(cf, dict):
+                if not cf.get("departure_time_utc") or not cf.get("arrival_time_utc"):
+                    data["connecting_flight"] = None
+        return data
 
 
 class ValidationError(BaseModel):
