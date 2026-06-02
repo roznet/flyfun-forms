@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import RZFlight
 #if os(iOS)
 import UIKit
 #else
@@ -11,6 +12,7 @@ import AppKit
 struct NewFlightFlow: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @Query(sort: \Aircraft.registration) private var allAircraft: [Aircraft]
 
     @State private var step: Step = .route
@@ -25,6 +27,7 @@ struct NewFlightFlow: View {
     @State private var selectedPassengers: [Person] = []
     @State private var showAirportPicker = false
     @State private var showPeoplePicker = false
+    @State private var showWeatherImport = false
 
     /// Called with the newly created flight so the parent can navigate to it.
     var onCreated: (Flight) -> Void
@@ -70,6 +73,11 @@ struct NewFlightFlow: View {
             .sheet(isPresented: $showPeoplePicker) {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
+            .sheet(isPresented: $showWeatherImport) {
+                WeatherFlightPickerView { exchange in
+                    applyWeatherImport(exchange)
+                }
+            }
             .onChange(of: departureDate) { oldValue, newValue in
                 if Calendar.current.isDate(arrivalDate, inSameDayAs: oldValue) {
                     arrivalDate = newValue
@@ -83,10 +91,23 @@ struct NewFlightFlow: View {
     @ViewBuilder
     private var routeStep: some View {
         Section {
-            Button {
-                pasteFlightPlan()
-            } label: {
-                Label("Paste Flight Plan", systemImage: "doc.on.clipboard")
+            HStack(spacing: 8) {
+                Text("Import")
+                Spacer(minLength: 8)
+                Button {
+                    pasteFlightPlan()
+                } label: {
+                    Label("Flight Plan", systemImage: "doc.on.clipboard")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                Button {
+                    showWeatherImport = true
+                } label: {
+                    Label("Weather", systemImage: "cloud.sun")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
         }
 
@@ -226,6 +247,61 @@ struct NewFlightFlow: View {
               let h2 = Int(parts2[0]), let m2 = Int(parts2[1]) else { return base }
         let total = (h1 * 60 + m1) + (h2 * 60 + m2)
         return String(format: "%02d:%02d", (total / 60) % 24, total % 60)
+    }
+
+    // MARK: - Import from Weather
+
+    /// Map an imported `FlightExchange` onto the route step, mirroring
+    /// `pasteFlightPlan()`. The pilot then reviews and taps Create Flight —
+    /// no separate persistence path. Only the origin/destination/time/aircraft
+    /// subset forms cares about is consumed; waypoints/coords are ignored.
+    private func applyWeatherImport(_ exchange: FlightExchange) {
+        let route = exchange.route
+
+        if !route.departure.isEmpty { originICAO = route.departure }
+        if !route.destination.isEmpty { destinationICAO = route.destination }
+
+        if let dep = route.departureTime {
+            let (day, hhmm) = utcDayAndTime(dep)
+            departureDate = day
+            departureTimeUTC = hhmm
+            // Default arrival to the departure day; overwritten below if the
+            // payload carries an arrival time.
+            arrivalDate = day
+        }
+        if let arr = route.arrivalTime {
+            let (day, hhmm) = utcDayAndTime(arr)
+            arrivalDate = day
+            arrivalTimeUTC = hhmm
+        }
+
+        // Aircraft: match an existing one by normalized registration, else
+        // create it — the same dedup the pasted-flight-plan flow uses.
+        let type = exchange.aircraft?.type ?? route.aircraftType ?? ""
+        if let reg = exchange.aircraft?.registration, !reg.isEmpty {
+            let normalizedReg = reg.replacingOccurrences(of: "-", with: "").uppercased()
+            if let existing = allAircraft.first(where: { ac in
+                ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
+            }) {
+                selectedAircraft = existing
+            } else {
+                let ac = Aircraft(registration: reg, type: type)
+                modelContext.insert(ac)
+                selectedAircraft = ac
+            }
+        }
+    }
+
+    /// Split a UTC instant into a date (midnight UTC) and an "HH:mm" string —
+    /// forms stores departure/arrival as a separate date + UTC time-of-day,
+    /// and `Flight.departureDateTime` recombines them with a UTC calendar.
+    private func utcDayAndTime(_ date: Date) -> (day: Date, hhmm: String) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let c = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let day = cal.date(from: DateComponents(year: c.year, month: c.month, day: c.day)) ?? date
+        let hhmm = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        return (day, hhmm)
     }
 
     // MARK: - Create

@@ -6,6 +6,11 @@ enum APIConfig {
     static let productionURL = URL(string: "https://forms.flyfun.aero")!
     static let devURL = URL(string: "https://localhost.ro-z.me:8443")!
 
+    /// flyfun-weather backend — source of "Import from Weather" flights. The
+    /// dev host matches the weather HTTPS dev server (`/devserver --https`).
+    static let weatherProductionURL = URL(string: "https://weather.flyfun.aero")!
+    static let weatherDevURL = URL(string: "https://localhost.ro-z.me:8443")!
+
     /// Whether the server toggle is available (DEBUG builds or simulator)
     static var canToggleServer: Bool {
         #if DEBUG
@@ -25,6 +30,17 @@ enum APIConfig {
         return UserDefaults.standard.bool(forKey: "useDevServer") ? devURL : productionURL
         #else
         return productionURL
+        #endif
+    }
+
+    /// Base URL of the flyfun-weather backend, respecting the dev-server toggle.
+    static var weatherBaseURL: URL {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: "useDevServer") ? weatherDevURL : weatherProductionURL
+        #elseif targetEnvironment(simulator)
+        return UserDefaults.standard.bool(forKey: "useDevServer") ? weatherDevURL : weatherProductionURL
+        #else
+        return weatherProductionURL
         #endif
     }
 
