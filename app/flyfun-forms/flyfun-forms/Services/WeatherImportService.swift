@@ -11,17 +11,12 @@ struct WeatherFlightSummary: Identifiable, Decodable {
     let routeName: String
     let waypoints: [String]
     let departureTime: Date
-    /// "future" | "recent" | "past" — weather's own bucketing.
-    let section: String
-    let role: String
 
     enum CodingKeys: String, CodingKey {
         case id
         case routeName = "route_name"
         case waypoints
         case departureTime = "departure_time"
-        case section
-        case role
     }
 
     /// "EGTK → LSGS" when endpoints are known, else the flight's name.

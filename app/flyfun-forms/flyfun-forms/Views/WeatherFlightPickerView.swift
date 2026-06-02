@@ -42,12 +42,19 @@ struct WeatherFlightPickerView: View {
                 #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
+                        // Disabled mid-import: the import Task is unstructured,
+                        // so dismissing wouldn't cancel it and it would prefill
+                        // the parent after the sheet is gone.
                         Button("Cancel") { dismiss() }
+                            .disabled(importingID != nil)
                     }
                 }
         }
+        #if os(macOS)
+        .frame(minWidth: 400, minHeight: 300)
+        #endif
         .task { await load() }
-        .alert("Import failed", isPresented: errorBinding) {
+        .alert("Import Failed", isPresented: errorBinding) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
