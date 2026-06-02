@@ -118,6 +118,9 @@ struct WeatherFlightPickerView: View {
 
     private func load() async {
         phase = .loading
+        // Clear any prior import error so it can't re-surface once the list
+        // returns to .loaded.
+        errorMessage = nil
         do {
             flights = try await service.listFlights()
             phase = .loaded

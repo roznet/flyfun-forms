@@ -12,7 +12,6 @@ import AppKit
 struct NewFlightFlow: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
     @Query(sort: \Aircraft.registration) private var allAircraft: [Aircraft]
 
     @State private var step: Step = .route
@@ -225,16 +224,7 @@ struct NewFlightFlow: View {
         }
         // Match aircraft by registration, or create if not found
         if let reg = parsed.aircraftRegistration {
-            let normalizedReg = reg.replacingOccurrences(of: "-", with: "").uppercased()
-            if let existing = allAircraft.first(where: { ac in
-                ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
-            }) {
-                selectedAircraft = existing
-            } else {
-                let ac = Aircraft(registration: reg, type: parsed.aircraftType ?? "")
-                modelContext.insert(ac)
-                selectedAircraft = ac
-            }
+            resolveOrCreateAircraft(registration: reg, type: parsed.aircraftType ?? "")
         }
     }
 
@@ -277,18 +267,26 @@ struct NewFlightFlow: View {
 
         // Aircraft: match an existing one by normalized registration, else
         // create it — the same dedup the pasted-flight-plan flow uses.
-        let type = exchange.aircraft?.type ?? route.aircraftType ?? ""
         if let reg = exchange.aircraft?.registration, !reg.isEmpty {
-            let normalizedReg = reg.replacingOccurrences(of: "-", with: "").uppercased()
-            if let existing = allAircraft.first(where: { ac in
-                ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
-            }) {
-                selectedAircraft = existing
-            } else {
-                let ac = Aircraft(registration: reg, type: type)
-                modelContext.insert(ac)
-                selectedAircraft = ac
-            }
+            resolveOrCreateAircraft(
+                registration: reg,
+                type: exchange.aircraft?.type ?? route.aircraftType ?? ""
+            )
+        }
+    }
+
+    /// Select an existing aircraft matching `registration` (ignoring dashes /
+    /// case), or insert a new one. Shared by the paste and weather-import flows.
+    private func resolveOrCreateAircraft(registration: String, type: String) {
+        let normalizedReg = registration.replacingOccurrences(of: "-", with: "").uppercased()
+        if let existing = allAircraft.first(where: { ac in
+            ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
+        }) {
+            selectedAircraft = existing
+        } else {
+            let ac = Aircraft(registration: registration, type: type)
+            modelContext.insert(ac)
+            selectedAircraft = ac
         }
     }
 
