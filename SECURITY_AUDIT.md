@@ -50,29 +50,34 @@ The mitigating factors are:
 
 ## HIGH Severity Issues
 
-### 3. JWT Token Passed in OAuth Callback URL (HIGH)
+### 3. ~~JWT Token Passed in OAuth Callback URL~~ (RESOLVED — H8)
 
-**File:** `app/flyfun-forms/flyfun-forms/Services/AuthService.swift:55-61`
+Previously the JWT was returned as a query parameter in the custom URL scheme
+callback (`flyfunforms://auth?token=...`), which meant: the token could appear in
+server/proxy access logs on the OAuth redirect; a malicious app registering a
+`flyfun*` scheme could be chosen by the OS to intercept it; and, because the app
+accepted a bare token from *any* inbound deep link with no `state` binding, an
+injected `flyfunforms://auth?token=<attacker_jwt>` link was a login-CSRF /
+session-fixation vector (silently signing the victim into the attacker's account).
 
-```swift
-let token = components.queryItems?.first(where: { $0.name == "token" })?.value
-```
+This is the cross-repo **H8** issue tracked in
+`flyfun-common/designs/oauth-deeplink-hardening.md`.
 
-The JWT is returned as a query parameter in the custom URL scheme callback (`flyfunforms://auth?token=...`). This means:
-- The JWT may appear in server access logs on the OAuth redirect
-- On older iOS versions, URL scheme handlers could be hijacked by malicious apps
-- The URL (including token) might appear in `ASWebAuthenticationSession` browser history
-
-**File:** `app/flyfun-forms/flyfun-forms/Services/AuthService.swift:50`
-```swift
-session.prefersEphemeralWebBrowserSession = false
-```
-
-Setting this to `false` means the browser session persists cookies/state, which is a convenience trade-off but means the OAuth flow state persists.
-
-**Recommendation:**
-- Consider switching to `prefersEphemeralWebBrowserSession = true` for security-sensitive deployments
-- The JWT-in-URL pattern is standard for mobile OAuth but be aware of the logging implications
+**Resolution** (matches the flyfun-weather fix):
+- Bumped the shared `flyfun-common` package to **v0.6.3**, which moves the native
+  sign-in to the standard **authorization-code** pattern: the client generates a
+  random `state`, the server callback returns a short-TTL signed `code`+`state`
+  (never the token), and the client verifies `state` and exchanges the code for the
+  JWT over an HTTPS **POST** (`/auth/exchange`) — the token now only ever travels in
+  a response body. See `FlyFunCommon.FlyFunAuthService.signIn`, already used by
+  `LoginView`.
+- **Removed the bare-token deep-link path entirely.** `AppState.handleAuthCallback`
+  and the app's `onOpenURL` hook were deleted, so no inbound `token=` deep link can
+  authenticate. Forms has no App Store reviewer deep link, so unlike weather it needs
+  no `scope:"review"` carve-out — the reviewer signs in via a normal demo account.
+- Server-side, the shared auth router now serves `/auth/exchange` and enforces an
+  exact scheme allowlist (`flyfunforms` is on it by default); picked up when the
+  forms API is deployed with `flyfun-common >= 0.6.3`.
 
 ### 4. No Certificate Pinning / TLS Validation (ACCEPTED RISK)
 

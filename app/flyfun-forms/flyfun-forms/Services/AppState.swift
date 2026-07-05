@@ -9,7 +9,6 @@ import OSLog
 final class AppState {
     @ObservationIgnored let tokenStore: KeychainBearerTokenStore
     @ObservationIgnored private(set) var rollingSession: RollingBearerSession!
-    @ObservationIgnored private let callbackParser = AuthCallbackParser(customScheme: "flyfunforms")
 
     /// Mirror of the keychain JWT — observable so SwiftUI re-renders on
     /// login/logout. Don't pass this around for API auth; use `rollingSession`,
@@ -36,16 +35,6 @@ final class AppState {
     /// Apply a JWT obtained from the Apple credential exchange or Google OAuth.
     func signIn(token: String) {
         Self.logger.info("Storing JWT after sign-in")
-        applyToken(token)
-    }
-
-    /// Handle a deep-link auth callback: `flyfunforms://auth?token=…`.
-    func handleAuthCallback(url: URL) {
-        guard let token = callbackParser.token(from: url) else {
-            Self.logger.warning("Invalid auth callback URL: \(url)")
-            return
-        }
-        Self.logger.info("Auth callback received, storing JWT")
         applyToken(token)
     }
 

@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/roznet/flyfun-common",
       "state" : {
-        "branch" : "main",
-        "revision" : "c823ae8af397dd1d053675a82f353de89329dd16"
+        "revision" : "72d809727e811da97b9318448ee1eef31b02a91d",
+        "version" : "0.6.3"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/roznet/rzutils",
       "state" : {
         "branch" : "master",
-        "revision" : "26465b73e220f1cfe77a6ac586d89ec73225d71a"
+        "revision" : "e2c66339b9dfdf88ba11be04561ea659f8afddcc"
       }
     }
   ],

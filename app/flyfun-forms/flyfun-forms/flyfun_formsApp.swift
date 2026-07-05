@@ -42,9 +42,6 @@ struct flyfun_formsApp: App {
                 }
             }
             .environment(appState)
-            .onOpenURL { url in
-                appState.handleAuthCallback(url: url)
-            }
             .task { migrateDocuments() }
             .task { await preloadAirportData() }
         }
