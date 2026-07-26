@@ -32,6 +32,11 @@ Key exports: `cli.py` (generate, trip, preview, airports commands)
 Multilingual support for the iOS/macOS app — English (base), French, German, Spanish. Uses Xcode String Catalogs (`.xcstrings`). Documents code changes, what's localised vs not, and remaining steps for Mac.
 → Full doc: localisation.md
 
+### submission-server
+**Proposal.** Server-mediated flight submission replacing per-airport email: pilots file once, airports get a live queue, decisions and history. Identity data end-to-end encrypted so the server cannot read it. Covers data tiering, field groups, submission lifecycle, email fallback, ADS-B, and phasing.
+Key concepts: Tier 0/1/2 data split, field groups, signed decisions, permanent email fallback
+→ Full doc: submission-server.md
+
 ### people-import
 CSV format documentation for bulk importing crew and passengers. Covers required/optional columns, data formats, deduplication, and behaviour.
 → Full doc: people_import.md
