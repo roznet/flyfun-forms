@@ -133,9 +133,22 @@ src/flightforms/
 └── console/              # airports.flyfun.aero — decrypts client-side
 ```
 
-Airport staff will not have Google/Apple accounts. The **magic-link path already
-in flyfun-common** (`magic_link_tokens`) is the onboarding route — no new auth
-mechanism.
+Airport staff will not have Google/Apple accounts. **Passkeys (WebAuthn) are the
+console's auth mechanism**, with the existing `magic_link_tokens` path used only
+for first-time enrolment and device recovery.
+
+This is deliberate and worth the extra build. The realistic attack on this
+system is not broken cryptography — it is a convincing spear-phish against an
+airport mailbox, and phishing quality is exactly what has improved most in the
+last two years. An email-delivered credential is phishable by construction;
+a passkey is origin-bound and cannot be replayed against a lookalike domain.
+Since an officer's session decrypts real passport data, phishing-resistant auth
+is load-bearing, not a nicety — a stolen console session yields everything that
+officer can see, whatever the encryption does.
+
+Magic links remain acceptable for enrolment because that step is chaperoned
+during onboarding, and because a device added to an org is visible to every
+other member.
 
 ## Submission lifecycle
 
