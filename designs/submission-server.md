@@ -157,9 +157,17 @@ draft ──submit──► filed ──ack──► received ──┬──►
                     │                       ├──► rejected  (reason, signed)
                     │                       └──► changes_requested
                     │                              │
-                    ├──amend──► filed (v+1, prev_hash chain)
-                    └──withdraw──► withdrawn  (crypto-shred: envelopes deleted)
+                    ├──amend──────► filed (v+1, prev_hash chain)
+                    ├──withdraw───► withdrawn   (crypto-shred: envelopes deleted)
+                    └──divert─────► diverted @ A ──► reported_on_arrival @ B
+                                    (A notified,      (new submission sealed to B,
+                                     copy shreds)      chained to the original)
 ```
+
+`reported_on_arrival` is deliberately **not** `filed`. B received no advance
+notice and in most cases has no "approve" concept for an unannounced arrival —
+only acknowledgement. Collapsing the two would misrepresent what happened, and
+an accurate record is the entire point of the state machine.
 
 - Every transition is **Ed25519-signed** by the acting party and appended to a
   hash chain. The pilot can prove "filed 48h ahead" and show a verifiable
@@ -181,6 +189,92 @@ defensible evolution is **"stored briefly, in a form we cannot read"**; the
 indefensible one is quietly becoming a passport-number database. Retention
 policy is what keeps the first sentence true, and `PRIVACY.md` must be rewritten
 alongside phase 1, not after it.
+
+## Diversion
+
+The goal here is **not** pre-arrival notice. A genuine diversion is unforeseen
+by definition; no authority requires prior notice for one, and none does. What
+is required is a prompt, credible report *on arrival*.
+
+The baseline is also low: today the pilot lands, explains himself, and can at
+best show a PDF addressed to a different airport. The airport he filed with does
+not forward anything. So this needs to be better than "explain yourself," not
+perfect.
+
+The apparent hard part — sealing to an unplanned airport with no connectivity —
+mostly dissolves once the tiers are applied properly. **Everything an airport
+wants before an unexpected arrival is Tier 0**: registration, POB count, ETA,
+origin, nature. That is cleartext by design, so the server can compose it for
+any airport, onboarded or not, with no key bundle and no pre-sealing. Identity
+data follows on the ground, where there is usually cell service.
+
+Four mechanisms, in value order:
+
+**1. Ground re-file at B.** Pilot taps "I diverted here", picks B, the app
+fetches B's root-verified bundle, seals and submits — typically while still
+parked. Needs nothing new from the crypto design.
+
+**2. A provable diversion.** The pilot already holds a signed, server-timestamped
+submission proving he filed for A well in advance. On diverting, the app emits a
+**signed divert attestation** chained to that original via `prev_hash`. B
+receives the original filing, the attestation with its timestamp, and fresh data
+sealed to B.
+
+This converts *explaining* into *showing*: "I filed for Sion at 08:14 yesterday,
+diverted at 14:32, here is the verifiable chain." It verifies against the root
+key **offline**, which is exactly the condition under which it is needed. This
+is the strongest single argument for the signing layer.
+
+**3. Withdraw at A automatically.** A stops waiting, logs no no-show, and its
+copy shreds on schedule. Today A is told nothing at all.
+
+**4. Pre-cache alternate forms before departure.** The genuinely awkward case is
+landing with no signal and no roaming; since generation is server-side (see
+`PRIVACY.md` on PDFKit), an offline pilot can produce nothing.
+
+Fix it before departure: capture the alternates the flight plan already carries,
+call `/generate` for each, cache the filled PDFs on device. The pilot lands
+anywhere on his alternate list holding a correctly-filled form. Zero crypto, no
+server changes, reuses the existing endpoint — the cheapest high-value item
+here, and buildable independently of everything else.
+
+> **Prerequisite:** `ICAOFlightPlanParser.swift:188` already notes that
+> alternates follow the destination in Item 16, then discards them
+> (`prefix(4)`). Capturing that list is a small parser change and the enabler
+> for both mechanism 4 and the preflight check below.
+
+### Pre-sealing to alternates — declined for now
+
+The obvious idea, with a real cost: sealing the manifest to filed alternates at
+departure grants those airports **cryptographic capability** over passenger data
+from that moment; the server merely gates delivery. "Only the airport you filed
+with" silently becomes "plus every alternate you listed" — which would
+contradict the claims fixed in `e2ee.md`.
+
+If it is ever wanted, a cheap construction preserves the claim: split the DEK as
+`s1 XOR s2`, seal `s1` to the alternate, hold `s2` server-side, release `s2` only
+against a pilot-signed divert attestation. The alternate alone cannot read; the
+server alone cannot read (it cannot unseal `s1`); collusion is required, which is
+already fatal in any design. Thirty-two bytes of XOR and one field.
+
+Not built initially: it only helps in the narrow window of connectivity in flight
+but none on the ground, which mechanisms 1–4 already cover. If offered, it must
+be an explicit consented choice per flight, never a default.
+
+### Preflight requirements check
+
+Diverting across a border can change required fields — `lsgs.json` requires
+`dob`, `french_customs.json` does not. The existing `required_fields` machinery
+already knows this per airport, so the app can warn **before departure** that a
+listed alternate needs data not carried for anyone on board. Falls out for free
+once alternates are parsed.
+
+### Diversion to a field with no customs
+
+Not a form problem — a procedure problem. The answer is "remain with the
+aircraft, telephone border police", which is content rather than submission.
+`euro_aip` already carries per-airport customs notification data; surface it
+rather than offering a filing that does not apply.
 
 ## Email stays first-class, forever
 
@@ -236,13 +330,15 @@ one block a decision.
 |---|---|---|
 | **0** | Field-tier table agreed; `PRIVACY.md` rewritten | No |
 | **1** | Tier-0 submissions + console queue + aircraft history, one design partner | No |
+| **1b** | Alternate capture + pre-cached alternate forms | No |
 | **2** | Envelope encryption, root-signed bundles, native iOS sealing | Yes |
 | **3** | Signed decisions + offline receipts | Ed25519 only |
+| **3b** | Diversion: ground re-file, signed attestation, withdraw-at-A | Ed25519 only |
 | **4** | Blind-index visitor history | Yes |
 | **5** | ADS-B status | No |
 | **6** | Second partner, staff management, rotation | Yes |
 
-Phases 0, 1 and 5 need none of the cryptography. Building the key
+Phases 0, 1, 1b and 5 need none of the cryptography. Building the key
 infrastructure before one real officer has clicked "approve" on one real flight
 is the way this dies at 80% complete: the crypto is the tractable part, and
 adoption is not.
@@ -272,8 +368,9 @@ adoption is not.
   threat model in `e2ee.md`.
 - Does an airport need to forward to a third party without pilot re-encryption?
   Possible, but weakens the "only the addressed airport" claim.
-- What happens on diversion? Re-sealing to an unplanned airport in flight, with
-  no connectivity, is unsolved — probably falls back to email.
+- Will authorities accept `reported_on_arrival` as a distinct, lesser state, or
+  do they insist a diverted arrival is simply an unannounced one? Affects
+  whether mechanism 2 has any standing beyond goodwill.
 
 ## References
 
