@@ -4,6 +4,7 @@ Each test generates a real document from the production template and verifies
 the output is valid and contains expected data.
 """
 
+import re
 from io import BytesIO
 from pathlib import Path
 
@@ -12,7 +13,12 @@ from pypdf import PdfReader
 from openpyxl import load_workbook
 
 from flightforms.api.models import GenerateRequest
-from flightforms.fillers.pdf_filler import fill_pdf, _parse_date, _resolve_field_pattern
+from flightforms.fillers.pdf_filler import (
+    fill_pdf,
+    _parse_date,
+    _resolve_field_pattern,
+    _template_font_sizes,
+)
 from flightforms.fillers.french_customs_filler import fill_french_customs, _suffix
 from flightforms.fillers.xlsx_filler import fill_xlsx
 from flightforms.registry import MappingRegistry
@@ -525,3 +531,103 @@ class TestLocalTimeConversion:
         fields = PdfReader(BytesIO(pdf_bytes)).get_fields() or {}
         assert fields["ARRIVALFLIGHTTIME"].get("/V") == "23:50"
         assert fields["ARRIVALFLIGHTDATE"].get("/V") == "01/06/2099"
+
+
+class TestTextAppearances:
+    """Text must be drawn inside its field box.
+
+    Snapshot tests only compare field values, so nothing else in the suite
+    would notice a value rendering at a size that overflows its box — the
+    clipping this logic exists to prevent.
+    """
+
+    @pytest.fixture
+    def registry(self):
+        return MappingRegistry(str(MAPPINGS_DIR), str(TEMPLATES_DIR))
+
+    @pytest.fixture
+    def resolver(self):
+        return StubAirportResolver()
+
+    @staticmethod
+    def _drawn_text(pdf_bytes: bytes) -> dict:
+        """{field name: (font size, baseline offset, box height)} as drawn."""
+        reader = PdfReader(BytesIO(pdf_bytes))
+        drawn = {}
+        for page in reader.pages:
+            for annot_ref in page.get("/Annots", []) or []:
+                annot = annot_ref.get_object()
+                parent = annot.get("/Parent")
+                name = annot.get("/T") or (
+                    parent.get_object().get("/T") if parent is not None else None
+                )
+                ap = annot.get("/AP")
+                if not name or not ap or "/N" not in ap:
+                    continue
+                stream = ap["/N"].get_object()
+                if not hasattr(stream, "get_data"):
+                    continue  # button appearance-state dictionary
+                data = stream.get_data().decode("latin-1")
+                size = re.search(r"/Helv\s+([\d.]+)\s+Tf", data)
+                baseline = re.search(r"([-\d.]+)\s+Td", data)
+                if not size or not baseline:
+                    continue
+                rect = annot.get("/Rect")
+                height = abs(float(rect[3]) - float(rect[1]))
+                drawn[name] = (float(size.group(1)), float(baseline.group(1)), height)
+        return drawn
+
+    def _fill_lfrm(self, registry, resolver) -> bytes:
+        mapping = registry.get_form("LFRM", "lfrm")
+        request = GenerateRequest(
+            airport="LFRM",
+            form="lfrm",
+            flight=make_flight(origin="ZZZZ", destination="LFRM"),
+            aircraft=make_aircraft(),
+            crew=[make_pilot()],
+            passengers=[make_passenger()],
+        )
+        return fill_pdf(
+            registry.get_template_path(mapping), mapping, request, resolver
+        )
+
+    def test_template_font_sizes_distinguishes_fixed_from_auto(self, registry):
+        mapping = registry.get_form("LFRM", "lfrm")
+        sizes = _template_font_sizes(PdfReader(str(registry.get_template_path(mapping))))
+        # Boxes drawn in the top block declare a fixed 12pt
+        assert sizes["ARRIVAL_COUNTRY"] == 12.0
+        # Table cells inherit the form-level "/Helv 0 Tf" — 0 means auto-size
+        assert sizes["NOM NAMERow1"] == 0.0
+
+    def test_every_value_is_drawn_inside_its_box(self, registry, resolver):
+        """The regression guard: nothing overflows, nothing sits below the box."""
+        drawn = self._drawn_text(self._fill_lfrm(registry, resolver))
+        assert drawn, "no appearance streams found"
+        for name, (size, baseline, height) in drawn.items():
+            assert size <= height, f"{name}: {size}pt in a {height}pt box"
+            assert baseline >= 0, f"{name}: baseline {baseline} is below the box"
+
+    def test_oversized_fixed_field_is_shrunk(self, registry, resolver):
+        """ARRIVAL_COUNTRY declares 12pt in a ~9.6pt box — the LFQA bug."""
+        size, baseline, height = self._drawn_text(
+            self._fill_lfrm(registry, resolver)
+        )["ARRIVAL_COUNTRY"]
+        assert height < 12, "template changed; this field is no longer oversized"
+        assert size <= height - 2
+        assert baseline >= 0
+
+    def test_fitting_fixed_size_is_left_as_authored(self, registry, resolver):
+        """OBSERVATIONS declares 12pt in a tall box, so it keeps that size."""
+        size, _, height = self._drawn_text(
+            self._fill_lfrm(registry, resolver)
+        )["OBSERVATIONS"]
+        assert height > 12, "template changed; this field is no longer roomy"
+        assert size == 12.0
+
+    def test_autosize_field_is_capped_at_12pt(self, registry, resolver):
+        """Auto-size fields cap at 12pt even in a box with room to spare."""
+        size, _, height = self._drawn_text(
+            self._fill_lfrm(registry, resolver)
+        )["NOM NAMERow1"]
+        assert height > 14, "template changed; this row is no longer tall"
+        assert size == 12.0

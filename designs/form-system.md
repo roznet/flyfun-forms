@@ -16,13 +16,15 @@ src/flightforms/
 │   ├── pdf_filler.py        # pypdf AcroForm field filling
 │   ├── french_customs_filler.py  # French customs PDF (special layout)
 │   ├── docx_filler.py       # python-docx template filling
-│   └── xlsx_filler.py       # openpyxl cell filling
+│   ├── xlsx_filler.py       # openpyxl cell filling
+│   └── _datetime.py         # Shared UTC→local date/time conversion
 ├── templates/               # Form template files (PDF/DOCX/XLSX)
 │   ├── lsgs_immigration.pdf
 │   ├── french_customs.pdf
 │   ├── gendec_icao.pdf
 │   ├── gendec_form.pdf
 │   ├── lfqa_customs_form.pdf
+│   ├── lfrm_customs.pdf
 │   ├── gar_template.xlsx
 │   └── myhandling_request.xlsx
 └── mappings/                # JSON mapping configs
@@ -30,7 +32,8 @@ src/flightforms/
     ├── french_customs.json    # LF* prefix + 55 airport email_overrides
     ├── gendec_icao.json
     ├── gendec_form.json       # Default form for unmatched airports
-    ├── lfqa.json              # icao_list: LFQA, LFQB, LFGJ
+    ├── lfqa.json              # icao_list: 11 CODT Metz airports
+    ├── lfrm.json              # icao: LFRM (local time, Europe/Paris)
     ├── myhandling.json        # icao_list: 117 airports across EU
     ├── myhandling_fbos.lookup.json  # ICAO → FBO ID lookup data
     └── gar.json
@@ -108,7 +111,7 @@ XLSX forms that represent a single flight movement per row use `column_map` inst
 
 | Type key | Filler | Library | Notes |
 |----------|--------|---------|-------|
-| `pdf_acroform` | `pdf_filler.py` | pypdf | Generic AcroForm filling. Supports `full_name`, routing, direction, nature checkboxes |
+| `pdf_acroform` | `pdf_filler.py` | pypdf | Generic AcroForm filling. Supports `full_name`, routing, direction, nature checkboxes, UTC→local time |
 | `pdf_acroform_french` | `french_customs_filler.py` | pypdf | French customs-specific: combined crew/pax list, UTC→local time, role dropdowns |
 | `docx` | `docx_filler.py` | python-docx | Fills table cells, auto-adds rows |
 | `xlsx` | `xlsx_filler.py` | openpyxl | Fills specific cells; preserves formulas |
@@ -121,11 +124,15 @@ Used in `field_map` to map data to template fields. The PDF filler (`pdf_filler.
 
 **Derived:** `origin.country`, `destination.country`, `remote.country`, `airport.name`, `passengers.count`, `passengers.embarking`, `passengers.disembarking`, `routing.departure_place`, `routing.arrival_place`
 
-**Direction-aware:** `flight.date`, `flight.time` (resolve to arrival or departure based on direction), `arrival.date`, `arrival.time`, `arrival.registration`, `arrival.type`, `arrival.owner`, `arrival.nature` (only filled when arriving), `departure.*` (same, only filled when departing), `airport.icao` (the form's target airport)
+**Direction-aware:** `flight.date`, `flight.time` (resolve to arrival or departure based on direction), `arrival.date`, `arrival.time`, `arrival.registration`, `arrival.type`, `arrival.owner`, `arrival.nature`, `arrival.remote`, `arrival.remote_name`, `arrival.remote_country` (only filled when arriving), `departure.*` (same, only filled when departing), `airport.icao` (the form's target airport)
+
+The `*.remote*` triple is the other end of the leg — ICAO, resolved name, country. Use it where a form has an arrival section and a departure section that each name the *other* airport, so only the active side fills (e.g. LFRM's Provenance / Aéroport / Pays). Prefer it over `flight.remote` when the field lives inside a direction-specific section.
 
 **Direction marks:** `direction.inbound`, `direction.outbound` (checkboxes), `direction.arrival_mark`, `direction.departure_mark` (text "X" marks)
 
 **Checkboxes:** `flight.nature.<value>` (e.g., `flight.nature.private`), `aircraft.airplane`, `aircraft.helicopter`
+
+Several enum values can share one box with `|`: `flight.nature.private|business|other`. Do **not** map them as separate `field_map` entries pointing at the same field — entries are applied in order, so the last one would overwrite an earlier "on" with "off".
 
 **Person arrays** (use `{i}` for 0-based, `{n}` for 1-based index): `crew[{i}].full_name`, `crew[{i}].first_name`, `crew[{i}].last_name`, `crew[{i}].function`, `crew[{i}].dob`, `crew[{i}].nationality`, `crew[{i}].id_number`, `crew[{i}].id_type`, `crew[{i}].id_issuing_country`, `crew[{i}].id_expiry`, `crew[{i}].sex`, `crew[{i}].place_of_birth` (same for `passengers[{i}]`)
 
@@ -179,7 +186,8 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 |------------|-------|--------|-------|
 | `lsgs` | LSGS (Sion, CH) | PDF AcroForm | Immigration Information |
 | `french_customs` | LF* (France, 55 airports with email overrides) | PDF AcroForm (french) | Préavis Douane |
-| `lfqa` | LFQA, LFQB, LFGJ (icao_list) | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `lfqa` | 11 CODT Metz airports (icao_list) | PDF AcroForm | Préavis Douane (CODT Metz) |
+| `lfrm` | LFRM (Le Mans Arnage, FR) | PDF AcroForm | Préavis Douane (Le Mans Arnage) |
 | `myhandling` | 117 airports across EU (icao_list) | XLSX (column_map) | Handling Request (myhandling) |
 | `gar` | EG* (UK) | XLSX | General Aviation Report |
 | `gendec_form` | Default (all others) | PDF AcroForm | General Declaration |
@@ -194,10 +202,12 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 
 ## Gotchas
 
-- **Flat PDFs can't be filled:** The filler needs AcroForm fields to target. Non-fillable PDFs must be recreated in Adobe Acrobat with form fields.
+- **Flat PDFs can't be filled:** The filler needs AcroForm fields to target. Non-fillable PDFs must be given form fields first, in Acrobat or LibreOffice.
+- **LibreOffice-authored fields need care:** LibreOffice emits some widgets with no appearance stream, and some whose field name (`/T`) lives on a parent node rather than the widget itself. `pdf_filler` handles both, but code that walks `/Annots` looking at `annot["/T"]` will silently skip the latter.
+- **Font size must fit the box:** a field whose `/DA` declares a size taller than its own rectangle renders clipped, with the baseline below the box. `_fix_text_appearances` rebuilds the appearance for those (and for auto-size `0 Tf` fields, which pypdf otherwise draws at a flat 12pt). Sizes are read from the *template*, because filling rewrites an inherited auto-size `/DA` into a concrete `12 Tf`. Snapshots compare values only, so they cannot catch a regression here — `TestTextAppearances` in `tests/unit/test_fillers.py` does.
 - **XLSX formulas:** openpyxl preserves but doesn't recalculate `COUNTA()` formulas. They update when opened in Excel.
 - **XLSX header_map targets value cells, not label cells:** In templates like GAR, labels are in columns A/C/E/G and values go in the adjacent columns B/D/F/H. The `header_map` must reference the **value** cells (e.g., `B3` not `A3`).
-- **Timezone handling:** Some forms want local time, others UTC. The mapping's `time_zone` + `time_reference` fields control conversion. If `time_reference` is `"utc"` (default), times stay UTC.
+- **Timezone handling:** Some forms want local time, others UTC. The mapping's `time_zone` + `time_reference` fields control conversion. If `time_reference` is `"utc"` (default), times stay UTC. Date and time convert **together** (`fillers/_datetime.py`): a late-evening UTC slot falls on the next day locally, and printing a converted time against the UTC date misdates the flight by a day.
 - **Field naming conventions:** Canonical names use dot notation (`aircraft.registration`, `crew[{i}].last_name`). Array patterns use `{i}` (0-based) and `{n}` (1-based) for PDF field name resolution.
 
 ## Testing Strategy
