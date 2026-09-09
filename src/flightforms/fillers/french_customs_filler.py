@@ -8,25 +8,17 @@ Different enough from the generic PDF filler to warrant its own module.
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader, PdfWriter
 
 from ..api.models import GenerateRequest
 from ..registry import FormMapping
+from ._datetime import utc_to_local
 
 
 def _parse_date(date_str: str, fmt: str) -> str:
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     return dt.strftime(fmt)
-
-
-def _utc_to_local(time_str: str, date_str: str, tz_name: str) -> str:
-    """Convert HH:MM UTC to local time in the given timezone."""
-    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
-    dt_local = dt_utc.astimezone(ZoneInfo(tz_name))
-    return dt_local.strftime("%H:%M")
 
 
 def _suffix(index: int) -> str:
@@ -51,15 +43,20 @@ def fill_french_customs(
 
     observations = request.observations or mapping.default_observations or ""
 
-    # Use local time conversion only when time_reference is "local"
+    # Use local time conversion only when time_reference is "local".  The date
+    # converts with the time: a late-evening UTC slot falls on the next day
+    # locally, and the form would otherwise print that local time against the
+    # UTC date.
     if mapping.time_reference == "local" and mapping.time_zone:
-        dep_time = _utc_to_local(
-            request.flight.departure_time_utc, request.flight.departure_date, mapping.time_zone
+        dep_date, dep_time = utc_to_local(
+            request.flight.departure_date, request.flight.departure_time_utc, mapping.time_zone
         )
-        arr_time = _utc_to_local(
-            request.flight.arrival_time_utc, request.flight.arrival_date, mapping.time_zone
+        arr_date, arr_time = utc_to_local(
+            request.flight.arrival_date, request.flight.arrival_time_utc, mapping.time_zone
         )
     else:
+        dep_date = request.flight.departure_date
+        arr_date = request.flight.arrival_date
         dep_time = request.flight.departure_time_utc
         arr_time = request.flight.arrival_time_utc
 
@@ -78,8 +75,8 @@ def fill_french_customs(
         "destination": request.flight.destination,
         "registration": request.aircraft.registration,
         "aircraft_type": request.aircraft.type,
-        "departure_date": _parse_date(request.flight.departure_date, mapping.date_format),
-        "arrival_date": _parse_date(request.flight.arrival_date, mapping.date_format),
+        "departure_date": _parse_date(dep_date, mapping.date_format),
+        "arrival_date": _parse_date(arr_date, mapping.date_format),
         "departure_time": dep_time,
         "arrival_time": arr_time,
         "contact": contact,
