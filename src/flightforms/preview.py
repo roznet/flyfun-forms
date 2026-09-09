@@ -181,6 +181,7 @@ FORM_AIRPORTS = {
     "lsgs": "LSGS",
     "french_customs": "LFAC",
     "lfqa": "LFQA",
+    "lfrm": "LFRM",
     "gar": "EGKA",
     "gendec_form": "DEST",
     "gendec_icao": "DEST",
@@ -191,7 +192,7 @@ FORM_AIRPORTS = {
 }
 
 # Forms where arrival vs departure changes what appears on the form
-DIRECTION_AWARE_FORMS = {"lsgs", "french_customs", "lfqa", "gar", "jersey_gendec"}
+DIRECTION_AWARE_FORMS = {"lsgs", "french_customs", "lfqa", "lfrm", "gar", "jersey_gendec"}
 
 
 def generate_preview(
