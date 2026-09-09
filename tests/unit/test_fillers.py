@@ -436,3 +436,92 @@ class TestXlsxFiller:
             registry.get_template_path(mapping), mapping, request, resolver
         )
         assert len(result) > 0
+
+
+class TestLocalTimeConversion:
+    """Forms printing local time must convert the date along with the time.
+
+    A UTC evening slot falls on the next day in Europe/Paris, and a customs
+    pre-notification carrying a local time against the UTC date misdates the
+    flight by a day.
+    """
+
+    @pytest.fixture
+    def registry(self):
+        return MappingRegistry(str(MAPPINGS_DIR), str(TEMPLATES_DIR))
+
+    @pytest.fixture
+    def resolver(self):
+        return StubAirportResolver()
+
+    def _late_flight(self):
+        """Arrives 23:50Z on 1 June — 01:50 on 2 June in Paris (CEST)."""
+        flight = make_flight(origin="ZZZZ", destination="LFRM")
+        flight.departure_date = "2099-06-01"
+        flight.departure_time_utc = "22:00"
+        flight.arrival_date = "2099-06-01"
+        flight.arrival_time_utc = "23:50"
+        return flight
+
+    def _fill_lfrm(self, registry, resolver, flight):
+        mapping = registry.get_form("LFRM", "lfrm")
+        request = GenerateRequest(
+            airport="LFRM",
+            form="lfrm",
+            flight=flight,
+            aircraft=make_aircraft(),
+            crew=[make_pilot()],
+        )
+        pdf_bytes = fill_pdf(
+            registry.get_template_path(mapping), mapping, request, resolver
+        )
+        return PdfReader(BytesIO(pdf_bytes)).get_fields() or {}
+
+    def test_date_rolls_with_time_across_midnight(self, registry, resolver):
+        fields = self._fill_lfrm(registry, resolver, self._late_flight())
+        assert fields["ARRIVAL_LOCAL_TIME"].get("/V") == "01:50"
+        assert fields["ARRIVAL_DATE"].get("/V") == "02/06/2099"
+
+    def test_date_unchanged_when_conversion_stays_in_day(self, registry, resolver):
+        # 10:45Z on 15 June is 12:45 the same day in Paris
+        fields = self._fill_lfrm(
+            registry, resolver, make_flight(origin="ZZZZ", destination="LFRM")
+        )
+        assert fields["ARRIVAL_LOCAL_TIME"].get("/V") == "12:45"
+        assert fields["ARRIVAL_DATE"].get("/V") == "15/06/2099"
+
+    def test_french_customs_date_rolls_with_time(self, registry, resolver):
+        mapping = registry.get_form("LFRM", "french_customs")
+        request = GenerateRequest(
+            airport="LFRM",
+            form="french_customs",
+            flight=self._late_flight(),
+            aircraft=make_aircraft(),
+            crew=[make_pilot()],
+        )
+        pdf_bytes = fill_french_customs(
+            registry.get_template_path(mapping), mapping, request, resolver
+        )
+        fields = PdfReader(BytesIO(pdf_bytes)).get_fields() or {}
+        assert fields["Zone de texte 12"].get("/V") == "01:50"
+        assert fields["Zone de texte 10"].get("/V") == "2 June 2099"
+
+    def test_utc_form_leaves_date_and_time_alone(self, registry, resolver):
+        """A mapping without time_reference "local" must not shift anything."""
+        mapping = registry.get_form("LFQA", "lfqa")
+        assert mapping.time_reference == "utc"
+        flight = self._late_flight()
+        flight.destination = "LFQA"
+        request = GenerateRequest(
+            airport="LFQA",
+            form="lfqa",
+            flight=flight,
+            aircraft=make_aircraft(),
+            crew=[make_pilot()],
+        )
+        pdf_bytes = fill_pdf(
+            registry.get_template_path(mapping), mapping, request, resolver
+        )
+        fields = PdfReader(BytesIO(pdf_bytes)).get_fields() or {}
+        assert fields["ARRIVALFLIGHTTIME"].get("/V") == "23:50"
+        assert fields["ARRIVALFLIGHTDATE"].get("/V") == "01/06/2099"

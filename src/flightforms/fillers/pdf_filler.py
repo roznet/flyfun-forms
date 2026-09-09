@@ -6,7 +6,6 @@ import unicodedata
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import (
@@ -19,6 +18,7 @@ from pypdf.generic import (
 
 from ..api.models import GenerateRequest
 from ..registry import FormMapping
+from ._datetime import utc_to_local
 
 
 # Characters that don't decompose via NFKD but have obvious Latin base letters.
@@ -55,13 +55,6 @@ def _parse_date(date_str: str, fmt: str) -> str:
     """Convert YYYY-MM-DD to the target format."""
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     return dt.strftime(fmt)
-
-
-def _utc_to_local(time_str: str, date_str: str, tz_name: str) -> str:
-    """Convert HH:MM UTC to local time in the given timezone."""
-    dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
-    return dt_utc.astimezone(ZoneInfo(tz_name)).strftime("%H:%M")
 
 
 def _resolve_field_pattern(pattern: str, index: int) -> str:
@@ -103,25 +96,26 @@ def fill_pdf(
     # Build values dict for simple fields
     observations = request.observations or mapping.default_observations or ""
 
-    # Request times are always UTC.  Forms that ask for the airport's wall
-    # clock ("Heure Locale") declare time_reference "local" plus a time_zone;
-    # every time value below goes through _time() so the whole form stays in
-    # one reference.
-    def _time(time_str: str, date_str: str) -> str:
+    # Request dates and times are always UTC.  Forms that ask for the
+    # airport's wall clock ("Heure Locale") declare time_reference "local"
+    # plus a time_zone; every date/time pair below goes through _when() so the
+    # whole form stays in one reference — and so a date never gets printed
+    # against a time from the other side of midnight.
+    def _when(date_str: str, time_str: str) -> tuple[str, str]:
         if mapping.time_reference == "local" and mapping.time_zone:
-            return _utc_to_local(time_str, date_str, mapping.time_zone)
-        return time_str
+            return utc_to_local(date_str, time_str, mapping.time_zone)
+        return date_str, time_str
 
-    dep_time = _time(request.flight.departure_time_utc, request.flight.departure_date)
-    arr_time = _time(request.flight.arrival_time_utc, request.flight.arrival_date)
+    dep_date, dep_time = _when(request.flight.departure_date, request.flight.departure_time_utc)
+    arr_date, arr_time = _when(request.flight.arrival_date, request.flight.arrival_time_utc)
 
     # Direction-aware date/time: resolves to arrival or departure based on direction
-    local_date = request.flight.arrival_date if is_arrival else request.flight.departure_date
+    local_date = arr_date if is_arrival else dep_date
     local_time = arr_time if is_arrival else dep_time
 
     values = {
-        "flight.departure_date": _parse_date(request.flight.departure_date, mapping.date_format),
-        "flight.arrival_date": _parse_date(request.flight.arrival_date, mapping.date_format),
+        "flight.departure_date": _parse_date(dep_date, mapping.date_format),
+        "flight.arrival_date": _parse_date(arr_date, mapping.date_format),
         "flight.departure_time_utc": dep_time,
         "flight.arrival_time_utc": arr_time,
         "flight.date": _parse_date(local_date, mapping.date_format),
@@ -151,7 +145,7 @@ def fill_pdf(
         # page with differently-named fields (e.g. gendec + passenger manifest).
         "manifest.operator": request.aircraft.owner or "",
         "manifest.registration": request.aircraft.registration,
-        "manifest.date": _parse_date(request.flight.departure_date, mapping.date_format),
+        "manifest.date": _parse_date(dep_date, mapping.date_format),
         "airport.name": airport_resolver.get_name(request.airport),
         "airport.icao": request.airport,
         # Direction-dependent text marks (e.g. "X" on the right side)
@@ -164,7 +158,7 @@ def fill_pdf(
     # arrival/departure sections fill only the relevant side.
     if is_arrival:
         values.update({
-            "arrival.date": _parse_date(request.flight.arrival_date, mapping.date_format),
+            "arrival.date": _parse_date(arr_date, mapping.date_format),
             "arrival.time": arr_time,
             "arrival.registration": request.aircraft.registration,
             "arrival.type": request.aircraft.type,
@@ -177,7 +171,7 @@ def fill_pdf(
         })
     else:
         values.update({
-            "departure.date": _parse_date(request.flight.departure_date, mapping.date_format),
+            "departure.date": _parse_date(dep_date, mapping.date_format),
             "departure.time": dep_time,
             "departure.registration": request.aircraft.registration,
             "departure.type": request.aircraft.type,
@@ -206,10 +200,12 @@ def fill_pdf(
         cf = request.connecting_flight
         values["connecting.origin"] = cf.origin
         values["connecting.destination"] = cf.destination
-        values["connecting.departure_date"] = _parse_date(cf.departure_date, mapping.date_format)
-        values["connecting.departure_time_utc"] = _time(cf.departure_time_utc, cf.departure_date)
-        values["connecting.arrival_date"] = _parse_date(cf.arrival_date, mapping.date_format)
-        values["connecting.arrival_time_utc"] = _time(cf.arrival_time_utc, cf.arrival_date)
+        cf_dep_date, cf_dep_time = _when(cf.departure_date, cf.departure_time_utc)
+        cf_arr_date, cf_arr_time = _when(cf.arrival_date, cf.arrival_time_utc)
+        values["connecting.departure_date"] = _parse_date(cf_dep_date, mapping.date_format)
+        values["connecting.departure_time_utc"] = cf_dep_time
+        values["connecting.arrival_date"] = _parse_date(cf_arr_date, mapping.date_format)
+        values["connecting.arrival_time_utc"] = cf_arr_time
 
     # Airport-centric leg values: for forms that show both an arrival and a
     # departure section at the target airport (e.g. Jersey GenDec).  The
@@ -218,25 +214,27 @@ def fill_pdf(
     if is_arrival:
         values["airport.arrival.from"] = request.flight.origin
         values["airport.arrival.from_name"] = airport_resolver.get_name(request.flight.origin)
-        values["airport.arrival.date"] = _parse_date(request.flight.arrival_date, mapping.date_format)
+        values["airport.arrival.date"] = _parse_date(arr_date, mapping.date_format)
         values["airport.arrival.time"] = arr_time
         if request.connecting_flight:
             cf = request.connecting_flight
             values["airport.departure.to"] = cf.destination
             values["airport.departure.to_name"] = airport_resolver.get_name(cf.destination)
-            values["airport.departure.date"] = _parse_date(cf.departure_date, mapping.date_format)
-            values["airport.departure.time"] = _time(cf.departure_time_utc, cf.departure_date)
+            cf_date, cf_time = _when(cf.departure_date, cf.departure_time_utc)
+            values["airport.departure.date"] = _parse_date(cf_date, mapping.date_format)
+            values["airport.departure.time"] = cf_time
     else:
         values["airport.departure.to"] = request.flight.destination
         values["airport.departure.to_name"] = airport_resolver.get_name(request.flight.destination)
-        values["airport.departure.date"] = _parse_date(request.flight.departure_date, mapping.date_format)
+        values["airport.departure.date"] = _parse_date(dep_date, mapping.date_format)
         values["airport.departure.time"] = dep_time
         if request.connecting_flight:
             cf = request.connecting_flight
             values["airport.arrival.from"] = cf.origin
             values["airport.arrival.from_name"] = airport_resolver.get_name(cf.origin)
-            values["airport.arrival.date"] = _parse_date(cf.arrival_date, mapping.date_format)
-            values["airport.arrival.time"] = _time(cf.arrival_time_utc, cf.arrival_date)
+            cf_date, cf_time = _when(cf.arrival_date, cf.arrival_time_utc)
+            values["airport.arrival.date"] = _parse_date(cf_date, mapping.date_format)
+            values["airport.arrival.time"] = cf_time
 
     # Fill fields
     updates = {}
