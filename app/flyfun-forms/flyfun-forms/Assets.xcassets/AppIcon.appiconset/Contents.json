@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "FlyFunFormsLight.png",
+      "filename" : "FlightFormsLight-1024.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "FlyFunFormsDark.png",
+      "filename" : "FlightFormsDark-1024.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
