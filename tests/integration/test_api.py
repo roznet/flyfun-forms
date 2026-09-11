@@ -233,6 +233,55 @@ class TestGenerate:
         assert resp.status_code == 422
 
 
+# ── Web forms (/prefill) ─────────────────────────────────────────────────────
+
+class TestWebForms:
+    def _body(self, form="redatlas_bookout", origin="EGTF", destination="ZZZZ"):
+        return {
+            "airport": "EGTF",
+            "form": form,
+            "flight": make_flight(origin=origin, destination=destination).model_dump(),
+            "aircraft": make_aircraft().model_dump(),
+            "crew": [make_pilot().model_dump()],
+            "passengers": [],
+        }
+
+    def test_hidden_from_older_clients(self, client):
+        resp = client.get("/airports/EGTF")
+        assert resp.status_code == 200
+        assert all(f["kind"] == "document" for f in resp.json()["forms"])
+
+    def test_listed_when_asked(self, client):
+        resp = client.get("/airports/EGTF?include_web=true")
+        forms = {f["id"]: f for f in resp.json()["forms"]}
+        assert forms["redatlas_bookout"]["kind"] == "web"
+        assert forms["redatlas_bookout"]["direction"] == "departure"
+        assert forms["redatlas_bookout"]["has_return_flight"] is True
+        assert forms["redatlas_ppr"]["direction"] == "arrival"
+        assert forms["gar"]["kind"] == "document"
+
+    def test_not_in_catalog(self, client):
+        resp = client.get("/airports")
+        assert "EGTF" not in [a["icao"] for a in resp.json()["airports"]]
+
+    def test_prefill(self, client):
+        resp = client.post("/prefill", json=self._body())
+        assert resp.status_code == 200
+        plan = resp.json()
+        assert plan["url"] == "https://egtf.redatlas.co.uk/public/bookout?embedded=true"
+        assert {"name": "Registration", "value": "ZZ-TST", "type": "text"} in plan["fields"]
+
+    def test_prefill_wrong_direction(self, client):
+        resp = client.post("/prefill", json=self._body(origin="ZZZZ", destination="EGTF"))
+        assert resp.status_code == 422
+
+    def test_generate_refuses_web_form(self, client):
+        assert client.post("/generate", json=self._body()).status_code == 400
+
+    def test_prefill_refuses_document(self, client):
+        assert client.post("/prefill", json=self._body(form="gar")).status_code == 400
+
+
 # ── Email text endpoint ──────────────────────────────────────────────────────
 
 class TestEmailText:

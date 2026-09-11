@@ -1,0 +1,39 @@
+{
+  "icao_list": ["EGTF"],
+  "label": "Book Out",
+  "type": "web_form",
+  "version": "1.0",
+  "direction": "departure",
+  "url": "https://{site}.redatlas.co.uk/public/bookout?embedded=true",
+  "time_reference": "utc",
+  "date_format": "%Y-%m-%d",
+  "max_crew": 99,
+  "max_passengers": 99,
+  "has_return_flight": true,
+  "required_fields": {
+    "flight": [],
+    "aircraft": ["registration"],
+    "crew": [],
+    "passengers": []
+  },
+  "extra_fields": [
+    {"key": "telephone", "label": "Telephone", "type": "text", "required": false},
+    {"key": "email", "label": "Email", "type": "text", "required": false}
+  ],
+  "fields": [
+    {"name": "Registration", "value": "aircraft.registration"},
+    {"name": "AircraftType", "value": "aircraft.type"},
+    {"name": "MovementDate", "value": "flight.date"},
+    {"name": "MovementTime", "value": "flight.time"},
+    {"name": "DestinationAirfield", "value": "flight.remote"},
+    {"name": "PeopleOnBoard", "value": "people.count"},
+    {"name": "PilotName", "value": "pilot.name"},
+    {"name": "Telephone", "value": "extra.telephone"},
+    {"name": "EmailAddress", "value": "extra.email"},
+    {"name": "Returning", "type": "checkbox", "value": "return.present"},
+    {"name": "ReturnDate", "value": "return.date"},
+    {"name": "ReturnTime", "value": "return.time"},
+    {"name": "ReturnAirfield", "value": "return.origin"},
+    {"name": "ReturnPeopleOnBoard", "value": "return.people_on_board"}
+  ]
+}

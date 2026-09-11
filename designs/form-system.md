@@ -17,6 +17,7 @@ src/flightforms/
 │   ├── french_customs_filler.py  # French customs PDF (special layout)
 │   ├── docx_filler.py       # python-docx template filling
 │   ├── xlsx_filler.py       # openpyxl cell filling
+│   ├── web_form.py          # Fill plans for official web forms (no file)
 │   └── _datetime.py         # Shared UTC→local date/time conversion
 ├── templates/               # Form template files (PDF/DOCX/XLSX)
 │   ├── lsgs_immigration.pdf
@@ -36,7 +37,11 @@ src/flightforms/
     ├── lfrm.json              # icao: LFRM (local time, Europe/Paris)
     ├── myhandling.json        # icao_list: 117 airports across EU
     ├── myhandling_fbos.lookup.json  # ICAO → FBO ID lookup data
-    └── gar.json
+    ├── gar.json
+    ├── redatlas_bookout.json  # web_form: RedAtlas book-out (any RedAtlas airport)
+    ├── redatlas_ppr.json      # web_form: RedAtlas PPR request
+    ├── egtf_ooh_departure.json # web_form: Fairoaks out-of-hours (Elementor)
+    └── egtf_ooh_arrival.json
 ```
 
 ### How It Works
@@ -45,6 +50,8 @@ src/flightforms/
 2. **Resolution:** Request comes in with airport ICAO → exact match first, then prefix match (e.g., `LFOH` → `LF*` → `french_customs.json`), then default fallback (`"default": true` mappings for airports with no specific form)
 3. **Filling:** `generate.py` selects the right filler based on `type` in mapping (`pdf_acroform`, `pdf_acroform_french`, `docx`, `xlsx`)
 4. **Output:** Filler reads template, maps canonical fields → template fields using the mapping, writes filled file
+
+`web_form` mappings take a different path: there is no template, and `POST /prefill` returns a fill plan instead of a file (see [Web Forms](#web-forms-web_form)).
 
 ### JSON Mapping Structure
 
@@ -107,6 +114,42 @@ XLSX forms that represent a single flight movement per row use `column_map` inst
 - `fbo_lookup` references a `.lookup.json` file mapping ICAO → FBO ID (path-traversal validated)
 - `flight_type_map` maps `nature` values to form-specific enum values
 
+### Web Forms (`web_form`)
+
+Some airports take movements through their own web pages — book-out, PPR, out-of-hours — rather than a document. For those, the mapping describes the page, and `POST /prefill` answers with a **fill plan**: the page URL plus a value for each input, keyed by the input's `name`. The app opens the official page in a web view, applies the plan with a generic script, and the pilot reviews it and submits on the airport's own site. Nothing is posted by us.
+
+Keying fields by input `name` (not a CSS selector) keeps the plan usable for a direct server-side submission later: the names are exactly the POST keys.
+
+```json
+{
+    "icao_list": ["EGTF"],
+    "type": "web_form",
+    "direction": "departure",       // pins the form to one side; also validated
+    "url": "https://{site}.redatlas.co.uk/public/bookout?embedded=true",
+    "sites": {"EGXX": "other"},     // {site} override; defaults to lower-case ICAO
+    "scope": "form:has(input[name=\"form_id\"][value=\"38ad142\"])",  // page with several forms
+    "note": "Times are filled in UK local time.",  // shown above the page
+    "time_reference": "utc",
+    "date_format": "%Y-%m-%d",      // HTML date inputs need ISO
+    "fields": [
+        {"name": "Registration", "value": "aircraft.registration"},
+        {"name": "Telephone", "value": "extra.telephone", "transform": "no_spaces"},
+        {"name": "Returning", "type": "checkbox", "static": "true"}
+    ],
+    "airport_fields": {             // appended for that airport only
+        "EGTF": [{"name": "AdditionalFields[0].ValueString",
+                  "format": "{airport.departure.date} {airport.departure.time} UTC"}]
+    }
+}
+```
+
+- A field takes its value from `value` (a canonical key), `static` (a literal) or `format` (a string with `{canonical.key}` placeholders — skipped unless every placeholder has a value). `transform` is `upper` or `no_spaces`.
+- Fields with no value are left out of the plan, so the page keeps its own input rather than being blanked.
+- Values come from the same `build_values()` the PDF filler uses (so direction, local time and connecting-flight keys all work), plus three web-only keys: `people.count` (crew + passengers), `pilot.name` (first crew member, "First Last") and `aircraft.callsign` (the registration).
+- **Return flight:** `"has_return_flight": true` asks the app to send `return_flight` — the first later flight landing back at the airport, however many legs away (a local flight is its own return). It yields `return.present` ("true", for a checkbox), `return.origin`, `return.date` / `return.time` (arrival back, in the mapping's time reference) and `return.people_on_board`. The RedAtlas book-out lists its `Returning` checkbox before the return inputs: the checkbox's click handler enables them, and disabled inputs aren't submitted.
+- `direction` also overrides the airport-based derivation, so a local flight (origin == destination) still gets the side the form asks for.
+- One mapping can serve every airport running the same system: `url` takes `{icao}` / `{site}` placeholders. RedAtlas field names come from its server-side model, so they are the same at every RedAtlas airport; only its per-airport "additional fields" differ, which go in `airport_fields`.
+
 ### Fillers
 
 | Type key | Filler | Library | Notes |
@@ -115,6 +158,7 @@ XLSX forms that represent a single flight movement per row use `column_map` inst
 | `pdf_acroform_french` | `french_customs_filler.py` | pypdf | French customs-specific: combined crew/pax list, UTC→local time, role dropdowns |
 | `docx` | `docx_filler.py` | python-docx | Fills table cells, auto-adds rows |
 | `xlsx` | `xlsx_filler.py` | openpyxl | Fills specific cells; preserves formulas |
+| `web_form` | `web_form.py` | — | Returns a JSON fill plan (via `/prefill`), not a file |
 
 ### Canonical Field Names
 
@@ -192,6 +236,10 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 | `gar` | EG* (UK) | XLSX | General Aviation Report |
 | `gendec_form` | Default (all others) | PDF AcroForm | General Declaration |
 | `gendec_icao` | — (no scope, manually selectable) | PDF AcroForm | ICAO General Declaration |
+| `redatlas_bookout` | RedAtlas airports (icao_list: EGTF) — departures | Web form | Book Out |
+| `redatlas_ppr` | RedAtlas airports (icao_list: EGTF) — arrivals | Web form | PPR Request |
+| `egtf_ooh_departure` | EGTF (Fairoaks) — departures | Web form (Elementor) | Out of Hours — Departure |
+| `egtf_ooh_arrival` | EGTF (Fairoaks) — arrivals | Web form (Elementor) | Out of Hours — Arrival |
 
 ## Key Choices
 
@@ -199,6 +247,7 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 - **Four-tier resolution:** Exact ICAO match → `icao_list` match → prefix match → default fallback. `icao_list` allows multiple airports to share one mapping without duplicating JSON files (e.g., LFQA/LFQB/LFGJ share one CODT Metz form, myhandling covers 117 airports).
 - **Separate fillers per format:** PDF, DOCX, XLSX have fundamentally different filling mechanics. No shared abstraction forced.
 - **Templates bundled in Docker image:** Templates ship with the code. No external template storage needed.
+- **Prefill the official page, don't submit for the pilot:** web forms open on the airport's own site with our values in; the pilot checks and submits. No test submissions to arrange with the airport, the pilot sees the site's own confirmation, and page changes are fixed in the mapping on the server rather than in an app release.
 
 ## Gotchas
 
@@ -208,6 +257,8 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 - **XLSX formulas:** openpyxl preserves but doesn't recalculate `COUNTA()` formulas. They update when opened in Excel.
 - **XLSX header_map targets value cells, not label cells:** In templates like GAR, labels are in columns A/C/E/G and values go in the adjacent columns B/D/F/H. The `header_map` must reference the **value** cells (e.g., `B3` not `A3`).
 - **Timezone handling:** Some forms want local time, others UTC. The mapping's `time_zone` + `time_reference` fields control conversion. If `time_reference` is `"utc"` (default), times stay UTC. Date and time convert **together** (`fillers/_datetime.py`): a late-evening UTC slot falls on the next day locally, and printing a converted time against the UTC date misdates the flight by a day.
+- **Elementor field names are generated:** the Fairoaks out-of-hours inputs are `form_fields[field_9d94333]`-style, and change if someone rebuilds the form in WordPress. The app reports fields it couldn't find on the page ("the form may have changed"); fix by re-reading the page's HTML and updating the mapping.
+- **Out-of-hours times are an assumption:** the Fairoaks form doesn't say UTC or local. The mapping fills local (UK) time, since the out-of-hours rules are in local time, and says so in its `note`. Confirm with the tower.
 - **Field naming conventions:** Canonical names use dot notation (`aircraft.registration`, `crew[{i}].last_name`). Array patterns use `{i}` (0-based) and `{n}` (1-based) for PDF field name resolution.
 
 ## Testing Strategy
@@ -229,6 +280,10 @@ For each form × direction:
 3. Compare against golden JSON in `tests/snapshots/`
 
 Any change to a mapping, template, or filler that moves a value to a different field fails the test. Update after intentional changes: `pytest --snapshot-update` (after visual verification).
+
+### Web form fill plans (`tests/unit/test_web_form.py`)
+
+Web forms produce no document, so they aren't in the snapshot suite. Their tests assert the plan's values per input name (direction, local-time conversion, connecting-flight estimate, skipped empty values). To check a mapping against the live page, load the page in a headless browser, run `WebFormFiller.script` (in `WebFormView.swift`) with a plan, and read the inputs back — without submitting.
 
 ### Swift payload snapshot test
 

@@ -80,7 +80,9 @@ struct FormService {
     }
 
     func airportDetail(icao: String) async throws -> AirportDetailResponse {
+        // include_web: this build knows how to open web forms (book-out, PPR…)
         let url = baseURL.appendingPathComponent("airports").appendingPathComponent(icao)
+            .appending(queryItems: [URLQueryItem(name: "include_web", value: "true")])
         let (data, http) = try await session.data(for: URLRequest(url: url))
         guard http.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
@@ -102,9 +104,35 @@ struct FormService {
 
         Self.logger.debug("POST /generate for airport=\(request.airport) form=\(request.form)")
         let (data, http) = try await session.data(for: urlRequest)
+        try Self.checkFormResponse(data: data, http: http, url: url)
 
+        let filename = http.value(forHTTPHeaderField: "Content-Disposition")
+            .flatMap { header in
+                header.components(separatedBy: "filename=").last?.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            } ?? "\(request.airport)_\(request.form).pdf"
+        return (data, filename)
+    }
+
+    /// Fill plan for an official web form (book-out, PPR…): same body as
+    /// `generate`, answered with the page URL and a value per input.
+    func prefill(request: GenerateRequest) async throws -> FillPlan {
+        let url = baseURL.appendingPathComponent("prefill")
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try JSONEncoder().encode(request)
+
+        Self.logger.debug("POST /prefill for airport=\(request.airport) form=\(request.form)")
+        let (data, http) = try await session.data(for: urlRequest)
+        try Self.checkFormResponse(data: data, http: http, url: url)
+        return try JSONDecoder().decode(FillPlan.self, from: data)
+    }
+
+    /// Throws unless the response is a 200, parsing a 422 into structured
+    /// validation errors.
+    private static func checkFormResponse(data: Data, http: HTTPURLResponse, url: URL) throws {
         if http.statusCode == 422 {
-            Self.logger.error("422 Validation error from \(url)")
+            logger.error("422 Validation error from \(url)")
             if let parsed = try? JSONDecoder().decode(ServerValidationErrorResponse.self, from: data),
                !parsed.detail.isEmpty {
                 throw FormError.validationErrors(parsed.detail)
@@ -115,15 +143,9 @@ struct FormService {
 
         guard http.statusCode == 200 else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            Self.logger.error("Server error \(http.statusCode) from \(url): \(message)")
+            logger.error("Server error \(http.statusCode) from \(url): \(message)")
             throw FormError.serverError(http.statusCode, message)
         }
-
-        let filename = http.value(forHTTPHeaderField: "Content-Disposition")
-            .flatMap { header in
-                header.components(separatedBy: "filename=").last?.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-            } ?? "\(request.airport)_\(request.form).pdf"
-        return (data, filename)
     }
 
     func emailText(request: EmailTextRequest) async throws -> EmailTextResponse {

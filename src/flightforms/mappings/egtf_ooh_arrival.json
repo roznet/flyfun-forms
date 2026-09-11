@@ -1,0 +1,35 @@
+{
+  "icao": "EGTF",
+  "label": "Out of Hours — Arrival",
+  "type": "web_form",
+  "version": "1.0",
+  "direction": "arrival",
+  "url": "https://fairoaksairport.uk/out-of-hours-form/",
+  "scope": "form:has(input[name=\"form_id\"][value=\"4793b1f\"])",
+  "note": "Only needed outside published hours (Mon–Sat 08:00–18:00, Sun and public holidays 09:00–18:00 local). Times are filled in UK local time.",
+  "time_reference": "local",
+  "time_zone": "Europe/London",
+  "date_format": "%Y-%m-%d",
+  "max_crew": 99,
+  "max_passengers": 99,
+  "required_fields": {
+    "flight": [],
+    "aircraft": ["registration"],
+    "crew": [],
+    "passengers": []
+  },
+  "extra_fields": [
+    {"key": "telephone", "label": "Telephone", "type": "text", "required": false}
+  ],
+  "fields": [
+    {"name": "form_fields[name]", "value": "aircraft.registration"},
+    {"name": "form_fields[field_4]", "value": "aircraft.callsign"},
+    {"name": "form_fields[field_9d94333]", "value": "aircraft.type"},
+    {"name": "form_fields[field_2ba46ab]", "value": "pilot.name"},
+    {"name": "form_fields[field_ef30f49]", "value": "extra.telephone", "transform": "no_spaces"},
+    {"name": "form_fields[field_2c337dd]", "value": "people.count"},
+    {"name": "form_fields[field_14c7462]", "value": "flight.remote"},
+    {"name": "form_fields[field_1e1fbe4]", "value": "flight.time"},
+    {"name": "form_fields[field_7fca82e]", "value": "flight.date"}
+  ]
+}
