@@ -72,6 +72,8 @@ def generate_form(
     mapping = _registry.get_form(request.airport, request.form)
     if not mapping:
         raise HTTPException(status_code=404, detail=f"No form '{request.form}' for airport {request.airport}")
+    if mapping.is_web_form:
+        raise HTTPException(status_code=400, detail=f"Form '{request.form}' is a web form; use /prefill")
 
     # Validate
     errors = validate_request(request, mapping)

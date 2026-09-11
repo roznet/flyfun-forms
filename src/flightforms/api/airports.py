@@ -2,7 +2,7 @@
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..airport_resolver import PREFIX_COUNTRIES, AirportResolver
 from flyfun_common.db import current_user_id
@@ -28,10 +28,15 @@ def configure(registry: MappingRegistry, resolver: AirportResolver):
 def list_airports(user_id: str = Depends(current_user_id)):
     airports = []
     for icao, mappings in _registry.all_airports().items():
+        # The catalog lists generated documents; web forms come with the
+        # airport detail (see get_airport).
+        forms = [m.id for m in mappings if not m.is_web_form]
+        if not forms:
+            continue
         airports.append(AirportInfo(
             icao=icao,
             name=_resolver.get_name(icao),
-            forms=[m.id for m in mappings],
+            forms=forms,
         ))
 
     prefixes = []
@@ -54,11 +59,19 @@ def list_airports(user_id: str = Depends(current_user_id)):
 
 
 @router.get("/airports/{icao}", response_model=AirportDetail)
-def get_airport(icao: str, user_id: str = Depends(current_user_id)):
+def get_airport(
+    icao: str,
+    include_web: bool = Query(False),
+    user_id: str = Depends(current_user_id),
+):
     icao = icao.upper()
     if not _ICAO_RE.match(icao):
         raise HTTPException(status_code=400, detail="Invalid ICAO code")
     mappings = _registry.get_forms_for_airport(icao)
+    # Older app builds don't know web forms and would offer one as a file to
+    # share, so they're only listed for clients that ask.
+    if not include_web:
+        mappings = [m for m in mappings if not m.is_web_form]
     if not mappings:
         raise HTTPException(status_code=404, detail=f"No forms available for {icao}")
 
@@ -92,9 +105,12 @@ def get_airport(icao: str, user_id: str = Depends(current_user_id)):
             max_crew=m.max_crew,
             max_passengers=m.max_passengers,
             has_connecting_flight=m.has_connecting_flight,
+            has_return_flight=m.has_return_flight,
             time_reference=m.time_reference,
             send_to=m.send_to,
             email=email,
+            kind="web" if m.is_web_form else "document",
+            direction=m.direction,
         ))
 
     return AirportDetail(

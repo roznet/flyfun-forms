@@ -16,6 +16,20 @@ def validate_request(request: GenerateRequest, mapping: FormMapping) -> list[Val
             value=request.airport,
         ))
 
+    # Forms pinned to one side of the flight (a book-out is for leaving)
+    if mapping.direction == "departure" and request.airport != request.flight.origin:
+        errors.append(ValidationError(
+            field="airport",
+            error="This form is for departures from the airport",
+            value=request.airport,
+        ))
+    elif mapping.direction == "arrival" and request.airport != request.flight.destination:
+        errors.append(ValidationError(
+            field="airport",
+            error="This form is for arrivals at the airport",
+            value=request.airport,
+        ))
+
     # Crew count
     if len(request.crew) > mapping.max_crew:
         errors.append(ValidationError(

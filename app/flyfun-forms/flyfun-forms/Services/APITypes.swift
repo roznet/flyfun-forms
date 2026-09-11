@@ -45,9 +45,19 @@ struct FormInfo: Codable, Identifiable {
     var maxCrew: Int
     var maxPassengers: Int
     var hasConnectingFlight: Bool
+    /// Send the flight coming back to the airport (book-outs). Optional so
+    /// older servers keep parsing.
+    var hasReturnFlight: Bool?
     var timeReference: String
     var sendTo: String?
     var email: EmailConfig?
+    /// "document" (a generated file) or "web" (an official web page the app
+    /// opens and prefills). Optional so older servers keep parsing.
+    var kind: String?
+    /// "departure" / "arrival" when the form only applies to one side
+    var direction: String?
+
+    var isWebForm: Bool { kind == "web" }
 
     enum CodingKeys: String, CodingKey {
         case id, label, version
@@ -56,10 +66,35 @@ struct FormInfo: Codable, Identifiable {
         case maxCrew = "max_crew"
         case maxPassengers = "max_passengers"
         case hasConnectingFlight = "has_connecting_flight"
+        case hasReturnFlight = "has_return_flight"
         case timeReference = "time_reference"
         case sendTo = "send_to"
-        case email
+        case email, kind, direction
     }
+}
+
+// MARK: - Web Form Fill Plan (POST /prefill)
+
+/// How to prefill an official web form: its page, and a value per input
+/// keyed by the input's `name`.
+struct FillPlan: Codable, Identifiable {
+    var form: String
+    var label: String
+    var url: URL
+    /// CSS selector of the `<form>` to fill, for pages holding several
+    var scope: String?
+    /// Shown to the pilot above the page
+    var note: String?
+    var fields: [FillField]
+
+    var id: String { form }
+}
+
+struct FillField: Codable {
+    var name: String
+    var value: String
+    /// "text" or "checkbox" (value "true" / "false")
+    var type: String
 }
 
 struct RequiredFields: Codable {
@@ -159,14 +194,37 @@ struct GenerateRequest: Codable {
     var crew: [PersonPayload]
     var passengers: [PersonPayload]
     var connectingFlight: FlightPayload?
+    var returnFlight: ReturnFlightPayload?
     var extraFields: [String: ExtraFieldValue]?
     var observations: String?
 
     enum CodingKeys: String, CodingKey {
         case airport, form, flight, aircraft, crew, passengers
         case connectingFlight = "connecting_flight"
+        case returnFlight = "return_flight"
         case extraFields = "extra_fields"
         case observations
+    }
+}
+
+/// The flight coming back to the airport after a departure (book-outs ask
+/// when, and from where, you'll be back).
+struct ReturnFlightPayload: Codable {
+    var origin: String
+    var destination: String
+    var departureDate: String
+    var departureTimeUtc: String
+    var arrivalDate: String
+    var arrivalTimeUtc: String
+    var peopleOnBoard: Int
+
+    enum CodingKeys: String, CodingKey {
+        case origin, destination
+        case departureDate = "departure_date"
+        case departureTimeUtc = "departure_time_utc"
+        case arrivalDate = "arrival_date"
+        case arrivalTimeUtc = "arrival_time_utc"
+        case peopleOnBoard = "people_on_board"
     }
 }
 

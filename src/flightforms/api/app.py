@@ -18,7 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..airport_resolver import AirportResolver
 from ..db.models import AppBase, Usage
 from ..registry import MappingRegistry
-from . import airports, email_text, generate, validate
+from . import airports, email_text, generate, prefill, validate
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +104,14 @@ def create_app() -> FastAPI:
     airports.configure(registry, resolver)
     email_text.configure(registry, resolver)
     generate.configure(registry, resolver)
+    prefill.configure(registry, resolver)
     validate.configure(registry)
 
     # Register routes
     app.include_router(airports.router, tags=["airports"])
     app.include_router(email_text.router, tags=["email"])
     app.include_router(generate.router, tags=["generate"])
+    app.include_router(prefill.router, tags=["prefill"])
     app.include_router(validate.router, tags=["validate"])
 
     @app.get("/health")

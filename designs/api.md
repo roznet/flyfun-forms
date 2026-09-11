@@ -15,6 +15,7 @@ src/flightforms/
 ├── api/
 │   ├── app.py          # FastAPI factory, lifespan, router mounting
 │   ├── generate.py     # POST /generate — fills and returns form file
+│   ├── prefill.py      # POST /prefill — fill plan for an official web form
 │   ├── validate.py     # POST /validate — dry-run validation
 │   ├── airports.py     # GET /airports, GET /airports/{icao}
 │   ├── email_text.py   # POST /email-text — localized email subject/body
@@ -55,12 +56,19 @@ Returns all airports with available forms, grouped by exact ICAO match, prefix f
 
 ### `GET /airports/{icao}`
 Returns form details for a specific airport: required fields, extra fields, max crew/pax, version, send_to email. Falls back to default forms (e.g., ICAO GenDec) for airports without specific mappings.
+- Each form carries `kind` (`"document"` or `"web"`) and `direction` (`"departure"` / `"arrival"` when it only applies one way).
+- **Web forms only with `?include_web=true`:** older app builds would offer a web form as a file to share, so they're hidden unless the client asks. `GET /airports` never lists them.
 
 ### `POST /generate`
 Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).
 - `?flatten=true` flattens editable PDF fields (for sharing/printing)
 - **Direction derived automatically:** form airport == destination → arrival; form airport == origin → departure
 - **Connecting flight:** optional, for forms at intermediate stops that reference both arrival and departure
+- **Return flight:** optional `return_flight` (connecting-flight fields + `people_on_board`) — the flight coming back to the airport, for forms with `has_return_flight` (book-outs). Dropped, like the connecting flight, when its times are empty
+- Web forms return 400 (use `/prefill`)
+
+### `POST /prefill`
+Same body as `/generate`, for `web_form` mappings (book-out, PPR, out-of-hours). Returns a `FillPlan` — `{form, label, url, scope, note, fields: [{name, value, type}]}` — which the app applies to the airport's official page. Validates like `/generate`, plus the form's `direction`. Documents return 400. See [Form system — Web Forms](./form-system.md#web-forms-web_form).
 
 ### `POST /email-text`
 Returns localized email subject and body text for a form submission. Used by the iOS app to pre-populate the mail composer. Returns both English and local-language versions (based on the airport's country). Templates are defined per-language in `registry.py` (DEFAULT_EMAIL_TEMPLATES) and can be overridden per-mapping.

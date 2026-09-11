@@ -93,6 +93,11 @@ class ConnectingFlightData(BaseModel):
         return _validate_time(v)
 
 
+class ReturnFlightData(ConnectingFlightData):
+    """The flight coming back to the airport after a departure (book-outs)."""
+    people_on_board: Optional[int] = None
+
+
 class GenerateRequest(BaseModel):
     airport: str
     form: str
@@ -107,6 +112,7 @@ class GenerateRequest(BaseModel):
     crew: list[PersonData]
     passengers: list[PersonData] = []
     connecting_flight: Optional[ConnectingFlightData] = None
+    return_flight: Optional[ReturnFlightData] = None
     extra_fields: Optional[dict[str, Union[str, dict[str, str]]]] = None
     observations: Optional[str] = None
 
@@ -116,12 +122,13 @@ class GenerateRequest(BaseModel):
         # Older app builds auto-detect a nearby flight as the connecting leg
         # and may forward empty time strings when those fields are unset on
         # the source flight. Treat that as no connecting flight rather than
-        # failing the whole request.
+        # failing the whole request.  Same for the return flight.
         if isinstance(data, dict):
-            cf = data.get("connecting_flight")
-            if isinstance(cf, dict):
-                if not cf.get("departure_time_utc") or not cf.get("arrival_time_utc"):
-                    data["connecting_flight"] = None
+            for key in ("connecting_flight", "return_flight"):
+                cf = data.get(key)
+                if isinstance(cf, dict):
+                    if not cf.get("departure_time_utc") or not cf.get("arrival_time_utc"):
+                        data[key] = None
         return data
 
 
@@ -150,9 +157,16 @@ class FormInfo(BaseModel):
     max_crew: int
     max_passengers: int
     has_connecting_flight: bool
+    # The client should send the flight coming back to the airport (book-outs)
+    has_return_flight: bool = False
     time_reference: str
     send_to: Optional[str] = None
     email: Optional[EmailConfig] = None
+    # "document" is a generated file (/generate); "web" is an official web
+    # page the client opens and prefills (/prefill).
+    kind: str = "document"
+    # "departure" / "arrival" when the form only applies to one side
+    direction: Optional[str] = None
 
 
 class AirportInfo(BaseModel):
@@ -181,6 +195,25 @@ class AirportsResponse(BaseModel):
     airports: list[AirportInfo]
     prefixes: list[PrefixInfo]
     defaults: list[DefaultFormInfo] = []
+
+
+class FillField(BaseModel):
+    # The page's input name — also the key a direct form POST would send
+    name: str
+    value: str
+    type: str = "text"  # "text" or "checkbox" ("true" / "false")
+
+
+class FillPlan(BaseModel):
+    """How to prefill an official web form: its page, and a value per input."""
+    form: str
+    label: str
+    url: str
+    # CSS selector of the <form> to fill, for pages holding several forms
+    scope: Optional[str] = None
+    # Shown to the pilot next to the page (e.g. which time reference it uses)
+    note: Optional[str] = None
+    fields: list[FillField]
 
 
 class EmailTextRequest(BaseModel):

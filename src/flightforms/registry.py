@@ -16,8 +16,13 @@ class FormMapping:
         self.icao_list: list[str] = data.get("icao_list", [])
         self.icao_prefix: Optional[str] = data.get("icao_prefix")
         self.is_default: bool = data.get("default", False)
-        self.template = data["template"]
-        self.filler_type = data["type"]  # pdf_acroform, docx, xlsx
+        self.filler_type = data["type"]  # pdf_acroform, docx, xlsx, web_form
+        # Web forms have no template: they describe an official web page
+        # instead, which the client opens and prefills from a fill plan.
+        self.template = data.get("template") if self.is_web_form else data["template"]
+        # "departure" / "arrival" pins a form to one side of the flight (a
+        # book-out only makes sense when leaving); None means either.
+        self.direction: Optional[str] = data.get("direction")
         self.version = data.get("version", "1.0")
         self.label = data.get("label", mapping_id)
         self.time_reference = data.get("time_reference", "utc")
@@ -27,6 +32,7 @@ class FormMapping:
         self.default_observations = data.get("default_observations")
         self.extra_fields = data.get("extra_fields", [])
         self.has_connecting_flight = data.get("has_connecting_flight", False)
+        self.has_return_flight = data.get("has_return_flight", False)
         self.max_crew = data.get("max_crew", 4)
         self.max_passengers = data.get("max_passengers", 8)
         self.send_to = data.get("send_to")
@@ -39,6 +45,21 @@ class FormMapping:
     @property
     def required_fields(self) -> dict:
         return self.raw.get("required_fields", {})
+
+    @property
+    def is_web_form(self) -> bool:
+        return self.filler_type == "web_form"
+
+    def web_url(self, icao: str) -> str:
+        """The web form's page URL for *icao*.
+
+        ``url`` may hold ``{icao}`` and ``{site}`` placeholders so one mapping
+        serves every airport running the same system (e.g. RedAtlas at
+        ``https://{site}.redatlas.co.uk/...``).  ``site`` defaults to the
+        lower-cased ICAO; ``sites`` overrides it per airport.
+        """
+        site = self.raw.get("sites", {}).get(icao, icao.lower())
+        return self.raw["url"].format(icao=icao, site=site)
 
 
 DEFAULT_EMAIL_TEMPLATES = {

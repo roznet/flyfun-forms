@@ -27,6 +27,7 @@ app/flyfun-forms/flyfun-forms/
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
 │   ├── FlightEditView.swift      # Flight details + form generation via share/email
+│   ├── WebFormView.swift         # Official web form (book-out, PPR…) in a web view, prefilled
 │   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
 │   ├── SinglePersonPickerView.swift # Searchable single-select person picker
 │   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
@@ -35,7 +36,7 @@ app/flyfun-forms/flyfun-forms/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
     ├── Environment.swift      # APIConfig (base URL, simulator vs device)
     ├── AuthService.swift      # Google OAuth + native Apple Sign-In
-    ├── FormService.swift      # API client for /airports, /generate, /validate, /email-text; parses 422 into structured errors
+    ├── FormService.swift      # API client for /airports, /generate, /prefill, /validate, /email-text; parses 422 into structured errors
     ├── PeopleCSVImporter.swift # CSV parser + SwiftData importer for bulk people entry
     ├── DocumentResolver.swift # Picks best document per person + airport region (active only)
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
@@ -72,8 +73,9 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 `FormService` handles all server communication:
 - `GET /airports` — fetches available forms for airport discovery
-- `GET /airports/{icao}` — form details (required fields, extra fields). Status-checked: 401 triggers re-auth.
+- `GET /airports/{icao}?include_web=true` — form details (required fields, extra fields, `kind`, `direction`). Status-checked: 401 triggers re-auth.
 - `POST /generate` — sends flight/people data, receives filled form file
+- `POST /prefill` — same body, receives a `FillPlan` for an official web form
 - `POST /validate` — dry-run validation before generation
 - `POST /email-text` — fetches localized email subject/body for pre-populating mail composer
 
@@ -124,6 +126,19 @@ Two export paths per form: **Share** (generic share sheet) and **Email** (pre-po
 - **Email:** `MFMailComposeViewController` on iOS, `NSSharingService.composeEmail` on macOS. Pre-fills to/cc from `email_overrides` or `send_to` in the mapping, subject/body from `POST /email-text` (with language preference: local, English, or both). Falls back to client-side subject/body if the server call fails.
 
 Email language preference is stored in `@AppStorage("emailLanguage")` with options: `.local`, `.english`, `.both`.
+
+### Web Forms (book-out, PPR, out-of-hours)
+
+Forms with `kind == "web"` are airports' own web pages. `FlightEditView` lists them in the airport's section for the side they cover (`direction`), after the primary document form, each with an **Open Prefilled** button:
+
+1. `FormService.prefill` sends the usual `GenerateRequest` to `POST /prefill` and gets a `FillPlan` (URL + value per input name)
+2. `WebFormView` presents the page in a `WKWebView` (`UIViewRepresentable` / `NSViewRepresentable`, non-persistent data store)
+3. After the first load, `WebFormFiller.script` applies the plan: finds each input by `name` (inside `scope` when the page holds several forms), sets it through the prototype's value setter, updates flatpickr / autocomplete.js state, and fires `input` + `change`. Checkboxes are clicked so the page's own handlers run
+4. A banner reports how many fields were filled and flags any not found; **Fill Again** re-applies the plan. The pilot submits on the page — the app never does
+
+It fills only after the *first* load, since submitting a RedAtlas form loads a confirmation page that must not be refilled.
+
+For forms with `hasReturnFlight` (the book-out), `buildRequest` sends `returnFlight`: looking forward from this departure (within two weeks), the first flight whose destination is the form's airport — e.g. EGTF → LFRM, then LFRM → EGTF the next day. A local flight is its own return. Its people count is that leg's crew + passengers. This is separate from the connecting-flight search, which for a departure looks *back* at the previous arrival. Phone and email come from the responsible person (the same `telephone` / `email` extra-field auto-fill as documents); the row prompts for one when missing.
 
 ### NOTAM Notifications
 
@@ -211,6 +226,7 @@ if appState.isAuthenticated {
 - Searchable responsible person picker with contact auto-fill: **complete**
 - Contact import from device contacts with fuzzy merge: **complete**
 - Account deletion (App Store guideline 5.1.1(v)): **complete**
+- Web forms opened prefilled on the official site (EGTF book-out, PPR, out-of-hours): **prototype**
 - Document override UI (tap to switch per airport): **planned**
 
 ## References

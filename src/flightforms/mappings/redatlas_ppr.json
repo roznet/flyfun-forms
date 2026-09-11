@@ -1,0 +1,39 @@
+{
+  "icao_list": ["EGTF"],
+  "label": "PPR Request",
+  "type": "web_form",
+  "version": "1.0",
+  "direction": "arrival",
+  "url": "https://{site}.redatlas.co.uk/public/ppr?embedded=true",
+  "time_reference": "utc",
+  "date_format": "%Y-%m-%d",
+  "max_crew": 99,
+  "max_passengers": 99,
+  "has_connecting_flight": true,
+  "required_fields": {
+    "flight": [],
+    "aircraft": ["registration"],
+    "crew": [],
+    "passengers": []
+  },
+  "extra_fields": [
+    {"key": "telephone", "label": "Telephone", "type": "text", "required": false},
+    {"key": "email", "label": "Email", "type": "text", "required": false}
+  ],
+  "fields": [
+    {"name": "Registration", "value": "aircraft.registration"},
+    {"name": "AircraftType", "value": "aircraft.type"},
+    {"name": "MovementDate", "value": "flight.date"},
+    {"name": "MovementTime", "value": "flight.time"},
+    {"name": "AirfieldOfDeparture", "value": "flight.remote"},
+    {"name": "PeopleOnBoard", "value": "people.count"},
+    {"name": "PilotName", "value": "pilot.name"},
+    {"name": "EmailAddress", "value": "extra.email"},
+    {"name": "Telephone", "value": "extra.telephone"}
+  ],
+  "airport_fields": {
+    "EGTF": [
+      {"name": "AdditionalFields[0].ValueString", "format": "{airport.departure.date} {airport.departure.time} UTC"}
+    ]
+  }
+}

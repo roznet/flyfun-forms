@@ -62,32 +62,21 @@ def _resolve_field_pattern(pattern: str, index: int) -> str:
     return pattern.replace("{i}", str(index)).replace("{n}", str(index + 1))
 
 
-def fill_pdf(
-    template_path: Path,
+def build_values(
     mapping: FormMapping,
     request: GenerateRequest,
     airport_resolver,
-    flatten: bool = False,
-) -> bytes:
-    """Fill a PDF AcroForm template and return the filled PDF bytes."""
-    reader = PdfReader(str(template_path))
-    writer = PdfWriter()
-    writer.append(reader)
+    is_arrival: bool | None = None,
+) -> dict[str, str]:
+    """Canonical values for *request*, keyed by the names ``field_map`` uses.
 
-    # Build map of each checkbox field's "on" value from the template
-    checkbox_on_values = {}
-    template_fields = reader.get_fields() or {}
-    for fname, fdata in template_fields.items():
-        if fdata.get("/FT") == "/Btn":
-            states = fdata.get("/_States_", [])
-            on_val = next((s for s in states if s != "/Off"), mapping.checkbox_on)
-            checkbox_on_values[fname] = on_val
-
-    field_map = mapping.raw.get("field_map", {})
-
-    # Determine direction
-    is_arrival = request.airport == request.flight.destination
-    direction = "inbound" if is_arrival else "outbound"
+    Shared by the PDF filler and web-form fill plans.  *is_arrival* defaults
+    to "the form's airport is the destination"; a form pinned to one
+    direction passes it explicitly, so a local flight (origin == destination)
+    still gets the side it asks for.
+    """
+    if is_arrival is None:
+        is_arrival = request.airport == request.flight.destination
 
     # The "remote" airport is the one that isn't request.airport (i.e. the other end)
     remote_icao = request.flight.origin if is_arrival else request.flight.destination
@@ -207,6 +196,18 @@ def fill_pdf(
         values["connecting.arrival_date"] = _parse_date(cf_arr_date, mapping.date_format)
         values["connecting.arrival_time_utc"] = cf_arr_time
 
+    # The flight coming back to the airport after this departure — book-outs
+    # ask when (and from where) you'll be back.
+    if request.return_flight:
+        rf = request.return_flight
+        rf_date, rf_time = _when(rf.arrival_date, rf.arrival_time_utc)
+        values["return.present"] = "true"
+        values["return.origin"] = rf.origin
+        values["return.date"] = _parse_date(rf_date, mapping.date_format)
+        values["return.time"] = rf_time
+        if rf.people_on_board is not None:
+            values["return.people_on_board"] = str(rf.people_on_board)
+
     # Airport-centric leg values: for forms that show both an arrival and a
     # departure section at the target airport (e.g. Jersey GenDec).  The
     # arriving leg comes from the main flight when arriving, or from the
@@ -235,6 +236,37 @@ def fill_pdf(
             cf_date, cf_time = _when(cf.arrival_date, cf.arrival_time_utc)
             values["airport.arrival.date"] = _parse_date(cf_date, mapping.date_format)
             values["airport.arrival.time"] = cf_time
+
+    return values
+
+
+def fill_pdf(
+    template_path: Path,
+    mapping: FormMapping,
+    request: GenerateRequest,
+    airport_resolver,
+    flatten: bool = False,
+) -> bytes:
+    """Fill a PDF AcroForm template and return the filled PDF bytes."""
+    reader = PdfReader(str(template_path))
+    writer = PdfWriter()
+    writer.append(reader)
+
+    # Build map of each checkbox field's "on" value from the template
+    checkbox_on_values = {}
+    template_fields = reader.get_fields() or {}
+    for fname, fdata in template_fields.items():
+        if fdata.get("/FT") == "/Btn":
+            states = fdata.get("/_States_", [])
+            on_val = next((s for s in states if s != "/Off"), mapping.checkbox_on)
+            checkbox_on_values[fname] = on_val
+
+    field_map = mapping.raw.get("field_map", {})
+
+    # Determine direction
+    is_arrival = request.airport == request.flight.destination
+    direction = "inbound" if is_arrival else "outbound"
+    values = build_values(mapping, request, airport_resolver, is_arrival)
 
     # Fill fields
     updates = {}

@@ -26,6 +26,7 @@ struct FlightEditView: View {
     @State private var validationErrors: [ServerValidationError] = []
     @State private var showingValidationErrors = false
     @State private var shareFileURL: URL?
+    @State private var webFormPlan: FillPlan?
     @State private var formDetails: [String: [FormInfo]] = [:]
     @State private var notifications: [String: NotificationInfo] = [:]
     @AppStorage(SpokenLanguageStorage.key) private var spokenLanguageCodes: String = ""
@@ -90,6 +91,9 @@ struct FlightEditView: View {
             }
         }
         #endif
+        .sheet(item: $webFormPlan) { plan in
+            WebFormView(plan: plan)
+        }
         .sheet(isPresented: $showAirportPicker) {
             AirportPickerView(originICAO: $flight.originICAO, destinationICAO: $flight.destinationICAO)
         }
@@ -395,10 +399,19 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private func formSection(airport: String, direction: String) -> some View {
-        let forms = formDetails[airport] ?? []
-        if let primary = forms.first {
+        let allForms = formDetails[airport] ?? []
+        let forms = allForms.filter { !$0.isWebForm }
+        // Official web forms (book-out, PPR…) only on the side they cover
+        let webForms = allForms.filter { $0.isWebForm && ($0.direction ?? direction) == direction }
+        if forms.first != nil || !webForms.isEmpty {
             Section("\(airport) — \(direction)") {
-                formRow(airport: airport, formInfo: primary)
+                if let primary = forms.first {
+                    formRow(airport: airport, formInfo: primary)
+                }
+
+                ForEach(webForms) { formInfo in
+                    webFormRow(airport: airport, formInfo: formInfo)
+                }
 
                 if forms.count > 1 {
                     DisclosureGroup("Other forms") {
@@ -443,6 +456,37 @@ struct FlightEditView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(isGenerating)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func webFormRow(airport: String, formInfo: FormInfo) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(formInfo.label)
+                .font(.subheadline.bold())
+
+            if flight.responsiblePerson == nil,
+               formInfo.extraFields.contains(where: { $0.key == "telephone" || $0.key == "email" }) {
+                Text("Pick a responsible person to fill in phone and email")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            HStack {
+                Button {
+                    Task { await openWebForm(airport: airport, form: formInfo.id) }
+                } label: {
+                    Label("Open Prefilled", systemImage: "safari")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isGenerating)
+
+                Spacer()
+
+                if generatingForm == "\(airport)_\(formInfo.id)" {
+                    ProgressView()
+                }
             }
         }
     }
@@ -612,6 +656,23 @@ struct FlightEditView: View {
     private func stopGenerating() {
         isGenerating = false
         generatingForm = nil
+    }
+
+    private func openWebForm(airport: String, form: String) async {
+        isGenerating = true
+        generatingForm = "\(airport)_\(form)"
+        defer { stopGenerating() }
+
+        let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
+        do {
+            webFormPlan = try await formService.prefill(request: buildRequest(airport: airport, form: form))
+        } catch let FormService.FormError.validationErrors(errors) {
+            validationErrors = errors
+            showingValidationErrors = true
+        } catch {
+            errorMessage = error.localizedDescription
+            showingError = true
+        }
     }
 
     private func generateAndShare(airport: String, form: String) async {
@@ -818,6 +879,39 @@ struct FlightEditView: View {
             return nil
         }()
 
+        // For forms that ask when you'll be back (book-outs): the first later
+        // flight landing at this airport again, however many legs away. A
+        // local flight (back where it started) is its own return.
+        let returnPayload: ReturnFlightPayload? = {
+            let formInfo = formDetails[airport]?.first(where: { $0.id == form })
+            guard formInfo?.hasReturnFlight == true, airport == flight.originICAO else { return nil }
+
+            let hasTimes: (Flight) -> Bool = {
+                !$0.departureTimeUTC.isEmpty && !$0.arrivalTimeUTC.isEmpty
+            }
+            let back: Flight? = {
+                if flight.destinationICAO == airport { return flight }
+                let thisID = flight.persistentModelID
+                let twoWeeks: TimeInterval = 14 * 24 * 3600
+                return allFlights
+                    .filter { $0.persistentModelID != thisID
+                        && $0.departureDateTime > flight.departureDateTime
+                        && $0.departureDateTime.timeIntervalSince(flight.departureDateTime) < twoWeeks
+                        && $0.destinationICAO == airport }
+                    .min { $0.departureDateTime < $1.departureDateTime }
+            }()
+            guard let back, hasTimes(back) else { return nil }
+
+            return ReturnFlightPayload(
+                origin: back.originICAO, destination: back.destinationICAO,
+                departureDate: dateFmt.string(from: back.departureDate),
+                departureTimeUtc: back.departureTimeUTC,
+                arrivalDate: dateFmt.string(from: back.arrivalDate),
+                arrivalTimeUtc: back.arrivalTimeUTC,
+                peopleOnBoard: back.crewList.count + back.passengerList.count
+            )
+        }()
+
         return GenerateRequest(
             airport: airport,
             form: form,
@@ -826,6 +920,7 @@ struct FlightEditView: View {
             crew: crewPayloads,
             passengers: paxPayloads,
             connectingFlight: connectingPayload,
+            returnFlight: returnPayload,
             extraFields: extras.isEmpty ? nil : extras,
             observations: flight.observations
         )
