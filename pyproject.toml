@@ -20,6 +20,11 @@ dependencies = [
     "pytz>=2024.1",
 ]
 
+[project.optional-dependencies]
+# scripts/asc.py (App Store Connect staging) — developer machine only, never
+# installed in the server image
+release = ["pyjwt[crypto]>=2.8", "requests>=2.31", "python-dotenv>=1.0"]
+
 [project.scripts]
 flightforms = "flightforms.cli:main"
 

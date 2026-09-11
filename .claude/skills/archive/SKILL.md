@@ -1,6 +1,13 @@
+---
+name: archive
+description: Archive the iOS or macOS app for the App Store — pre-flight checks, version bump, archive, tag and release notes, then stage it on App Store Connect (version, What's New, upload, build attached) with scripts/asc.py. Never submits for review. Invoke with an optional platform (ios / macos) and bump type (build / patch / minor / major).
+disable-model-invocation: true
+---
+
 # Archive for App Store
 
-Build an Xcode archive ready for App Store upload.
+Build an Xcode archive and stage it on App Store Connect, ready for you to press
+**Submit for Review**.
 
 ## Arguments
 
@@ -28,7 +35,11 @@ Use these values based on the selected platform:
 | Destination | `generic/platform=iOS` | `generic/platform=macOS` |
 | Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | `platform=macOS` |
 | Tag prefix | `ios` | `macos` |
+| `asc.py --platform` | `ios` | `macos` |
+| Release notes file | `release-notes/ios-{version}.txt` | `release-notes/macos-{version}.txt` |
 | Privacy checks | NSCameraUsageDescription, NSContactsUsageDescription | NSCameraUsageDescription, NSContactsUsageDescription |
+
+For the test destination, pick a simulator the machine actually has (`xcrun simctl list devices available`) if `iPhone 17 Pro` isn't present.
 
 ## Step 1 — Read current version
 
@@ -68,28 +79,47 @@ cd $PROJECT_ROOT && venv/bin/python3 -m pytest tests/ -x -q -k "not flatten"
 ```
 If tests fail, stop and show the failures.
 
-### 2e — Uncommitted changes
+### 2d — Uncommitted changes
 
 Run `git status` — warn the user if there are uncommitted changes beyond the version bump that's about to happen. These would NOT be in the archive since Xcode builds from the working directory, but it's good to flag.
 
-### 2f — Git branch check
+### 2e — Git branch check
 
 Verify we're on `main` branch. Warn (but don't block) if on a different branch.
 
-### 2g — Debug-only code check
+### 2f — Debug-only code check
 
 Search for common debug patterns that shouldn't ship:
 - `#if DEBUG` blocks that contain API URLs or feature flags — verify they have proper `#else` branches
 - Any `print(` or `NSLog(` in SwiftUI views (these are noisy in production) — warn but don't block
 - Any `TODO` or `FIXME` comments — warn but don't block
 
-### 2h — Info.plist privacy descriptions
+### 2g — Info.plist
 
-Verify all required usage descriptions are present in `app/flyfun-forms/flyfun-forms/Info.plist`:
+Verify in `app/flyfun-forms/flyfun-forms/Info.plist`:
 - `NSCameraUsageDescription` (for document scanning)
 - `NSContactsUsageDescription` (for contact import)
+- `ITSAppUsesNonExemptEncryption` set to `false` — without it every uploaded build stops at "Missing Compliance" until someone answers the export question by hand, and `asc.py` can't attach it
 
 If any are missing, stop and warn.
+
+### 2h — Local package overrides
+
+Check the project for absolute local package paths — anything under `/Users/` pointing at a sibling checkout (e.g. a local `rzflight` or `flyfun-common`). These break builds on other machines and must be reverted to remote SPM references before archiving. **Stop and warn the user** if found:
+
+```bash
+grep -n '/Users/' app/flyfun-forms/flyfun-forms.xcodeproj/project.pbxproj || echo "no local package overrides"
+```
+
+### 2i — App Store Connect state
+
+If `ASC_KEY_ID` / `ASC_ISSUER_ID` are set in `.env`, show what App Store Connect currently has for this platform:
+
+```bash
+venv/bin/python3 scripts/asc.py status --platform {platform}
+```
+
+Warn (don't block) if a version for this platform is already `WAITING_FOR_REVIEW` / `IN_REVIEW`: staging in Step 9 will refuse to touch it, and cancelling a submission is the user's call. If the keys aren't set, note that Step 9 will fall back to the manual Organizer route.
 
 Report all checks as a checklist to the user before proceeding.
 
@@ -200,8 +230,18 @@ From these commits, write a concise, user-facing release notes summary suitable 
 - Focus on features and fixes the user cares about
 - Skip internal changes (test fixes, CI, refactoring, version bumps, doc syncs)
 - Keep it to 5-8 bullet points max
+- The listing is `en-GB`: write British English
 
-Show the release notes to the user for review before proceeding.
+Show the release notes to the user for review. **Wait for approval** — apply any edits they make.
+
+### Save the approved notes
+
+Write the approved text, exactly as it should appear in the App Store, to `release-notes/{platform}-{version}.txt` (plain text, one `- ` bullet per line). Step 9 sends this file as-is, so what the user approved is what Apple gets. For a build-only bump the file may already exist — overwrite it if the notes changed.
+
+Commit it on its own:
+```
+Release notes for {platform} {version}
+```
 
 ### Push tags
 
@@ -211,15 +251,42 @@ git push origin {platform}/{version}          # new tag
 git push origin {platform}/{version} --force  # moved tag (build-only bump)
 ```
 
-## Step 9 — Report
+## Step 9 — Stage on App Store Connect
+
+`scripts/asc.py` creates (or reuses) the App Store version, writes What's New, uploads the archive, waits for Apple to process it, and attaches the build — the steps that used to be Organizer + copy-paste. **It cannot submit for review, by design** (there is no such subcommand); the user presses Submit in App Store Connect.
+
+If `ASC_KEY_ID` / `ASC_ISSUER_ID` are not in `.env`, this step is unavailable — say so, point at the credentials section of `scripts/asc.py`'s docstring, and fall back to the manual route in Step 10.
+
+Offer `--dry-run` first if the user wants to see the calls before anything is sent. Then stage everything in one call:
+
+```bash
+venv/bin/python3 scripts/asc.py stage \
+  --platform {platform} \
+  --version {marketing_version} \
+  --build {build_number} \
+  --archive "{archive_path}" \
+  --notes-file release-notes/{platform}-{version}.txt
+```
+
+Only pass `--review-notes "…"` if the user gives you text for the App Review team; reviewers can sign in with Sign in with Apple, so there is no reviewer token to mint for this app.
+
+Notes on behaviour — all three are normal, not errors:
+
+- **Re-running is safe.** `stage` reuses an existing editable version, renames it if the marketing version changed, and overwrites What's New in place. Re-run it to correct a mistake or to push a second binary rather than trying to undo anything.
+- **It waits for Apple.** After upload the build sits in processing for ~5–30 minutes before it can be attached. Use a timeout of 600000ms (10 min) and, if it's still going, re-run `venv/bin/python3 scripts/asc.py wait-build --platform {platform} --version X.Y --build N` then `attach-build` with the same arguments — **do not re-upload**.
+- **It stops at in-review versions.** If a version for this platform is already `WAITING_FOR_REVIEW` or `IN_REVIEW`, it refuses rather than editing. Cancelling a submission is the user's call.
+
+iOS and macOS are separate App Store versions under the same app. Staging one platform never touches the other.
+
+## Step 10 — Report
 
 Tell the user:
 - Pre-flight check results summary
 - Platform that was archived (iOS or macOS)
 - Archive created at the path
 - Version and build number in the archive
-- The tag that was created
-- The release notes for the App Store
-- It should now appear in **Xcode → Window → Organizer**
-- From there they can **Distribute App** → **App Store Connect** to upload
-- Remind them to push the version bump commit when ready
+- The tag that was created or moved
+- The release notes, and the file they were saved to
+- **If Step 9 ran:** the version is staged on App Store Connect with What's New and the build attached — they review it in the web UI and press **Submit for Review** themselves. Show the final `asc.py status` output.
+- **If Step 9 was skipped** (no API key configured): the archive appears in **Xcode → Window → Organizer**, and from there **Distribute App** → **App Store Connect** uploads it; the What's New text then has to be pasted in by hand.
+- Remind them to push the version bump and release-notes commits when ready

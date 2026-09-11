@@ -192,6 +192,13 @@ if appState.isAuthenticated {
 - **Share sheet over fileExporter:** `UIActivityViewController` (iOS) / custom save/copy/reveal view (macOS) gives users more export options than the file-save dialog.
 - **Dev vs prod base URL:** `#if targetEnvironment(simulator) || os(macOS)` switches to `localhost.ro-z.me:8443` for local dev server testing. Physical iOS devices use `forms.flyfun.aero`.
 
+## Releasing
+
+The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight checks, bumps the version, archives, tags `{ios|macos}/{version}`, and saves the approved What's New to `release-notes/{platform}-{version}.txt`. It then stages the release with `scripts/asc.py stage`: it creates or reuses the App Store version, writes What's New, uploads the archive, waits for processing and attaches the build. The script **cannot submit** — that stays a click in App Store Connect.
+
+- iOS and macOS are separate App Store versions under one app. They share a bundle id and, because there is one Xcode target, a build number, so `asc.py` takes `--platform` and matches builds on platform as well as version.
+- Credentials: `ASC_KEY_ID` / `ASC_ISSUER_ID` in the gitignored `.env`, the `.p8` in `~/.appstoreconnect/private_keys/`. It's the same team key as flyfun-weather. Without them the skill falls back to Organizer.
+
 ## Gotchas
 
 - CloudKit sync requires iCloud to be enabled on the device and a signed-in Apple ID
