@@ -1,0 +1,6 @@
+- Open official airport web forms straight from the app, already filled in with your flight details, starting with Fairoaks book-out, PPR and out-of-hours departure and arrival requests
+- Book-out forms now include your return details, taken from your next flight back to the airport
+- New customs pre-notification form for Le Mans Arnage (LFRM)
+- Fixed French customs forms that could show the wrong date for late-evening flights once converted to local time
+- Fixed text being cut off in some form fields
+- Refreshed app icon, with a dedicated dark mode version
