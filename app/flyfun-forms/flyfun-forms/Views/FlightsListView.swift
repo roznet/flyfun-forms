@@ -98,7 +98,7 @@ struct FlightsListView: View {
                 HStack(spacing: 8) {
                     Text(flight.departureDate, style: .date)
                         .font(.caption)
-                    if !flight.departureTimeUTC.isEmpty {
+                    if flight.hasDepartureTime {
                         Text(flight.departureTimeUTC + "z")
                             .font(.caption)
                             .foregroundStyle(.secondary)

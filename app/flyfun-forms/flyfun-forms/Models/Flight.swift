@@ -142,6 +142,18 @@ final class Flight {
         return Calendar.current.date(from: components) ?? instant
     }
 
+    /// A default schedule moment for a new flight: the next whole hour, UTC.
+    ///
+    /// A picker always shows some time, unlike the free-text field this
+    /// replaces which could be left blank. Rounding up to the hour makes the
+    /// default read as a default, rather than as a precise-looking "now".
+    static func defaultScheduleInstant(from now: Date = Date()) -> Date {
+        let calendar = utcCalendar
+        let components = calendar.dateComponents([.year, .month, .day, .hour], from: now)
+        guard let hourStart = calendar.date(from: components) else { return now }
+        return calendar.date(byAdding: .hour, value: 1, to: hourStart) ?? now
+    }
+
     /// `instant` moved onto the UTC calendar day of `reference`, keeping its
     /// own UTC time of day.
     static func alignUTCDay(of instant: Date, to reference: Date) -> Date {

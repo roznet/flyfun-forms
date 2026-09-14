@@ -224,24 +224,18 @@ struct FlightEditView: View {
     private var scheduleSection: some View {
         Section {
             DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
-                DatePicker("Departure Date", selection: $flight.departureDate, displayedComponents: .date)
-                LabeledContent("Departure Time") {
-                    TimeEntryView(
-                        utcTimeString: $flight.departureTimeUTC,
-                        airportICAO: flight.originICAO,
-                        originICAO: flight.originICAO,
-                        destinationICAO: flight.destinationICAO
-                    )
-                }
-                DatePicker("Arrival Date", selection: $flight.arrivalDate, displayedComponents: .date)
-                LabeledContent("Arrival Time") {
-                    TimeEntryView(
-                        utcTimeString: $flight.arrivalTimeUTC,
-                        airportICAO: flight.destinationICAO,
-                        originICAO: flight.originICAO,
-                        destinationICAO: flight.destinationICAO
-                    )
-                }
+                FlightDateTimeField(
+                    label: "Departure",
+                    instant: $flight.departureDateTime,
+                    primaryICAO: flight.originICAO,
+                    zoneICAOs: [flight.originICAO, flight.destinationICAO]
+                )
+                FlightDateTimeField(
+                    label: "Arrival",
+                    instant: $flight.arrivalDateTime,
+                    primaryICAO: flight.destinationICAO,
+                    zoneICAOs: [flight.originICAO, flight.destinationICAO]
+                )
             }
         }
     }
