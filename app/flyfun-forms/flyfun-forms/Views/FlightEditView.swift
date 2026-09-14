@@ -31,16 +31,23 @@ struct FlightEditView: View {
     @State private var notifications: [String: NotificationInfo] = [:]
     @AppStorage(SpokenLanguageStorage.key) private var spokenLanguageCodes: String = ""
     @State private var extraFieldValues: [String: [String: ExtraFieldValue]] = [:]
-    @State private var previousDepartureDate: Date?
     @State private var scheduleExpanded = true
     @State private var flightDetailsExpanded = true
     @State private var crewExpanded = true
     @State private var passengersExpanded = true
 
+    /// Formats the API's `departure_date` / `arrival_date`.
+    ///
+    /// Pinned to UTC and applied to the resolved instant, so the date always
+    /// names the same day as the `..._time_utc` sent beside it. It previously
+    /// had no timezone and was applied to the stored day, which read that day
+    /// in the device's zone while `departureDateTime` read it in UTC; the two
+    /// disagreed for any flight stored near midnight.
     private let dateFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .gmt
         return f
     }()
 
@@ -111,11 +118,10 @@ struct FlightEditView: View {
             fetchFormDetails(icao: flight.destinationICAO)
             fetchNotification(icao: flight.destinationICAO)
         }
-        .onChange(of: flight.departureDate) { oldValue, newValue in
+        .onChange(of: flight.departureDateTime) { oldValue, newValue in
             autoSyncArrivalDate(oldDeparture: oldValue, newDeparture: newValue)
         }
         .onAppear {
-            previousDepartureDate = flight.departureDate
             fetchFormDetails(icao: flight.originICAO)
             fetchFormDetails(icao: flight.destinationICAO)
             fetchNotification(icao: flight.originICAO)
@@ -388,11 +394,17 @@ struct FlightEditView: View {
 
     // MARK: - Arrival Date Auto-sync
 
+    /// Keep the arrival day following the departure day, but only while the
+    /// pilot has not moved the arrival off it themselves.
+    ///
+    /// Compared in UTC, because that is the day the arrival is stored and filed
+    /// under. Only the day moves: the arrival's own time of day is preserved,
+    /// so a leg landing at 21:30 stays at 21:30 when the departure slides.
     private func autoSyncArrivalDate(oldDeparture: Date, newDeparture: Date) {
-        // Only sync if arrival was matching old departure (user hasn't manually changed it)
-        if Calendar.current.isDate(flight.arrivalDate, inSameDayAs: oldDeparture) {
-            flight.arrivalDate = newDeparture
-        }
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = .gmt
+        guard utc.isDate(flight.arrivalDateTime, inSameDayAs: oldDeparture) else { return }
+        flight.arrivalDateTime = Flight.alignUTCDay(of: flight.arrivalDateTime, to: newDeparture)
     }
 
     // MARK: - Form Sections
@@ -690,7 +702,7 @@ struct FlightEditView: View {
             form: formInfo.id,
             origin: flight.originICAO,
             destination: flight.destinationICAO,
-            departureDate: dateFmt.string(from: flight.departureDate),
+            departureDate: dateFmt.string(from: flight.departureDateTime),
             registration: flight.aircraft?.registration ?? "",
             aircraftType: flight.aircraft?.type
         )
@@ -784,9 +796,9 @@ struct FlightEditView: View {
         let flightPayload = FlightPayload(
             origin: flight.originICAO,
             destination: flight.destinationICAO,
-            departureDate: dateFmt.string(from: flight.departureDate),
+            departureDate: dateFmt.string(from: flight.departureDateTime),
             departureTimeUtc: flight.departureTimeUTC,
-            arrivalDate: dateFmt.string(from: flight.arrivalDate),
+            arrivalDate: dateFmt.string(from: flight.arrivalDateTime),
             arrivalTimeUtc: flight.arrivalTimeUTC,
             nature: flight.nature,
             contact: contactValue
@@ -847,9 +859,7 @@ struct FlightEditView: View {
 
             // Skip candidates with unset times — the API requires HH:MM and
             // a partially-filled connecting leg shouldn't render on the form.
-            let hasTimes: (Flight) -> Bool = {
-                !$0.departureTimeUTC.isEmpty && !$0.arrivalTimeUTC.isEmpty
-            }
+            let hasTimes: (Flight) -> Bool = { $0.hasDepartureTime && $0.hasArrivalTime }
 
             // Only consider nearby flights, sorted by departure time
             let nearby = allFlights
@@ -886,9 +896,7 @@ struct FlightEditView: View {
             let formInfo = formDetails[airport]?.first(where: { $0.id == form })
             guard formInfo?.hasReturnFlight == true, airport == flight.originICAO else { return nil }
 
-            let hasTimes: (Flight) -> Bool = {
-                !$0.departureTimeUTC.isEmpty && !$0.arrivalTimeUTC.isEmpty
-            }
+            let hasTimes: (Flight) -> Bool = { $0.hasDepartureTime && $0.hasArrivalTime }
             let back: Flight? = {
                 if flight.destinationICAO == airport { return flight }
                 let thisID = flight.persistentModelID
@@ -904,9 +912,9 @@ struct FlightEditView: View {
 
             return ReturnFlightPayload(
                 origin: back.originICAO, destination: back.destinationICAO,
-                departureDate: dateFmt.string(from: back.departureDate),
+                departureDate: dateFmt.string(from: back.departureDateTime),
                 departureTimeUtc: back.departureTimeUTC,
-                arrivalDate: dateFmt.string(from: back.arrivalDate),
+                arrivalDate: dateFmt.string(from: back.arrivalDateTime),
                 arrivalTimeUtc: back.arrivalTimeUTC,
                 peopleOnBoard: back.crewList.count + back.passengerList.count
             )
@@ -960,9 +968,9 @@ struct FlightEditView: View {
     private func makeFlightPayload(from leg: Flight) -> FlightPayload {
         FlightPayload(
             origin: leg.originICAO, destination: leg.destinationICAO,
-            departureDate: dateFmt.string(from: leg.departureDate),
+            departureDate: dateFmt.string(from: leg.departureDateTime),
             departureTimeUtc: leg.departureTimeUTC,
-            arrivalDate: dateFmt.string(from: leg.arrivalDate),
+            arrivalDate: dateFmt.string(from: leg.arrivalDateTime),
             arrivalTimeUtc: leg.arrivalTimeUTC,
             nature: leg.nature, contact: leg.responsiblePerson?.displayName ?? leg.contact
         )
@@ -1010,8 +1018,10 @@ struct FlightEditView: View {
         newFlight.destinationICAO = flight.destinationICAO
         newFlight.departureDate = flight.departureDate
         newFlight.departureTimeUTC = flight.departureTimeUTC
+        newFlight.departureInstant = flight.departureInstant
         newFlight.arrivalDate = flight.arrivalDate
         newFlight.arrivalTimeUTC = flight.arrivalTimeUTC
+        newFlight.arrivalInstant = flight.arrivalInstant
         newFlight.observations = flight.observations
         modelContext.insert(newFlight)
         switchToFlight(newFlight)
