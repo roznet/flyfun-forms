@@ -194,7 +194,7 @@ struct NewFlightFlow: View {
         }
     }
 
-    // MARK: - Import Flight Plan
+    // MARK: - Import
 
     private func pasteFlightPlan() {
         #if os(iOS)
@@ -203,75 +203,62 @@ struct NewFlightFlow: View {
         guard let text = NSPasteboard.general.string(forType: .string) else { return }
         #endif
 
-        guard let parsed = ICAOFlightPlanParser.parse(text) else { return }
+        guard let plan = ICAOFlightPlanParser.parse(text) else { return }
 
-        if let icao = parsed.originICAO, !icao.isEmpty {
-            originICAO = icao
-        }
-        if let icao = parsed.destinationICAO, !icao.isEmpty {
-            destinationICAO = icao
-        }
-        if let time = parsed.departureTimeUTC {
-            departureTimeUTC = time
-        }
-        if let dof = parsed.dateOfFlight {
-            departureDate = dof
-            arrivalDate = dof
-        }
-        // Compute arrival time from departure + EET
-        if let depTime = parsed.departureTimeUTC, let eet = parsed.eet {
-            arrivalTimeUTC = addTime(depTime, eet)
-        }
-        // Match aircraft by registration, or create if not found
-        if let reg = parsed.aircraftRegistration {
-            resolveOrCreateAircraft(registration: reg, type: parsed.aircraftType ?? "")
+        applyRoute(
+            plan.route,
+            registration: plan.aircraftRegistration,
+            aircraftType: plan.aircraftType
+        )
+
+        // A plan carrying DOF/ but no usable field 13 time yields no route
+        // instant. Keep the day anyway so the pilot only has to fill in the
+        // time, matching what the previous local parser did.
+        if plan.route.departureTime == nil, let dayOfFlight = plan.dateOfFlight {
+            departureDate = dayOfFlight
+            arrivalDate = dayOfFlight
         }
     }
 
-    /// Add two HH:mm time strings, wrapping at 24h.
-    private func addTime(_ base: String, _ offset: String) -> String {
-        let parts1 = base.split(separator: ":")
-        let parts2 = offset.split(separator: ":")
-        guard parts1.count == 2, parts2.count == 2,
-              let h1 = Int(parts1[0]), let m1 = Int(parts1[1]),
-              let h2 = Int(parts2[0]), let m2 = Int(parts2[1]) else { return base }
-        let total = (h1 * 60 + m1) + (h2 * 60 + m2)
-        return String(format: "%02d:%02d", (total / 60) % 24, total % 60)
-    }
-
-    // MARK: - Import from Weather
-
-    /// Map an imported `FlightExchange` onto the route step, mirroring
-    /// `pasteFlightPlan()`. The pilot then reviews and taps Create Flight —
-    /// no separate persistence path. Only the origin/destination/time/aircraft
-    /// subset forms cares about is consumed; waypoints/coords are ignored.
+    /// Map a flight imported from the weather app onto the route step. Only the
+    /// origin/destination/time/aircraft subset forms cares about is consumed;
+    /// waypoints and coordinates are ignored.
     private func applyWeatherImport(_ exchange: FlightExchange) {
-        let route = exchange.route
+        applyRoute(
+            exchange.route,
+            registration: exchange.aircraft?.registration,
+            aircraftType: exchange.aircraft?.type ?? exchange.route.aircraftType
+        )
+    }
 
+    /// Apply a route onto the route step. The pilot reviews it and taps Create
+    /// Flight; there is no separate persistence path.
+    ///
+    /// Both import paths land here because both now carry the same type.
+    /// `RZFlight.ICAOFlightPlanParser` composes field 13 and DOF/ into a UTC
+    /// instant and derives the arrival from EET/ itself, so the pasted-plan path
+    /// no longer has to add two "HH:mm" strings by hand. That arithmetic wrapped at
+    /// 24h and left the arrival date a day behind on any overnight leg.
+    private func applyRoute(_ route: Route, registration: String?, aircraftType: String?) {
         if !route.departure.isEmpty { originICAO = route.departure }
         if !route.destination.isEmpty { destinationICAO = route.destination }
 
-        if let dep = route.departureTime {
-            let (day, hhmm) = utcDayAndTime(dep)
+        if let departure = route.departureTime {
+            let (day, hhmm) = utcDayAndTime(departure)
             departureDate = day
             departureTimeUTC = hhmm
-            // Default arrival to the departure day; overwritten below if the
-            // payload carries an arrival time.
+            // Default arrival to the departure day; overwritten below when the
+            // route carries an arrival time.
             arrivalDate = day
         }
-        if let arr = route.arrivalTime {
-            let (day, hhmm) = utcDayAndTime(arr)
+        if let arrival = route.arrivalTime {
+            let (day, hhmm) = utcDayAndTime(arrival)
             arrivalDate = day
             arrivalTimeUTC = hhmm
         }
 
-        // Aircraft: match an existing one by normalized registration, else
-        // create it — the same dedup the pasted-flight-plan flow uses.
-        if let reg = exchange.aircraft?.registration, !reg.isEmpty {
-            resolveOrCreateAircraft(
-                registration: reg,
-                type: exchange.aircraft?.type ?? route.aircraftType ?? ""
-            )
+        if let registration, !registration.isEmpty {
+            resolveOrCreateAircraft(registration: registration, type: aircraftType ?? "")
         }
     }
 
