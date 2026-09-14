@@ -118,8 +118,8 @@ struct FlightDateTimeField: View {
                 cache.resolve(icao: icao)
             }
         }
-        .onChange(of: availableZoneIds) { syncSelection() }
-        .onChange(of: preferredZoneId) { syncSelection() }
+        .onChange(of: availableZoneIds, initial: true) { syncSelection() }
+        .onChange(of: preferredZoneId, initial: true) { syncSelection() }
     }
 
     /// Keep the selected zone present in the options, and adopt the relevant
