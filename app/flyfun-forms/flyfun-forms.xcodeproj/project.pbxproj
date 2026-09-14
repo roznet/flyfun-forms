@@ -570,7 +570,7 @@
 			repositoryURL = "https://github.com/roznet/flyfun-common";
 			requirement = {
 				kind = exactVersion;
-				version = 0.6.3;
+				version = 0.6.5;
 			};
 		};
 		420D044C2F5C001B00664F90 /* XCRemoteSwiftPackageReference "rzutils" */ = {

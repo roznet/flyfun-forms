@@ -1,13 +1,13 @@
 {
-  "originHash" : "64c91654fbdf5d571828c7e872944a9436c75cc315d05770f9651ca558ea5ad3",
+  "originHash" : "c59d4f205939bdc5d744f1cc94783c1d0ef32c4aa0117b601583f1d73a9ffc32",
   "pins" : [
     {
       "identity" : "flyfun-common",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/roznet/flyfun-common",
       "state" : {
-        "revision" : "72d809727e811da97b9318448ee1eef31b02a91d",
-        "version" : "0.6.3"
+        "revision" : "0b142dc7b6ea9f7b29d3e3423d8e2898b5063726",
+        "version" : "0.6.5"
       }
     },
     {
