@@ -1,6 +1,29 @@
 import FlyFunCommon
 import SwiftUI
 
+/// Which end of the flight a ``FlightDateTimeField`` edits.
+///
+/// Row titles are whole phrases rather than a prefix glued to "Date"/"Time",
+/// so each one translates as a unit ("Heure de départ", not "Departure
+/// Heure"). ``identifier`` stays untranslated for accessibility identifiers.
+enum FlightEnd {
+    case departure, arrival
+
+    var identifier: String { self == .departure ? "Departure" : "Arrival" }
+
+    var dateTitle: LocalizedStringResource {
+        self == .departure ? "Departure Date" : "Arrival Date"
+    }
+
+    var timeTitle: LocalizedStringResource {
+        self == .departure ? "Departure Time" : "Arrival Time"
+    }
+
+    var zoneTitle: LocalizedStringResource {
+        self == .departure ? "Departure Zone" : "Arrival Zone"
+    }
+}
+
 /// Date, time and timezone entry for one end of a flight.
 ///
 /// Binds to the absolute instant, and keeps the display timezone as view state.
@@ -17,8 +40,8 @@ import SwiftUI
 @MainActor
 struct FlightDateTimeField: View {
 
-    /// Row label prefix, e.g. "Departure".
-    let label: String
+    /// Which end of the flight this field edits.
+    let end: FlightEnd
 
     /// The absolute moment being edited.
     @Binding var instant: Date
@@ -66,7 +89,7 @@ struct FlightDateTimeField: View {
     var body: some View {
         Group {
             DatePicker(
-                "\(label) Date",
+                String(localized: end.dateTitle),
                 selection: Binding(
                     get: { clock.dateProxy },
                     set: { instant = clock.settingDateProxy($0).instant }
@@ -74,7 +97,7 @@ struct FlightDateTimeField: View {
                 displayedComponents: .date
             )
 
-            LabeledContent("\(label) Time") {
+            LabeledContent(String(localized: end.timeTitle)) {
                 HStack(spacing: 2) {
                     Picker("Hour", selection: Binding(
                         get: { clock.hour },
@@ -86,9 +109,9 @@ struct FlightDateTimeField: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .accessibilityIdentifier("\(label)HourPicker")
+                    .accessibilityIdentifier("\(end.identifier)HourPicker")
 
-                    Text(":").foregroundStyle(.secondary)
+                    Text(verbatim: ":").foregroundStyle(.secondary)
 
                     Picker("Minute", selection: Binding(
                         get: { clock.minuteOption(step: minuteStep) },
@@ -100,17 +123,17 @@ struct FlightDateTimeField: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .accessibilityIdentifier("\(label)MinutePicker")
+                    .accessibilityIdentifier("\(end.identifier)MinutePicker")
                 }
             }
 
-            Picker("\(label) Zone", selection: $timeZoneId) {
+            Picker(String(localized: end.zoneTitle), selection: $timeZoneId) {
                 ForEach(zoneOptions) { option in
                     Text(option.label).tag(option.identifier)
                 }
             }
             .pickerStyle(.menu)
-            .accessibilityIdentifier("\(label)ZonePicker")
+            .accessibilityIdentifier("\(end.identifier)ZonePicker")
         }
         .task(id: zoneICAOs + [primaryICAO]) {
             let cache = AirportTimezoneCache.shared

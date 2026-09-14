@@ -236,13 +236,13 @@ struct FlightEditView: View {
         Section {
             DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
                 FlightDateTimeField(
-                    label: "Departure",
+                    end: .departure,
                     instant: $flight.departureDateTime,
                     primaryICAO: flight.originICAO,
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]
                 )
                 FlightDateTimeField(
-                    label: "Arrival",
+                    end: .arrival,
                     instant: $flight.arrivalDateTime,
                     primaryICAO: flight.destinationICAO,
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]

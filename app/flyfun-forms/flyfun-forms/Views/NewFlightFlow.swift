@@ -129,13 +129,13 @@ struct NewFlightFlow: View {
 
         Section("Schedule") {
             FlightDateTimeField(
-                label: "Departure",
+                end: .departure,
                 instant: $departureInstant,
                 primaryICAO: originICAO,
                 zoneICAOs: [originICAO, destinationICAO]
             )
             FlightDateTimeField(
-                label: "Arrival",
+                end: .arrival,
                 instant: $arrivalInstant,
                 primaryICAO: destinationICAO,
                 zoneICAOs: [originICAO, destinationICAO]

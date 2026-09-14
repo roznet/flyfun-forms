@@ -479,6 +479,28 @@
         }
       }
     },
+    "Arrival Zone" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ankunftszeitzone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zona horaria de llegada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fuseau horaire d'arrivée"
+          }
+        }
+      }
+    },
     "Assigned to %@" : {
       "localizations" : {
         "de" : {
@@ -920,6 +942,28 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Heure de départ"
+          }
+        }
+      }
+    },
+    "Departure Zone" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abflugzeitzone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zona horaria de salida"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fuseau horaire de départ"
           }
         }
       }
@@ -1682,6 +1726,28 @@
         }
       }
     },
+    "Hour" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Stunde"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hora"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Heure"
+          }
+        }
+      }
+    },
     "ID Card" : {
       "localizations" : {
         "de" : {
@@ -1918,6 +1984,28 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "Personnes correspondantes"
+          }
+        }
+      }
+    },
+    "Minute" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Minute"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Minuto"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Minute"
           }
         }
       }
