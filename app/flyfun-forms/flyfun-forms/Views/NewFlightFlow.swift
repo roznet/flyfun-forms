@@ -17,10 +17,8 @@ struct NewFlightFlow: View {
     @State private var step: Step = .route
     @State private var originICAO = ""
     @State private var destinationICAO = ""
-    @State private var departureDate = Date()
-    @State private var arrivalDate = Date()
-    @State private var departureTimeUTC = ""
-    @State private var arrivalTimeUTC = ""
+    @State private var departureInstant = Flight.defaultScheduleInstant()
+    @State private var arrivalInstant = Flight.defaultScheduleInstant()
     @State private var selectedAircraft: Aircraft?
     @State private var selectedCrew: [Person] = []
     @State private var selectedPassengers: [Person] = []
@@ -77,10 +75,11 @@ struct NewFlightFlow: View {
                     applyWeatherImport(exchange)
                 }
             }
-            .onChange(of: departureDate) { oldValue, newValue in
-                if Calendar.current.isDate(arrivalDate, inSameDayAs: oldValue) {
-                    arrivalDate = newValue
-                }
+            .onChange(of: departureInstant) { oldValue, newValue in
+                var utc = Calendar(identifier: .gregorian)
+                utc.timeZone = .gmt
+                guard utc.isDate(arrivalInstant, inSameDayAs: oldValue) else { return }
+                arrivalInstant = Flight.alignUTCDay(of: arrivalInstant, to: newValue)
             }
         }
     }
@@ -129,24 +128,18 @@ struct NewFlightFlow: View {
         }
 
         Section("Schedule") {
-            DatePicker("Departure Date", selection: $departureDate, displayedComponents: .date)
-            LabeledContent("Departure Time") {
-                TimeEntryView(
-                    utcTimeString: $departureTimeUTC,
-                    airportICAO: originICAO,
-                    originICAO: originICAO,
-                    destinationICAO: destinationICAO
-                )
-            }
-            DatePicker("Arrival Date", selection: $arrivalDate, displayedComponents: .date)
-            LabeledContent("Arrival Time") {
-                TimeEntryView(
-                    utcTimeString: $arrivalTimeUTC,
-                    airportICAO: destinationICAO,
-                    originICAO: originICAO,
-                    destinationICAO: destinationICAO
-                )
-            }
+            FlightDateTimeField(
+                label: "Departure",
+                instant: $departureInstant,
+                primaryICAO: originICAO,
+                zoneICAOs: [originICAO, destinationICAO]
+            )
+            FlightDateTimeField(
+                label: "Arrival",
+                instant: $arrivalInstant,
+                primaryICAO: destinationICAO,
+                zoneICAOs: [originICAO, destinationICAO]
+            )
         }
 
         Section("Aircraft") {
@@ -212,11 +205,11 @@ struct NewFlightFlow: View {
         )
 
         // A plan carrying DOF/ but no usable field 13 time yields no route
-        // instant. Keep the day anyway so the pilot only has to fill in the
-        // time, matching what the previous local parser did.
+        // instant. Apply the day anyway, keeping the default time of day, so
+        // the pilot only has to correct the time.
         if plan.route.departureTime == nil, let dayOfFlight = plan.dateOfFlight {
-            departureDate = dayOfFlight
-            arrivalDate = dayOfFlight
+            departureInstant = Flight.alignUTCDay(of: departureInstant, to: dayOfFlight)
+            arrivalInstant = Flight.alignUTCDay(of: arrivalInstant, to: dayOfFlight)
         }
     }
 
@@ -244,17 +237,13 @@ struct NewFlightFlow: View {
         if !route.destination.isEmpty { destinationICAO = route.destination }
 
         if let departure = route.departureTime {
-            let (day, hhmm) = utcDayAndTime(departure)
-            departureDate = day
-            departureTimeUTC = hhmm
-            // Default arrival to the departure day; overwritten below when the
-            // route carries an arrival time.
-            arrivalDate = day
+            departureInstant = departure
+            // Default the arrival onto the departure day; overwritten below
+            // when the route carries an arrival time of its own.
+            arrivalInstant = Flight.alignUTCDay(of: arrivalInstant, to: departure)
         }
         if let arrival = route.arrivalTime {
-            let (day, hhmm) = utcDayAndTime(arrival)
-            arrivalDate = day
-            arrivalTimeUTC = hhmm
+            arrivalInstant = arrival
         }
 
         if let registration, !registration.isEmpty {
@@ -277,28 +266,14 @@ struct NewFlightFlow: View {
         }
     }
 
-    /// Split a UTC instant into a date (midnight UTC) and an "HH:mm" string —
-    /// forms stores departure/arrival as a separate date + UTC time-of-day,
-    /// and `Flight.departureDateTime` recombines them with a UTC calendar.
-    private func utcDayAndTime(_ date: Date) -> (day: Date, hhmm: String) {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        let c = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-        let day = cal.date(from: DateComponents(year: c.year, month: c.month, day: c.day)) ?? date
-        let hhmm = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
-        return (day, hhmm)
-    }
-
     // MARK: - Create
 
     private func createFlight() {
         let flight = Flight()
         flight.originICAO = originICAO
         flight.destinationICAO = destinationICAO
-        flight.departureDate = departureDate
-        flight.arrivalDate = arrivalDate
-        flight.departureTimeUTC = departureTimeUTC
-        flight.arrivalTimeUTC = arrivalTimeUTC
+        flight.departureDateTime = departureInstant
+        flight.arrivalDateTime = arrivalInstant
         flight.aircraft = selectedAircraft
         flight.crew = selectedCrew.isEmpty ? nil : selectedCrew
         flight.passengers = selectedPassengers.isEmpty ? nil : selectedPassengers
