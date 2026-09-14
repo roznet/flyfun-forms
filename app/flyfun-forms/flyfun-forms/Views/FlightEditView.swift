@@ -43,11 +43,22 @@ struct FlightEditView: View {
     /// had no timezone and was applied to the stored day, which read that day
     /// in the device's zone while `departureDateTime` read it in UTC; the two
     /// disagreed for any flight stored near midnight.
-    private let dateFmt: DateFormatter = {
+    private let flightDateFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = .gmt
+        return f
+    }()
+
+    /// Calendar dates the user picked with a date-only `DatePicker` (date of
+    /// birth, document expiry) are stored as midnight in the device's zone, so
+    /// they must be formatted in that zone. Formatting them with
+    /// `flightDateFmt` would move them back a day on any device ahead of UTC.
+    private let dateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
 
@@ -696,7 +707,7 @@ struct FlightEditView: View {
             form: formInfo.id,
             origin: flight.originICAO,
             destination: flight.destinationICAO,
-            departureDate: dateFmt.string(from: flight.departureDateTime),
+            departureDate: flightDateFmt.string(from: flight.departureDateTime),
             registration: flight.aircraft?.registration ?? "",
             aircraftType: flight.aircraft?.type
         )
@@ -790,9 +801,9 @@ struct FlightEditView: View {
         let flightPayload = FlightPayload(
             origin: flight.originICAO,
             destination: flight.destinationICAO,
-            departureDate: dateFmt.string(from: flight.departureDateTime),
+            departureDate: flightDateFmt.string(from: flight.departureDateTime),
             departureTimeUtc: flight.departureTimeUTC,
-            arrivalDate: dateFmt.string(from: flight.arrivalDateTime),
+            arrivalDate: flightDateFmt.string(from: flight.arrivalDateTime),
             arrivalTimeUtc: flight.arrivalTimeUTC,
             nature: flight.nature,
             contact: contactValue
@@ -906,9 +917,9 @@ struct FlightEditView: View {
 
             return ReturnFlightPayload(
                 origin: back.originICAO, destination: back.destinationICAO,
-                departureDate: dateFmt.string(from: back.departureDateTime),
+                departureDate: flightDateFmt.string(from: back.departureDateTime),
                 departureTimeUtc: back.departureTimeUTC,
-                arrivalDate: dateFmt.string(from: back.arrivalDateTime),
+                arrivalDate: flightDateFmt.string(from: back.arrivalDateTime),
                 arrivalTimeUtc: back.arrivalTimeUTC,
                 peopleOnBoard: back.crewList.count + back.passengerList.count
             )
@@ -962,9 +973,9 @@ struct FlightEditView: View {
     private func makeFlightPayload(from leg: Flight) -> FlightPayload {
         FlightPayload(
             origin: leg.originICAO, destination: leg.destinationICAO,
-            departureDate: dateFmt.string(from: leg.departureDateTime),
+            departureDate: flightDateFmt.string(from: leg.departureDateTime),
             departureTimeUtc: leg.departureTimeUTC,
-            arrivalDate: dateFmt.string(from: leg.arrivalDateTime),
+            arrivalDate: flightDateFmt.string(from: leg.arrivalDateTime),
             arrivalTimeUtc: leg.arrivalTimeUTC,
             nature: leg.nature, contact: leg.responsiblePerson?.displayName ?? leg.contact
         )
