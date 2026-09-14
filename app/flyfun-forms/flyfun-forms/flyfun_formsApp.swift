@@ -43,6 +43,7 @@ struct flyfun_formsApp: App {
             }
             .environment(appState)
             .task { migrateDocuments() }
+            .task { backfillScheduleInstants() }
             .task { await preloadAirportData() }
         }
         .modelContainer(sharedModelContainer)
@@ -70,6 +71,38 @@ struct flyfun_formsApp: App {
         icaos.remove("")
 
         await AirportTimezoneCache.shared.preload(icaos: icaos)
+    }
+
+    /// Backfill each flight's canonical departure/arrival instants from the
+    /// legacy date + UTC-time pair, and repair any that have drifted.
+    ///
+    /// Runs every launch rather than once, unlike `migrateDocuments()`. While
+    /// the legacy pair is still authoritative, an edit made on a device running
+    /// an older build moves the pair without knowing the instants exist, so
+    /// they have to be re-derived whenever the two disagree. Writing only on a
+    /// real difference keeps this a no-op in the steady state, so it does not
+    /// churn CloudKit on every launch.
+    private func backfillScheduleInstants() {
+        let context = sharedModelContainer.mainContext
+        guard let flights = try? context.fetch(FetchDescriptor<Flight>()) else { return }
+
+        var updated = 0
+        for flight in flights {
+            let departure = flight.departureDateTime
+            if flight.departureInstant != departure {
+                flight.departureInstant = departure
+                updated += 1
+            }
+            let arrival = flight.arrivalDateTime
+            if flight.arrivalInstant != arrival {
+                flight.arrivalInstant = arrival
+                updated += 1
+            }
+        }
+
+        if updated > 0 {
+            try? context.save()
+        }
     }
 
     /// One-time migration: create TravelDocument from legacy flat fields on Person.
