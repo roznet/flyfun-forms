@@ -18,7 +18,6 @@ app/flyfun-forms/flyfun-forms/
 │   ├── Aircraft.swift            # @Model: aircraft details
 │   ├── Flight.swift              # @Model: flight leg with relationships
 │   ├── Trip.swift                # @Model: multi-leg trip container
-│   └── ICAOFlightPlanParser.swift # Parses pasted ICAO FPL text into flight fields
 ├── Views/
 │   ├── LoginView.swift           # Google/Apple OAuth sign-in
 │   ├── PeopleListView.swift      # CRUD for people + contact import button
@@ -29,6 +28,7 @@ app/flyfun-forms/flyfun-forms/
 │   ├── FlightEditView.swift      # Flight details + form generation via share/email
 │   ├── WebFormView.swift         # Official web form (book-out, PPR…) in a web view, prefilled
 │   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
+│   ├── FlightDateTimeField.swift # Date/time/timezone entry for one end of a flight
 │   ├── SinglePersonPickerView.swift # Searchable single-select person picker
 │   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
 │   └── ValidationErrorsView.swift
@@ -89,7 +89,13 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
-**Flight:** departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder. `departureDateTime` computed property combines date + UTC time for sorting (uses UTC calendar). `copyCommon(to:)` copies shared properties for flight duplication.
+**Flight:** departureInstant, arrivalInstant, departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder. `copyCommon(to:)` copies shared properties for flight duplication.
+
+The schedule is read and written through `departureDateTime` / `arrivalDateTime`, which are settable: setting one writes the day and the UTC time of day together, so an edit that crosses midnight moves the day.
+
+`departureInstant` / `arrivalInstant` are the representation being moved to, but are **not authoritative yet**. The `departureDate` + `departureTimeUTC` pair still is, and is still dual-written, because CloudKit syncs this store between devices that may be on different app versions and an older build writes only the pair. `backfillScheduleInstants()` runs at each launch and re-derives any instant that has drifted, which is how an older device's edit is picked up. A later release flips the precedence; the one after that drops the pair.
+
+`departureDate` carries the intended calendar day as midnight **in the device's own timezone**, which is how every existing row was written and how older builds read it. Do not re-pin it to UTC while the pair is still live: that shifts stored dates by a day for users west of Greenwich.
 
 **Trip:** name, createdAt, legs (→ [Flight]), extraFields (JSON-encoded dict for form-specific fields)
 
@@ -109,7 +115,7 @@ On first launch after migration, existing Person flat id fields are converted to
 
 ### ICAO Flight Plan Import
 
-`NewFlightFlow` (and `FlightEditView`) supports pasting an ICAO FPL string from the clipboard. `ICAOFlightPlanParser` extracts registration, aircraft type, origin/destination ICAO, departure time, date of flight (DOF), and EET. Arrival time is computed from departure + EET. If no aircraft matches the parsed registration (normalized: dashes stripped, uppercased), a new `Aircraft` is created automatically.
+`NewFlightFlow` (and `FlightEditView`) supports pasting an ICAO FPL string from the clipboard. Parsing is `RZFlight.ICAOFlightPlanParser` (do not reimplement it locally: forms carried a second copy for a while, and it was the weaker one). It composes field 13 and `DOF/` into a UTC instant and derives the arrival from `EET/`, so both the pasted-plan and weather-import paths land on the same `RZFlight.Route` and share `applyRoute()`. If no aircraft matches the parsed registration (normalized: dashes stripped, uppercased), a new `Aircraft` is created automatically.
 
 ### Contact Import
 
