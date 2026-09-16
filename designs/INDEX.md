@@ -23,6 +23,11 @@ SwiftUI app (iOS/macOS) with SwiftData + CloudKit cross-device sync. Manages peo
 Key exports: `AppState`, `FormService`, `DocumentResolver`, Person/TravelDocument/Aircraft/Flight/Trip models
 → Full doc: ios-app.md
 
+### flight-import
+How a new flight gets its route, schedule, aircraft and people from somewhere other than typing: clipboard ICAO flight plan, FlyFun Weather, Autorouter, or a previous flight. Context-ranked primary control, `FlightDraft` as the single import result, and the shared Autorouter client in flyfun-common.
+Key exports: `FlightDraft`, `FlightImportMethod`, `FlightImportContext`, `PeopleSuggestion`, `Flight.nextOccurrence`, `AutorouterImportService`
+→ Full doc: flight-import.md
+
 ### cli
 Command-line client for batch form generation from CSV files. Uses API tokens for auth. Includes `preview` command for generating forms with self-describing dummy data for visual verification.
 Key exports: `cli.py` (generate, trip, preview, airports commands)

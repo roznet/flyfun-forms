@@ -998,8 +998,11 @@ struct FlightEditView: View {
         flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.destinationICAO
         newFlight.destinationICAO = flight.originICAO
-        newFlight.departureDate = flight.arrivalDate
-        newFlight.arrivalDate = flight.arrivalDate
+        // Through the setters, which dual-write the legacy date + time pair and
+        // the instant. Writing `departureDate` alone left `departureTimeUTC`
+        // empty, so the new leg read as having no time entered at all.
+        newFlight.departureDateTime = flight.arrivalDateTime
+        newFlight.arrivalDateTime = flight.arrivalDateTime
         modelContext.insert(newFlight)
         switchToFlight(newFlight)
     }
@@ -1008,8 +1011,8 @@ struct FlightEditView: View {
         let newFlight = Flight()
         flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.destinationICAO
-        newFlight.departureDate = flight.arrivalDate
-        newFlight.arrivalDate = flight.arrivalDate
+        newFlight.departureDateTime = flight.arrivalDateTime
+        newFlight.arrivalDateTime = flight.arrivalDateTime
         newFlight.trip = flight.trip
         newFlight.legOrder = flight.legOrder + 1
         modelContext.insert(newFlight)
@@ -1021,12 +1024,8 @@ struct FlightEditView: View {
         flight.copyCommon(to: newFlight)
         newFlight.originICAO = flight.originICAO
         newFlight.destinationICAO = flight.destinationICAO
-        newFlight.departureDate = flight.departureDate
-        newFlight.departureTimeUTC = flight.departureTimeUTC
-        newFlight.departureInstant = flight.departureInstant
-        newFlight.arrivalDate = flight.arrivalDate
-        newFlight.arrivalTimeUTC = flight.arrivalTimeUTC
-        newFlight.arrivalInstant = flight.arrivalInstant
+        newFlight.departureDateTime = flight.departureDateTime
+        newFlight.arrivalDateTime = flight.arrivalDateTime
         newFlight.observations = flight.observations
         modelContext.insert(newFlight)
         switchToFlight(newFlight)

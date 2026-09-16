@@ -12,6 +12,7 @@ from flyfun_common.auth import (
     get_jwt_secret,
     is_dev_mode,
 )
+from flyfun_common.autorouter import create_autorouter_routes_router
 from flyfun_common.db import SessionLocal, ensure_dev_user, get_engine, init_shared_db
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -113,6 +114,13 @@ def create_app() -> FastAPI:
     app.include_router(generate.router, tags=["generate"])
     app.include_router(prefill.router, tags=["prefill"])
     app.include_router(validate.router, tags=["validate"])
+
+    # "Import from Autorouter" in the app: read-only access to the pilot's
+    # recent routes. Deliberately *not* the account-linking router — the flyfun
+    # apps share one database and one encryption key, so a pilot who linked
+    # Autorouter on the weather app is already linked here, and mounting the
+    # OAuth flow again would need a second redirect URI registered upstream.
+    app.include_router(create_autorouter_routes_router())
 
     @app.get("/health")
     def health():

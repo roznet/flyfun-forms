@@ -168,6 +168,46 @@ final class Flight {
         return utcCalendar.date(from: components) ?? instant
     }
 
+    /// The next occurrence of a flight's schedule, for repeating a previous
+    /// flight.
+    ///
+    /// The original **time of day** is kept, read in `zone` when the caller
+    /// knows the origin airport's timezone and in UTC otherwise: a pilot thinks
+    /// "the 09:00 out of EGTF", not "the 08:00Z". If that time of day is still
+    /// ahead of `now` it lands today, otherwise tomorrow.
+    ///
+    /// The arrival is carried by the original leg's **duration**, not realigned
+    /// onto the departure day, so an overnight leg keeps its length instead of
+    /// being flattened back into the same day.
+    static func nextOccurrence(
+        departure: Date,
+        arrival: Date,
+        now: Date = Date(),
+        zone: TimeZone? = nil
+    ) -> (departure: Date, arrival: Date) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone ?? .gmt
+
+        let timeOfDay = calendar.dateComponents([.hour, .minute], from: departure)
+        var candidate = calendar.dateComponents([.year, .month, .day], from: now)
+        candidate.hour = timeOfDay.hour
+        candidate.minute = timeOfDay.minute
+        candidate.second = 0
+
+        guard var next = calendar.date(from: candidate) else {
+            return (departure, arrival)
+        }
+        if next <= now {
+            next = calendar.date(byAdding: .day, value: 1, to: next) ?? next
+        }
+
+        // A stored arrival that predates its departure means no arrival time
+        // was ever entered; a negative duration would put the new arrival
+        // before the new departure, so clamp it to zero.
+        let duration = max(0, arrival.timeIntervalSince(departure))
+        return (next, next.addingTimeInterval(duration))
+    }
+
     /// The UTC time of day of `instant` as "HH:mm".
     static func utcTimeOfDay(_ instant: Date) -> String {
         let components = utcCalendar.dateComponents([.hour, .minute], from: instant)
