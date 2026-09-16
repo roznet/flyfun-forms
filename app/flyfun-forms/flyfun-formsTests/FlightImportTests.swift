@@ -200,7 +200,8 @@ struct ImportRankingTests {
     @Test("unavailable methods explain themselves rather than being hidden")
     func unavailableMethodsExplain() {
         let context = FlightImportContext(
-            hasPastFlights: false, clipboardHasText: false, isSignedIn: false
+            hasPastFlights: false, clipboardHasText: false,
+            isSignedIn: false, autorouterLinked: false
         )
         for method in FlightImportMethod.allCases {
             guard case .unavailable(let reason) = method.availability(in: context) else {
@@ -209,6 +210,39 @@ struct ImportRankingTests {
             }
             #expect(!reason.isEmpty)
         }
+    }
+
+    @Test("Autorouter is greyed with its reason when the account is not linked")
+    func autorouterNeedsLinking() {
+        let context = FlightImportContext(
+            hasPastFlights: false, clipboardHasText: false,
+            isSignedIn: true, autorouterLinked: false
+        )
+        guard case .unavailable(let reason) =
+            FlightImportMethod.autorouter.availability(in: context) else {
+            Issue.record("Autorouter should be unavailable when not linked")
+            return
+        }
+        // Signing in is not the missing piece, so the reason must not say so.
+        #expect(reason.contains("Autorouter"))
+    }
+
+    @Test("an unfinished link check does not hide a method that works")
+    func unknownLinkStateStaysAvailable() {
+        let context = FlightImportContext(
+            hasPastFlights: false, clipboardHasText: false,
+            isSignedIn: true, autorouterLinked: nil
+        )
+        #expect(FlightImportMethod.autorouter.availability(in: context).isAvailable)
+    }
+
+    @Test("a linked account has Autorouter available")
+    func linkedAccountIsAvailable() {
+        let context = FlightImportContext(
+            hasPastFlights: false, clipboardHasText: false,
+            isSignedIn: true, autorouterLinked: true
+        )
+        #expect(FlightImportMethod.autorouter.availability(in: context).isAvailable)
     }
 
     @Test("the primary button names the flight it would repeat")

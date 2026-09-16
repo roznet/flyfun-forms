@@ -76,10 +76,24 @@ extension FlightImportMethod {
             return context.clipboardHasText
                 ? .available
                 : .unavailable(reason: String(localized: "Nothing on the clipboard"))
-        case .weather, .autorouter:
+        case .weather:
             return context.isSignedIn
                 ? .available
                 : .unavailable(reason: String(localized: "Sign in to import"))
+        case .autorouter:
+            guard context.isSignedIn else {
+                return .unavailable(reason: String(localized: "Sign in to import"))
+            }
+            // Signing in is not enough: the pilot also has to have linked their
+            // Autorouter account. Saying so here is the whole point of listing
+            // an unavailable method — otherwise they tap, wait on a spinner,
+            // and get the same answer as a 409.
+            if context.autorouterLinked == false {
+                return .unavailable(
+                    reason: String(localized: "Link your Autorouter account in FlyFun Weather")
+                )
+            }
+            return .available
         }
     }
 }
@@ -93,6 +107,12 @@ struct FlightImportContext: Equatable {
     var hasPastFlights: Bool = false
     var clipboardHasText: Bool = false
     var isSignedIn: Bool = false
+
+    /// Whether the account has a usable Autorouter token, or nil while the
+    /// check is still in flight. Unknown counts as available: a pending fetch
+    /// must never hide a method that works, and the picker's own 409 still
+    /// explains it if the answer turns out to be no.
+    var autorouterLinked: Bool?
 
     /// The route of the most recent flight, used to label the primary button
     /// when "Previous Flight" is the ranked method.

@@ -22,9 +22,13 @@ struct PeopleSuggestion {
     /// 2. the most recent flight with anyone on board
     /// 3. everyone flagged `isUsualCrew`
     ///
-    /// The first two reuse what the app already records rather than adding a
-    /// second notion of "who normally flies with me" alongside
-    /// `Person.coTravelers(minimumFlights:)` in `PeoplePickerView`.
+    /// Deliberately *not* `Person.coTravelers(minimumFlights:)`, which
+    /// `PeoplePickerView` uses. That answers "who usually flies with this
+    /// person", and needs a person already selected to anchor it; this answers
+    /// "who was on board last time", which is what a pilot starting an empty
+    /// flight can be asked. Both are wanted, at different moments: the chip
+    /// here fills an empty people step in one tap, and the picker's groups
+    /// widen a selection once there is one.
     static func suggest(
         from flights: [Flight],
         aircraft: Aircraft?,
