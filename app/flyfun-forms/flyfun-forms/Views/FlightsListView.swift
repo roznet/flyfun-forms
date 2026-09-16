@@ -5,6 +5,7 @@ struct FlightsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Flight.departureDate, order: .reverse) private var flights: [Flight]
     @State private var showNewFlightFlow = false
+    @State private var newFlightStart: NewFlightFlow.Start = .blank
     @State private var selectedFlight: Flight?
     @State private var showPastFlights = false
 
@@ -23,6 +24,11 @@ struct FlightsListView: View {
 
     private var upcomingFlights: [Flight] { splitFlights.upcoming }
     private var pastFlights: [Flight] { splitFlights.past }
+
+    /// The newest flight with a route, for the "Repeat …" menu item.
+    private var mostRecentFlight: Flight? {
+        sortedFlights.first { !$0.originICAO.isEmpty || !$0.destinationICAO.isEmpty }
+    }
 
     var body: some View {
         List {
@@ -68,15 +74,38 @@ struct FlightsListView: View {
         .navigationTitle("Flights")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showNewFlightFlow = true
+                // A menu rather than a button: repeating last week's trip is
+                // the commonest way a flight gets created, and from here it
+                // costs two taps instead of opening the form and drilling into
+                // the import control.
+                Menu {
+                    Button {
+                        newFlightStart = .blank
+                        showNewFlightFlow = true
+                    } label: {
+                        Label("New Flight", systemImage: "square.and.pencil")
+                    }
+                    if let recent = mostRecentFlight {
+                        Button {
+                            newFlightStart = .repeating(recent)
+                            showNewFlightFlow = true
+                        } label: {
+                            Label("Repeat \(recent.displayName)", systemImage: "clock.arrow.circlepath")
+                        }
+                    }
+                    Button {
+                        newFlightStart = .chooseMethod
+                        showNewFlightFlow = true
+                    } label: {
+                        Label("Import…", systemImage: "square.and.arrow.down")
+                    }
                 } label: {
                     Label("Add Flight", systemImage: "plus")
                 }
             }
         }
         .sheet(isPresented: $showNewFlightFlow) {
-            NewFlightFlow { flight in
+            NewFlightFlow(start: newFlightStart) { flight in
                 selectedFlight = flight
             }
         }

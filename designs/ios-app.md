@@ -113,9 +113,13 @@ The selected document's `issuingCountry` is sent as `nationality` in the API req
 
 On first launch after migration, existing Person flat id fields are converted to TravelDocument records automatically.
 
-### ICAO Flight Plan Import
+### Flight Import
 
-`NewFlightFlow` (and `FlightEditView`) supports pasting an ICAO FPL string from the clipboard. Parsing is `RZFlight.ICAOFlightPlanParser` (do not reimplement it locally: forms carried a second copy for a while, and it was the weaker one). It composes field 13 and `DOF/` into a UTC instant and derives the arrival from `EET/`, so both the pasted-plan and weather-import paths land on the same `RZFlight.Route` and share `applyRoute()`. If no aircraft matches the parsed registration (normalized: dashes stripped, uppercased), a new `Aircraft` is created automatically.
+Four ways to start a flight from something that already exists: a clipboard ICAO flight plan, a FlyFun Weather flight, an Autorouter route, or a previous flight. Every method produces a `FlightDraft`, and `NewFlightFlow.apply(_:)` is the only writer of form state. The primary button offers the method the current context ranks first (clipboard plan → previous flight → weather), with the full list one tap away.
+
+Parsing is `RZFlight.ICAOFlightPlanParser` (do not reimplement it locally: forms carried a second copy for a while, and it was the weaker one). It composes field 13 and `DOF/` into a UTC instant and derives the arrival from `EET/`, so the pasted-plan and Autorouter paths land on the same `RZFlight.Route`. If no aircraft matches the parsed registration (normalized: dashes stripped, uppercased), a new `Aircraft` is created automatically.
+
+→ Full doc: [flight-import.md](./flight-import.md)
 
 ### Contact Import
 
@@ -229,6 +233,9 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - Active/inactive flag on travel documents: **complete**
 - Human-readable validation error display: **complete**
 - ICAO flight plan paste import (with auto-create aircraft): **complete**
+- Context-ranked import control + import from a previous flight: **complete**
+- Import from Autorouter (shared client in flyfun-common): **complete**
+- "Same crew as…" suggestion on the people step: **complete**
 - Share sheet for form export (iOS + macOS): **complete**
 - Email with pre-populated composer (to/cc/subject/body/attachment): **complete**
 - Localized email text with language preference (local/English/both): **complete**
@@ -244,6 +251,7 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 
 ## References
 
+- [flight-import.md](./flight-import.md) — the import methods and how they share code
 - [API](./api.md) — backend endpoints the app calls
 - [flyfun-common auth](../../flyfun-common/designs/auth.md) — OAuth flow (iOS variant with `?platform=ios`)
 - [RZUtilsSwift](../../rzutils/designs/rzutils-swift.md) — `CodableSecureStorage` for keychain
