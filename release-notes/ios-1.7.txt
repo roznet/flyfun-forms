@@ -1,0 +1,6 @@
+- Redesigned departure and arrival time entry: pick the date, hour, minute and time zone, shown in the airport's local time by default
+- Switching time zone now shows the same moment in the new zone, and daylight saving time is worked out for the flight's own date
+- Editing a time across midnight now moves the flight to the correct day
+- Fixed arrivals after midnight being set a day early on flights imported from an ICAO flight plan
+- Fixed the airport's time zone sometimes failing to load, which left the time zone choice empty
+- New flights now start with a departure time, so they are no longer left out of connecting and return flight details
