@@ -46,6 +46,10 @@ private struct AutorouterRoutesResponse: Decodable {
     let routes: [AutorouterRouteSummary]
 }
 
+private struct AutorouterLinkStatus: Decodable {
+    let linked: Bool
+}
+
 /// Reads the pilot's recent Autorouter routes from the forms backend.
 ///
 /// The backend holds the OAuth token, so this is a plain authenticated GET.
@@ -79,14 +83,37 @@ struct AutorouterImportService {
         }
     }
 
+    private func endpoint(_ name: String) -> URL {
+        baseURL.appendingPathComponent("api")
+            .appendingPathComponent("autorouter")
+            .appendingPathComponent(name)
+    }
+
+    /// Whether the account has a usable Autorouter token.
+    ///
+    /// Answered from stored credentials, with no call to Autorouter, so the
+    /// import list can grey the method with its reason before the pilot taps
+    /// it. Returns nil when the check itself fails: unknown is not the same as
+    /// unlinked, and a flaky network must not make a working method look
+    /// broken.
+    func isLinked() async -> Bool? {
+        do {
+            let (data, http) = try await session.data(
+                for: URLRequest(url: endpoint("status"))
+            )
+            guard http.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(AutorouterLinkStatus.self, from: data).linked
+        } catch {
+            Self.logger.debug("Autorouter link status unavailable: \(error)")
+            return nil
+        }
+    }
+
     /// The account's recent Autorouter routes, newest first (the server asks
     /// Autorouter for that order).
     func listRoutes(limit: Int = 25) async throws -> [AutorouterRouteSummary] {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("api")
-                .appendingPathComponent("autorouter")
-                .appendingPathComponent("routes"),
-            resolvingAgainstBaseURL: false
+            url: endpoint("routes"), resolvingAgainstBaseURL: false
         )
         components?.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         guard let url = components?.url else {

@@ -32,6 +32,24 @@ NewFlightFlow (route + people steps)
  parser          Service         ImportService  @Query    │
 ```
 
+### An import replaces what an earlier import wrote
+
+`apply(_:)` replaces the people and form-level fields rather than merging into them.
+Merging meant that importing a previous flight (crew, nature, observations) and then
+changing your mind and importing an unrelated route from the clipboard left the first
+flight's crew in place — on a customs form, the wrong people on the document.
+
+The replacement is scoped by ownership, tracked in `peopleCameFromImport`: a selection an
+import wrote is replaced or cleared by the next import, and a selection the pilot made by
+hand (through the people picker, or by accepting the suggestion chip) survives, so
+re-importing a route to fix a typo does not wipe the crew they just chose. The
+form-level fields (`responsiblePerson`, `nature`, `contact`, `observations`) have no
+editor in this flow, so an import is their only source and they are replaced
+unconditionally.
+
+Route fields keep their `if !isEmpty` guards: an empty departure in a draft is a parse
+defect, not an instruction to clear a good value.
+
 ### `FlightDraft` — the in-app import result
 
 `Models/FlightDraft.swift`. Every import method produces one, and `NewFlightFlow`
@@ -61,11 +79,17 @@ the "previous flight" method must carry crew, passengers and the responsible per
 
 ### `FlightImportMethod` — methods as data
 
-`Services/FlightImportMethod.swift`. A `CaseIterable` enum plus an `ImportContext`
+`Services/FlightImportMethod.swift`. A `CaseIterable` enum plus a `FlightImportContext`
 snapshot (`hasPastFlights`, `clipboardHasText`, `isSignedIn`, `autorouterLinked`). Each
 method reports an `Availability` and the UI renders an unavailable method greyed with its
 reason rather than hiding it, so "Import from Autorouter" is discoverable before the
 account is linked.
+
+`autorouterLinked` is `Bool?`, filled by `GET /api/autorouter/status` when the form opens.
+**Unknown counts as available**: a check still in flight must never hide a method that
+works, and the picker's own 409 still explains it if the answer turns out to be no. Being
+signed in is deliberately not enough to offer Autorouter — without the linked check the
+pilot taps, waits on a spinner, and learns the same thing from a 409.
 
 ### Context ranking, not last-used
 
@@ -92,9 +116,14 @@ step is four fields; the people step is the slow one. So:
   outright (`Flight.copyCommon(to:)` semantics).
 - **Every other method** offers a one-tap `PeopleSuggestion` on the people step: the crew
   and passengers of the most recent flight flown with the same aircraft, falling back to
-  the most recent flight overall, falling back to `isUsualCrew`. This reuses the existing
-  co-traveler machinery in `PeoplePickerView` (`Person.coTravelers(minimumFlights:)`,
-  `usualCrewGroup`) rather than inventing a second notion of "who normally flies with me".
+  the most recent flight overall, falling back to `isUsualCrew`.
+
+`PeopleSuggestion` is deliberately *not* built on `Person.coTravelers(minimumFlights:)`,
+which `PeoplePickerView` uses for its Groups section. The two answer different questions
+and are both wanted: `coTravelers` answers "who usually flies with this person" and needs
+a person already selected to anchor it, so it widens a selection that exists;
+`PeopleSuggestion` answers "who was on board last time", which is the only one of the two
+that can fill an *empty* people step in one tap.
 
 ### Re-dating a previous flight
 
@@ -120,7 +149,7 @@ flyfun_common.autorouter
     get_autorouter_token(db, user_id)             (existing)
     list_recent_routes(token, limit)              (new — pure HTTP + normalise)
     fetch_recent_routes(db, user_id, limit)       (new — token glue + 401 clears token)
-    create_autorouter_routes_router(...)          (new — mountable GET /autorouter/routes)
+    create_autorouter_routes_router(...)          (new — GET {prefix}/routes + /status)
 ```
 
 Weather's endpoint becomes a thin wrapper over the same function; forms mounts the

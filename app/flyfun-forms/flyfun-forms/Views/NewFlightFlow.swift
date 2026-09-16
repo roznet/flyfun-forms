@@ -41,6 +41,12 @@ struct NewFlightFlow: View {
     /// `onAppear` fires again when the flow returns from a sheet, so the
     /// opening mode must not re-apply and overwrite the pilot's edits.
     @State private var hasAppliedStartMode = false
+    /// Whether the current crew/passenger selection came from an import rather
+    /// than from the pilot. A later import replaces what an import wrote and
+    /// leaves a hand-picked selection alone.
+    @State private var peopleCameFromImport = false
+    /// Whether the account has linked Autorouter, or nil until the check lands.
+    @State private var autorouterLinked: Bool?
 
     /// How the flow opens, when the flights list sent the pilot straight into
     /// an import rather than into a blank form.
@@ -96,7 +102,10 @@ struct NewFlightFlow: View {
             .sheet(isPresented: $showAirportPicker) {
                 AirportPickerView(originICAO: $originICAO, destinationICAO: $destinationICAO)
             }
-            .sheet(isPresented: $showPeoplePicker) {
+            .sheet(isPresented: $showPeoplePicker, onDismiss: {
+                // The pilot chose these, so a later import must not clear them.
+                peopleCameFromImport = false
+            }) {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
             .sheet(item: $activeImport) { method in
@@ -126,6 +135,14 @@ struct NewFlightFlow: View {
                 Text(importError ?? "")
             }
             .onAppear { applyStartMode() }
+            .task {
+                // So the list can say "Link your Autorouter account" up front
+                // rather than after a spinner and a 409.
+                guard appState.isAuthenticated else { return }
+                autorouterLinked = await AutorouterImportService(
+                    baseURL: APIConfig.baseURL, session: appState.rollingSession
+                ).isLinked()
+            }
             .onChange(of: departureInstant) { oldValue, newValue in
                 var utc = Calendar(identifier: .gregorian)
                 utc.timeZone = .gmt
@@ -207,6 +224,8 @@ struct NewFlightFlow: View {
                 Button {
                     selectedCrew = suggestion.crew
                     selectedPassengers = suggestion.passengers
+                    // Accepting the suggestion is a choice, not an import.
+                    peopleCameFromImport = false
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "person.2.badge.plus")
@@ -277,6 +296,7 @@ struct NewFlightFlow: View {
             hasPastFlights: mostRecent != nil,
             clipboardHasText: FlightImportContext.pasteboardHasText,
             isSignedIn: appState.isAuthenticated,
+            autorouterLinked: autorouterLinked,
             mostRecentRoute: mostRecent?.displayName
         )
     }
@@ -383,14 +403,31 @@ struct NewFlightFlow: View {
             )
         }
 
-        if !draft.crew.isEmpty { selectedCrew = draft.crew }
-        if !draft.passengers.isEmpty { selectedPassengers = draft.passengers }
-        if let responsiblePerson = draft.responsiblePerson {
-            selectedResponsiblePerson = responsiblePerson
+        // People and the form-level fields are *replaced*, not merged, so a
+        // second import is not silently mixed with the first. Importing a
+        // previous flight and then changing your mind and importing a route
+        // from the clipboard used to leave the first flight's crew in place —
+        // on a customs form, the wrong people.
+        //
+        // Only what an import last wrote is cleared, tracked by
+        // `peopleCameFromImport`: a pilot who picked their crew by hand, went
+        // Back, and re-imported the route to fix a typo keeps that crew.
+        if draft.hasPeople {
+            selectedCrew = draft.crew
+            selectedPassengers = draft.passengers
+            peopleCameFromImport = true
+        } else if peopleCameFromImport {
+            selectedCrew = []
+            selectedPassengers = []
+            peopleCameFromImport = false
         }
-        if let value = draft.nature { nature = value }
-        if let value = draft.contact { contact = value }
-        if let value = draft.observations { observations = value }
+
+        // These have no editor in this flow, so an import is their only
+        // source and replacing unconditionally cannot discard a pilot's entry.
+        selectedResponsiblePerson = draft.responsiblePerson
+        nature = draft.nature
+        contact = draft.contact
+        observations = draft.observations
 
         importSummary = draft.provenance.summary
     }

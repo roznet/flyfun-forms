@@ -101,10 +101,29 @@ def _mounted_paths() -> set[str]:
     return set(create_app().openapi()["paths"])
 
 
-def test_the_route_is_mounted_at_the_path_the_app_calls():
-    """The iOS client hard-codes this path; moving it would break the picker
+def test_the_routes_the_app_calls_are_mounted_where_it_expects():
+    """The iOS client hard-codes these paths; moving one would break the picker
     with a 404 that looks like "no routes"."""
-    assert "/api/autorouter/routes" in _mounted_paths()
+    paths = _mounted_paths()
+    assert "/api/autorouter/routes" in paths
+    assert "/api/autorouter/status" in paths
+
+
+def test_status_reports_linked_without_calling_autorouter(client, monkeypatch):
+    """The import list asks this on open, so it must be cheap and must not turn
+    a signed-in-but-unlinked pilot into a spinner and a 409."""
+    import httpx
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("status must not call Autorouter")
+
+    monkeypatch.setattr(httpx, "get", _fail)
+
+    _patch_token(monkeypatch, None)
+    assert client.get("/api/autorouter/status").json() == {"linked": False}
+
+    _patch_token(monkeypatch, "tok")
+    assert client.get("/api/autorouter/status").json() == {"linked": True}
 
 
 def test_the_account_linking_flow_is_not_mounted_here():
