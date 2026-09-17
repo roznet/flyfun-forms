@@ -1,49 +1,28 @@
 import SwiftUI
 
-/// The import row on the new-flight form: one primary button showing the
-/// method the current context ranks first, and a chevron that always opens the
-/// full list.
+/// The import row on the new-flight form: one button that opens the list of
+/// methods.
 ///
-/// The primary never hides a method — the list is one tap away and shows every
-/// method, including the ones that aren't usable yet, with the reason.
+/// It used to lead with the method the context ranked first, labelled with what
+/// it would do ("Repeat EGTF → LFAT"). That put the same choice in two places —
+/// the primary and the list behind the chevron — and made the row's meaning
+/// change under the pilot as the clipboard or the flight history changed.
+/// Ranking still decides the order inside the list, where it costs nothing to
+/// be wrong.
 struct FlightImportControl: View {
     let context: FlightImportContext
-    /// Called with the ranked method when the primary button is tapped.
-    let onSelect: (FlightImportMethod) -> Void
-    /// Called when the chevron is tapped. The parent owns the method list, so
+    /// Called when the button is tapped. The parent owns the method list, so
     /// the list and the method's own picker are never two sheets presented from
     /// the same view in one turn (SwiftUI drops the second transition).
     let onBrowse: () -> Void
 
-    private var primary: FlightImportMethod { FlightImportMethod.ranked(for: context) }
-
     var body: some View {
-        HStack(spacing: 8) {
-            Button {
-                onSelect(primary)
-            } label: {
-                Label(
-                    FlightImportMethod.primaryLabel(for: primary, context: context),
-                    systemImage: primary.systemImage
-                )
-                .lineLimit(1)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .accessibilityIdentifier("importPrimaryButton")
-
-            Spacer(minLength: 0)
-
-            Button {
-                onBrowse()
-            } label: {
-                Label(String(localized: "More import options"), systemImage: "chevron.down")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .accessibilityIdentifier("importMoreButton")
+        Button {
+            onBrowse()
+        } label: {
+            Label(String(localized: "Import…"), systemImage: "square.and.arrow.down")
         }
+        .accessibilityIdentifier("importButton")
     }
 }
 
@@ -57,7 +36,7 @@ struct FlightImportMethodList: View {
 
     var body: some View {
         NavigationStack {
-            List(FlightImportMethod.allCases) { method in
+            List(FlightImportMethod.rankedOrder(for: context)) { method in
                 let availability = method.availability(in: context)
                 Button {
                     onSelect(method)

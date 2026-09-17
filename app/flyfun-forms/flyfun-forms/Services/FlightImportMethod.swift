@@ -138,34 +138,26 @@ struct FlightImportContext: Equatable {
 
 extension FlightImportMethod {
 
-    /// The method the primary button offers, chosen from the current context.
+    /// The method this context makes likeliest, which the list leads with.
     ///
     /// Ranked by context rather than by what was used last: a clipboard flight
     /// plan is only useful when there is one on the clipboard, and a repeat
-    /// trip is overwhelmingly a previous flight. A sticky last-used primary
-    /// would also move the label under the pilot and has nothing to show on a
-    /// fresh install.
+    /// trip is overwhelmingly a previous flight. A sticky last-used order would
+    /// also move the rows under the pilot and has nothing to go on for a fresh
+    /// install.
     static func ranked(for context: FlightImportContext) -> FlightImportMethod {
-        let order: [FlightImportMethod] = [.clipboardFPL, .previousFlight, .weather, .autorouter]
-        return order.first { $0.availability(in: context).isAvailable } ?? .clipboardFPL
+        rankedOrder(for: context).first ?? .clipboardFPL
     }
 
-    /// The label for the primary button, which names what will be imported
-    /// where the context knows it.
-    static func primaryLabel(
-        for method: FlightImportMethod, context: FlightImportContext
-    ) -> String {
-        switch method {
-        case .previousFlight:
-            if let route = context.mostRecentRoute {
-                return String(localized: "Repeat \(route)")
-            }
-            return method.title
-        case .clipboardFPL:
-            return String(localized: "Paste Flight Plan")
-        case .weather, .autorouter:
-            return method.title
-        }
+    /// Every method, likeliest first, with the unusable ones last.
+    ///
+    /// The list shows all four whatever the context — an unavailable method
+    /// says why rather than disappearing — so ranking only decides the order,
+    /// where being wrong costs a glance rather than a wrong flight.
+    static func rankedOrder(for context: FlightImportContext) -> [FlightImportMethod] {
+        let order: [FlightImportMethod] = [.clipboardFPL, .previousFlight, .weather, .autorouter]
+        let available = order.filter { $0.availability(in: context).isAvailable }
+        return available + order.filter { !available.contains($0) }
     }
 }
 

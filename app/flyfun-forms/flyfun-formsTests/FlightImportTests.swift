@@ -303,16 +303,29 @@ struct ImportRankingTests {
         #expect(FlightImportMethod.autorouter.availability(in: context).isAvailable)
     }
 
-    @Test("the primary button names the flight it would repeat")
-    func primaryLabelNamesTheRoute() {
+    @Test("the list leads with the likeliest method")
+    func rankedOrderLeadsWithTheLikeliest() {
         let context = FlightImportContext(
-            hasPastFlights: true,
-            clipboardHasText: false,
-            isSignedIn: true,
-            mostRecentRoute: "EGTF > LFRM"
+            hasPastFlights: true, clipboardHasText: true, isSignedIn: true
         )
-        let label = FlightImportMethod.primaryLabel(for: .previousFlight, context: context)
-        #expect(label.contains("EGTF > LFRM"))
+        #expect(FlightImportMethod.rankedOrder(for: context).first == .clipboardFPL)
+    }
+
+    @Test("every method is listed, with the unusable ones last")
+    func rankedOrderKeepsEveryMethod() {
+        // Signed out: only the clipboard and a previous flight can be used, but
+        // the list still has to offer the other two with their reason, or a
+        // pilot cannot find out why they are missing.
+        let context = FlightImportContext(
+            hasPastFlights: true, clipboardHasText: false, isSignedIn: false
+        )
+        let order = FlightImportMethod.rankedOrder(for: context)
+
+        #expect(Set(order) == Set(FlightImportMethod.allCases))
+        #expect(order.count == FlightImportMethod.allCases.count)
+        #expect(order.first == .previousFlight)
+        let unavailable = order.suffix(2)
+        #expect(unavailable.allSatisfy { !$0.availability(in: context).isAvailable })
     }
 }
 
@@ -407,5 +420,58 @@ struct PeopleSuggestionTests {
     @Test("suggests nothing at all on a first run")
     func nothingToSuggest() {
         #expect(PeopleSuggestion.suggest(from: [], aircraft: nil, usualCrew: []) == nil)
+    }
+
+    @Test("the crew sources skip empty flights, newest first")
+    func crewSourcesAreNewestFirst() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let zara = Person(firstName: "Zara", lastName: "Kowalski")
+        let ola = Person(firstName: "Ola", lastName: "Nowak")
+        [zara, ola].forEach { context.insert($0) }
+
+        let older = makeFlight(
+            context: context, departure: utc(2026, 1, 1, 10, 0),
+            aircraft: nil, crew: [ola]
+        )
+        let newer = makeFlight(
+            context: context, departure: utc(2026, 2, 1, 10, 0),
+            aircraft: nil, crew: [zara]
+        )
+        let empty = makeFlight(
+            context: context, departure: utc(2026, 3, 1, 10, 0),
+            aircraft: nil, crew: []
+        )
+
+        let sources = PeopleSuggestion.crewSources(from: [older, newer, empty])
+
+        #expect(sources.count == 2)
+        #expect(sources.first?.crewList.map(\.displayName) == [zara.displayName])
+    }
+
+    @Test("the same people on two trips are offered once")
+    func crewSourcesDedupeByPeople() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let zara = Person(firstName: "Zara", lastName: "Kowalski")
+        context.insert(zara)
+
+        // A weekly trip with the same person aboard: one choice, not two rows
+        // that differ only by date.
+        let first = makeFlight(
+            context: context, departure: utc(2026, 1, 1, 10, 0),
+            aircraft: nil, crew: [zara]
+        )
+        let second = makeFlight(
+            context: context, departure: utc(2026, 1, 8, 10, 0),
+            aircraft: nil, crew: [zara]
+        )
+
+        let sources = PeopleSuggestion.crewSources(from: [first, second])
+
+        #expect(sources.count == 1)
+        #expect(sources.first?.departureDateTime == utc(2026, 1, 8, 10, 0))
     }
 }
