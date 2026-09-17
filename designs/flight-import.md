@@ -41,7 +41,7 @@ flight's crew in place — on a customs form, the wrong people on the document.
 
 The replacement is scoped by ownership, tracked in `peopleCameFromImport`: a selection an
 import wrote is replaced or cleared by the next import, and a selection the pilot made by
-hand (through the people picker, or by accepting the suggestion chip) survives, so
+hand (through the people picker, the suggestion chip, or copying a flight's crew) survives, so
 re-importing a route to fix a typo does not wipe the crew they just chose. The
 form-level fields (`responsiblePerson`, `nature`, `contact`, `observations`) have no
 editor in this flow, so an import is their only source and they are replaced
@@ -93,19 +93,24 @@ pilot taps, waits on a spinner, and learns the same thing from a 409.
 
 ### Context ranking, not last-used
 
-The primary button shows the **highest-ranked available method for the current context**,
-and the chevron always opens the full list. Ranking:
+One **Import…** button opens the list of all four methods, ordered by what the current
+context makes likeliest, with the unusable ones last (`rankedOrder(for:)`). Ranking:
 
-1. Clipboard holds text that parses as an ICAO FPL → "Flight plan on clipboard (EGTF → LFRM)"
+1. Clipboard holds text that parses as an ICAO FPL
 2. Any past flights exist → "Previous flight"
 3. Signed in → "FlyFun Weather"
-4. Otherwise → "Flight plan"
+4. Autorouter, when the account is linked
 
-A last-used sticky primary was considered and rejected: two of the four methods are
+A last-used sticky order was considered and rejected: two of the four methods are
 contextual rather than habitual (a clipboard FPL is only useful when there is one on the
-clipboard; "previous flight" is the overwhelming choice for a repeat trip), a label that
-moves under the pilot costs muscle memory, and a fresh install has no last-used value to
-show.
+clipboard; "previous flight" is the overwhelming choice for a repeat trip), rows that move
+under the pilot cost muscle memory, and a fresh install has no last-used value to show.
+
+The row led with the top-ranked method as a labelled button ("Repeat EGTF → LFRM") and put
+the list behind a chevron. That was dropped: the same choice appeared twice, and the
+button's meaning changed under the pilot as the clipboard or the flight history changed.
+Ranking now only decides the order inside the list, where being wrong costs a glance
+rather than a wrong flight.
 
 ### Import reaches people, not just the route
 
@@ -117,6 +122,10 @@ step is four fields; the people step is the slow one. So:
 - **Every other method** offers a one-tap `PeopleSuggestion` on the people step: the crew
   and passengers of the most recent flight flown with the same aircraft, falling back to
   the most recent flight overall, falling back to `isUsualCrew`.
+- **"Choose another flight…"** sits beside the chip and opens `CrewSourcePickerView`:
+  the same copy with the choice handed back, for a pilot who flies with different people
+  on different trips. Rows are deduplicated by *the people*, not the route, so a weekly
+  trip with the same four aboard is one row rather than eight that differ by date.
 
 `PeopleSuggestion` is deliberately *not* built on `Person.coTravelers(minimumFlights:)`,
 which `PeoplePickerView` uses for its Groups section. The two answer different questions
@@ -177,8 +186,10 @@ round trip instead of two, and one parser for both methods.
 - **Autorouter client in flyfun-common, not euro_aip.** `euro_aip`'s `AutorouterSource` is
   AIP-document oriented with a cache-dir constructor, and the token lives in the shared
   DB that flyfun-common owns. Putting the client there keeps it to one repo.
-- **Import reachable from the flight list.** The `+` in `FlightsListView` is a menu, so
-  repeating last week's trip is two taps without opening the form first.
+- **The `+` opens the form directly.** It was a menu (New Flight / Repeat … / Import…),
+  on the reasoning that repeating last week's trip should not need the form first. In use
+  the menu was a tap spent choosing where to choose: the form's first row is the import
+  control, and repeating a flight is one of the methods there.
 
 ## Gotchas
 
@@ -201,10 +212,11 @@ round trip instead of two, and one parser for both methods.
 
 ## Status
 
-- `FlightDraft` + `FlightImportMethod` + context-ranked control: **complete**
+- `FlightDraft` + `FlightImportMethod` + context-ranked list: **complete**
 - Previous-flight import with re-dating: **complete**
-- People suggestion on the people step: **complete**
-- Import entry point on the flight list: **complete**
+- People suggestion on the people step, and copy-crew-from-a-flight: **complete**
+- Import entry point on the flight list: **complete** — the `+` opens the form, which
+  leads with the import control
 - Autorouter import (shared client in flyfun-common): **complete**
 - Share / deep-link import from weather (`flyfunforms://import`): **planned** — the real
   frictionless path, since it starts in the app the pilot is already in

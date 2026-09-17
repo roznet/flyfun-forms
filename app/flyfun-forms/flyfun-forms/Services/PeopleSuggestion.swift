@@ -65,6 +65,29 @@ struct PeopleSuggestion {
         )
     }
 
+    /// The flights a crew could be copied from: those with anyone on board,
+    /// most recent first, one per distinct set of people.
+    ///
+    /// Deduplicating by the people rather than by the route is what makes the
+    /// list worth reading: the same four people flying the same trip every
+    /// weekend is one choice, not eight rows that differ only by date.
+    /// Identity is the `Person` instance, not `persistentModelID`: a context
+    /// hands back the same instance for the same person, while an unsaved
+    /// model's temporary identifier is not yet distinct — which made two
+    /// different crews look like one.
+    static func crewSources(from flights: [Flight]) -> [Flight] {
+        var seen = Set<Set<ObjectIdentifier>>()
+        return flights
+            .filter { !$0.crewList.isEmpty || !$0.passengerList.isEmpty }
+            .sorted { $0.departureDateTime > $1.departureDateTime }
+            .filter { flight in
+                let people = Set(
+                    (flight.crewList + flight.passengerList).map(ObjectIdentifier.init)
+                )
+                return seen.insert(people).inserted
+            }
+    }
+
     /// A short "Anne, Bob and 2 more" for the chip's second line.
     var summary: String {
         let names = (crew + passengers).map(\.displayName)

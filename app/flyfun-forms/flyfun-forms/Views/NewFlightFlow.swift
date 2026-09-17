@@ -26,6 +26,7 @@ struct NewFlightFlow: View {
     @State private var observations: String?
     @State private var showAirportPicker = false
     @State private var showPeoplePicker = false
+    @State private var showCrewSourcePicker = false
 
     /// The import method whose picker is up, if any. One piece of state for all
     /// of them: only one import can be in flight at a time.
@@ -38,9 +39,6 @@ struct NewFlightFlow: View {
     /// What the last import brought in, shown as confirmation under the control.
     @State private var importSummary: String?
     @State private var importError: String?
-    /// `onAppear` fires again when the flow returns from a sheet, so the
-    /// opening mode must not re-apply and overwrite the pilot's edits.
-    @State private var hasAppliedStartMode = false
     /// Whether the current crew/passenger selection came from an import rather
     /// than from the pilot. A later import replaces what an import wrote and
     /// leaves a hand-picked selection alone.
@@ -48,24 +46,11 @@ struct NewFlightFlow: View {
     /// Whether the account has linked Autorouter, or nil until the check lands.
     @State private var autorouterLinked: Bool?
 
-    /// How the flow opens, when the flights list sent the pilot straight into
-    /// an import rather than into a blank form.
-    var start: Start = .blank
-
     /// Called with the newly created flight so the parent can navigate to it.
     var onCreated: (Flight) -> Void
 
     enum Step {
         case route, people
-    }
-
-    enum Start {
-        /// An empty form.
-        case blank
-        /// A flight already chosen elsewhere, applied on appear.
-        case repeating(Flight)
-        /// Open the method list straight away.
-        case chooseMethod
     }
 
     var body: some View {
@@ -108,6 +93,11 @@ struct NewFlightFlow: View {
             }) {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
+            .sheet(isPresented: $showCrewSourcePicker) {
+                CrewSourcePickerView { crew, passengers in
+                    applyPeople(crew: crew, passengers: passengers)
+                }
+            }
             .sheet(item: $activeImport) { method in
                 importSheet(for: method)
             }
@@ -134,7 +124,6 @@ struct NewFlightFlow: View {
             } message: {
                 Text(importError ?? "")
             }
-            .onAppear { applyStartMode() }
             .task {
                 // So the list can say "Link your Autorouter account" up front
                 // rather than after a spinner and a 409.
@@ -157,9 +146,7 @@ struct NewFlightFlow: View {
     @ViewBuilder
     private var routeStep: some View {
         Section {
-            FlightImportControl(context: importContext) { method in
-                beginImport(method)
-            } onBrowse: {
+            FlightImportControl(context: importContext) {
                 showMethodList = true
             }
             if let importSummary {
@@ -222,10 +209,7 @@ struct NewFlightFlow: View {
            let suggestion = peopleSuggestion {
             Section {
                 Button {
-                    selectedCrew = suggestion.crew
-                    selectedPassengers = suggestion.passengers
-                    // Accepting the suggestion is a choice, not an import.
-                    peopleCameFromImport = false
+                    applyPeople(crew: suggestion.crew, passengers: suggestion.passengers)
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "person.2.badge.plus")
@@ -239,6 +223,16 @@ struct NewFlightFlow: View {
                     .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("peopleSuggestionButton")
+
+                // The chip picks the flight itself; this is the same copy with
+                // the choice handed back, for a pilot who flies with different
+                // people on different trips.
+                Button {
+                    showCrewSourcePicker = true
+                } label: {
+                    Label("Choose another flight…", systemImage: "list.bullet")
+                }
+                .accessibilityIdentifier("crewSourceButton")
             } header: {
                 Text("Suggestion")
             }
@@ -301,18 +295,13 @@ struct NewFlightFlow: View {
         )
     }
 
-    /// Honour the opening mode once, when the sheet appears.
-    private func applyStartMode() {
-        guard !hasAppliedStartMode else { return }
-        hasAppliedStartMode = true
-        switch start {
-        case .blank:
-            break
-        case .repeating(let flight):
-            apply(FlightDraft(repeating: flight, zone: originZone(for: flight.originICAO)))
-        case .chooseMethod:
-            showMethodList = true
-        }
+    /// Take a crew the pilot chose — from the suggestion chip or the
+    /// copy-from-a-flight picker. Chosen people are not import-owned, so a
+    /// later import leaves them alone.
+    private func applyPeople(crew: [Person], passengers: [Person]) {
+        selectedCrew = crew
+        selectedPassengers = passengers
+        peopleCameFromImport = false
     }
 
     /// Begin an import. The clipboard resolves in place; the others present a

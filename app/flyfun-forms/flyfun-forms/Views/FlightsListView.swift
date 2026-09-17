@@ -5,7 +5,6 @@ struct FlightsListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Flight.departureDate, order: .reverse) private var flights: [Flight]
     @State private var showNewFlightFlow = false
-    @State private var newFlightStart: NewFlightFlow.Start = .blank
     @State private var selectedFlight: Flight?
     @State private var showPastFlights = false
 
@@ -74,38 +73,20 @@ struct FlightsListView: View {
         .navigationTitle("Flights")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                // A menu rather than a button: repeating last week's trip is
-                // the commonest way a flight gets created, and from here it
-                // costs two taps instead of opening the form and drilling into
-                // the import control.
-                Menu {
-                    Button {
-                        newFlightStart = .blank
-                        showNewFlightFlow = true
-                    } label: {
-                        Label("New Flight", systemImage: "square.and.pencil")
-                    }
-                    if let recent = mostRecentFlight {
-                        Button {
-                            newFlightStart = .repeating(recent)
-                            showNewFlightFlow = true
-                        } label: {
-                            Label("Repeat \(recent.displayName)", systemImage: "clock.arrow.circlepath")
-                        }
-                    }
-                    Button {
-                        newFlightStart = .chooseMethod
-                        showNewFlightFlow = true
-                    } label: {
-                        Label("Import…", systemImage: "square.and.arrow.down")
-                    }
+                // Straight into the form. This was a menu offering New Flight,
+                // Repeat … and Import…, but the form opens on the same choice:
+                // its first row is the import control, and repeating a flight
+                // is one of the methods there. The menu was a tap spent
+                // choosing where to choose.
+                Button {
+                    showNewFlightFlow = true
                 } label: {
                     Label("Add Flight", systemImage: "plus")
                 }
             }
         }
         .sheet(isPresented: $showNewFlightFlow) {
-            NewFlightFlow(start: newFlightStart) { flight in
+            NewFlightFlow { flight in
                 selectedFlight = flight
             }
         }
