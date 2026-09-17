@@ -381,6 +381,13 @@ is worth being explicit about who does the sending:
   airport travels as far as TLS between mail servers takes it. That is inherent to how these
   authorities accept filings — most publish an address and nothing else — and it is the pilot's
   transfer, not ours. It deserves a line in `PRIVACY.md` rather than silence.
+- *Flagged for future review:* a planned feature would notify the pilot when a form is
+  **accepted**. Our server cannot know that today, because it plays no part in submission.
+  Any status tracking means the server becomes involved in the submission path, which would
+  weaken the stateless premise §3, §5 and this section all rest on, and would require updating
+  the description of processing in [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md) §3 — on 30
+  days' notice if those terms are in force by then. To be designed deliberately, not drifted
+  into: notifying on a status the pilot reports is very different from us transmitting the form.
 
 ### 15. Breach notification (Art. 33–34) — ❌
 
@@ -463,8 +470,15 @@ Ordered by ratio of obligation to effort.
 10. 🟡 **Set `NSFileProtectionComplete`** on the SwiftData store (`SECURITY_AUDIT.md` §19). *(§6)*
 11. 🟡 **Confirm the App Store privacy "nutrition labels"** match this document — in particular
     that passport/manifest data is declared as **not collected**, which is what the code does. *(§1)*
-12. 🟡 **Remove the unused `aps-environment` entitlement** unless push is planned; the app
-    registers for no notifications, and an unused capability is a claim we don't need to defend.
+12. 🟡 **Document the push capability, and prepare for it.** The `aps-environment` entitlement
+    is declared, but the app registers for no notifications and **collects no device token
+    today** — recorded so the capability is explained rather than dangling. Push *is* planned
+    (form-status notifications), and when it lands the device token is personal data: add it
+    to the deletion inventory and the account export with the token value redacted, name it in
+    `PRIVACY.md` and in the Art. 30 records, and keep passenger data out of the payload — an
+    APNs payload passes through Apple, so "accepted for LFMD" is fine and "accepted for
+    John Smith" is not. Weather's `device_tokens` handling is the pattern to copy. Separately,
+    `flyfun_forms.entitlements` (underscore) is referenced by no build configuration and can go.
 
 ---
 
