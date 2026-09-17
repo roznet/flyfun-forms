@@ -117,7 +117,14 @@ This makes the system extensible — adding a new airport or country requires on
 
 ## Privacy
 
-FlightForms is designed with privacy as a core principle. See [PRIVACY.md](PRIVACY.md) for full details.
+FlightForms is designed with privacy as a core principle: passport and passenger data lives
+on your device and in your own iCloud, and reaches the server only in memory, for the one
+request it takes to fill a form. See [PRIVACY.md](PRIVACY.md) for full details.
+
+- [legal/GDPR.md](legal/GDPR.md) — the full GDPR compliance record, including open items
+- [legal/PROCESSOR_TERMS.md](legal/PROCESSOR_TERMS.md) — Art. 28 data processing terms, for
+  organisations whose passengers' data we handle on their behalf (*draft*)
+- [SECURITY_AUDIT.md](SECURITY_AUDIT.md) — the standing security review
 
 ## License
 
