@@ -252,7 +252,7 @@
 				CODE_SIGN_ENTITLEMENTS = "flyfun-forms/flyfun-forms.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = M7QSSF3624;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -270,8 +270,11 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "flyfun-forms/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = FlyFunForms;
+				INFOPLIST_KEY_CFBundleDisplayName = "FlyFun Forms";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to scan passport and ID card MRZ codes to auto-fill travel document details.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Contacts are used to import people into your flight manifests.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -312,7 +315,7 @@
 				CODE_SIGN_ENTITLEMENTS = "flyfun-forms/flyfun-forms.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = M7QSSF3624;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -330,8 +333,11 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "flyfun-forms/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = FlyFunForms;
+				INFOPLIST_KEY_CFBundleDisplayName = "FlyFun Forms";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to scan passport and ID card MRZ codes to auto-fill travel document details.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Contacts are used to import people into your flight manifests.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
