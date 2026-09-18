@@ -41,6 +41,41 @@ and no cross-section canvas. Its server is already stateless and
 platform-neutral. The two conclusions should not be conflated: a forms Android
 app is a genuinely tractable project, a weather Android app is not.
 
+### Complexity, not just size
+
+Line count understates the gap. The *kind* of UI differs, measured the same day:
+
+| | forms `Views/` | weather `Views/` |
+|---|---|---|
+| Lines | 5,493 | 20,680 |
+| `Canvas` | **0** | 19 |
+| `Path(` | **0** | 47 |
+| `GraphicsContext` | **0** | 43 |
+| `GeometryReader` | 1 | 2 |
+
+**There is no custom drawing anywhere in flyfun-forms** — 111 custom-rendering
+call sites in weather, none here. The UI is 103 Buttons, 46 Sections, 39 sheets,
+21 Pickers, 20 TextFields, 18 Lists, 10 Forms and 5 DatePickers: selecting
+people, dates and places. Standard components end to end.
+
+This matters more than the 22% figure. Compose is strongest at exactly this kind
+of screen, and the Android work that genuinely requires judgement — custom
+layout, canvas drawing, gesture-driven scrubbing — is entirely absent. The
+`Views/` port is therefore **high-volume, low-risk, and highly delegable**,
+which is not true of a weather Android client.
+
+Two honest qualifications:
+
+- It is **not** a 1:1 transliteration. SwiftUI's `Form`/`Section` has no exact
+  Material equivalent; grouped-inset forms are rebuilt with `LazyColumn` plus
+  Material list items, and the iOS look is not idiomatic Android anyway. The
+  screens get rebuilt in the platform's own idiom — real work, but well-trodden.
+- The one UI area with genuine subtlety is **date/time/timezone entry**
+  (`Views/FlightDateTimeField.swift`, 161 lines, over `ZonedWallClock`'s 255).
+  DST correctness and midnight-crossing edits are the fiddly part, and they are
+  logic rather than rendering — port `ZonedWallClock`'s semantics with its tests,
+  do not re-derive them against `java.time` from scratch.
+
 ### The one permanent cost
 
 Two clients is one pair to keep in sync. Three is three pairs. Every future
@@ -143,7 +178,7 @@ entire category of pain disappears.
 
 | iOS piece | LOC | Android equivalent | Difficulty |
 |---|---|---|---|
-| `Views/` (SwiftUI) | 5,493 | Jetpack Compose | **the bulk of the work** |
+| `Views/` (SwiftUI) | 5,493 | Jetpack Compose | **bulk of the work, but low-risk** — no custom drawing (§1) |
 | `Models/` (SwiftData) | 587 | Room entities | medium |
 | `MRZParser` + `MRZResultProcessor` | 529 (+324 tests) | pure Kotlin | mechanical |
 | `DocumentResolver` | 112 (+185 tests) | pure Kotlin | mechanical |
@@ -189,7 +224,9 @@ they become SQL aggregates (faster, and they don't load every flight into RAM)
 
 This is the main reason `Views/` is the bulk of the work rather than a
 transliteration: the views bind directly to `@Model` objects, and Compose wants
-ViewModels over immutable state with explicit saves.
+ViewModels over immutable state with explicit saves. Note the distinction from
+§1 though — this is *volume* of straightforward state-plumbing work, not
+*difficulty*. There is no custom rendering to re-derive.
 
 ### The many-to-many SwiftData gave you for free
 
