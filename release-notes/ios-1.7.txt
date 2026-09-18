@@ -1,6 +1,8 @@
+- New flights now start from a single Import button, with four ways to begin: paste an ICAO flight plan, repeat a previous flight, or import from FlyFun Weather or Autorouter
+- Import a route from Autorouter: pick from your recent routes, once your Autorouter account is linked in the FlyFun Weather web app
+- The + on the Flights list now opens the new flight form straight away
+- New flights start on the aircraft you last flew, and you can copy the crew from an earlier flight in one tap
 - Redesigned departure and arrival time entry: pick the date, hour, minute and time zone, shown in the airport's local time by default
-- Switching time zone now shows the same moment in the new zone, and daylight saving time is worked out for the flight's own date
-- Editing a time across midnight now moves the flight to the correct day
-- Fixed arrivals after midnight being set a day early on flights imported from an ICAO flight plan
-- Fixed the airport's time zone sometimes failing to load, which left the time zone choice empty
-- New flights now start with a departure time, so they are no longer left out of connecting and return flight details
+- Switching time zone now shows the same moment in the new zone, and daylight saving is worked out for the flight's own date
+- Fixed flight plans being read incorrectly, which could fill the form with the wrong route or leave the date and time unchanged
+- Fixed arrivals after midnight being set a day early, and times sometimes appearing in the wrong time zone
