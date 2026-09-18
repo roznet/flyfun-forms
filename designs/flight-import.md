@@ -127,6 +127,23 @@ step is four fields; the people step is the slow one. So:
   on different trips. Rows are deduplicated by *the people*, not the route, so a weekly
   trip with the same four aboard is one row rather than eight that differ by date.
 
+### The aircraft starts filled in
+
+`Aircraft.defaultForNewFlight(flights:available:)` opens the form on the aircraft the
+pilot last flew, falling back to the only one on file, and to nil when there is neither.
+Most pilots fly one aircraft, or the same one for a stretch, so "None" asked every new
+flight for an answer already on record. A wrong guess costs one tap in a picker the pilot
+can see; no guess costs one every time.
+
+Last-flown outranks the single-aircraft rule, so adding a second aircraft mid-season stops
+offering the one it replaced as soon as the new one is flown. Applied once per sheet
+(`hasDefaultedAircraft`) — `onAppear` fires again coming back from a picker, and a pilot
+who sets the aircraft to None means it. An import carrying a registration still wins, via
+`resolveOrCreateAircraft`.
+
+It also sharpens the people step: `PeopleSuggestion` prefers the most recent flight in the
+*same aircraft*, which is only reachable when an aircraft is set before that step.
+
 `PeopleSuggestion` is deliberately *not* built on `Person.coTravelers(minimumFlights:)`,
 which `PeoplePickerView` uses for its Groups section. The two answer different questions
 and are both wanted: `coTravelers` answers "who usually flies with this person" and needs

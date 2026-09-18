@@ -481,3 +481,99 @@ struct PeopleSuggestionTests {
         #expect(sources.first?.departureDateTime == utc(2026, 1, 8, 10, 0))
     }
 }
+
+// MARK: - Default aircraft
+
+@Suite("Aircraft.defaultForNewFlight")
+@MainActor
+struct DefaultAircraftTests {
+
+    private func makeFlight(
+        context: ModelContext, departure: Date, aircraft: Aircraft?
+    ) -> Flight {
+        let flight = Flight()
+        flight.departureDateTime = departure
+        flight.aircraft = aircraft
+        context.insert(flight)
+        return flight
+    }
+
+    @Test("the only aircraft on file needs no choosing")
+    func singleAircraftIsTheDefault() throws {
+        let container = try makeContainer()
+        let cessna = Aircraft(registration: "G-ONE", type: "C172")
+        container.mainContext.insert(cessna)
+
+        let choice = Aircraft.defaultForNewFlight(flights: [], available: [cessna])
+
+        #expect(choice?.registration == "G-ONE")
+    }
+
+    @Test("with several, the last one flown wins")
+    func lastFlownWins() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let cessna = Aircraft(registration: "G-ONE", type: "C172")
+        let piper = Aircraft(registration: "G-TWO", type: "P28A")
+        [cessna, piper].forEach { context.insert($0) }
+
+        let older = makeFlight(context: context, departure: utc(2026, 1, 1, 10, 0), aircraft: cessna)
+        let newer = makeFlight(context: context, departure: utc(2026, 2, 1, 10, 0), aircraft: piper)
+
+        let choice = Aircraft.defaultForNewFlight(
+            flights: [older, newer], available: [cessna, piper]
+        )
+
+        #expect(choice?.registration == "G-TWO")
+    }
+
+    @Test("a newly added aircraft doesn't have to be flown to take over")
+    func lastFlownBeatsTheOnlyOneOnFile() throws {
+        // The single-aircraft rule must not outrank history: a pilot who adds a
+        // second aircraft still departs on the one they last flew until they
+        // fly the new one.
+        let container = try makeContainer()
+        let context = container.mainContext
+        let cessna = Aircraft(registration: "G-ONE", type: "C172")
+        let piper = Aircraft(registration: "G-TWO", type: "P28A")
+        [cessna, piper].forEach { context.insert($0) }
+
+        let flown = makeFlight(context: context, departure: utc(2026, 1, 1, 10, 0), aircraft: cessna)
+
+        let choice = Aircraft.defaultForNewFlight(
+            flights: [flown], available: [cessna, piper]
+        )
+
+        #expect(choice?.registration == "G-ONE")
+    }
+
+    @Test("flights with no aircraft are not evidence")
+    func flightsWithoutAircraftAreIgnored() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let cessna = Aircraft(registration: "G-ONE", type: "C172")
+        let piper = Aircraft(registration: "G-TWO", type: "P28A")
+        [cessna, piper].forEach { context.insert($0) }
+
+        let flown = makeFlight(context: context, departure: utc(2026, 1, 1, 10, 0), aircraft: cessna)
+        let blank = makeFlight(context: context, departure: utc(2026, 3, 1, 10, 0), aircraft: nil)
+
+        let choice = Aircraft.defaultForNewFlight(
+            flights: [flown, blank], available: [cessna, piper]
+        )
+
+        #expect(choice?.registration == "G-ONE")
+    }
+
+    @Test("nothing to go on stays empty")
+    func nothingToDefaultTo() throws {
+        let container = try makeContainer()
+        let cessna = Aircraft(registration: "G-ONE", type: "C172")
+        let piper = Aircraft(registration: "G-TWO", type: "P28A")
+        [cessna, piper].forEach { container.mainContext.insert($0) }
+
+        // Two aircraft and no history: guessing would be a coin toss.
+        #expect(Aircraft.defaultForNewFlight(flights: [], available: [cessna, piper]) == nil)
+        #expect(Aircraft.defaultForNewFlight(flights: [], available: []) == nil)
+    }
+}

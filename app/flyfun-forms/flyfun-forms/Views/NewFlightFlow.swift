@@ -45,6 +45,9 @@ struct NewFlightFlow: View {
     @State private var peopleCameFromImport = false
     /// Whether the account has linked Autorouter, or nil until the check lands.
     @State private var autorouterLinked: Bool?
+    /// `onAppear` fires again on the way back from a sheet, so the default
+    /// aircraft is applied once — a pilot who sets the picker to None means it.
+    @State private var hasDefaultedAircraft = false
 
     /// Called with the newly created flight so the parent can navigate to it.
     var onCreated: (Flight) -> Void
@@ -124,6 +127,7 @@ struct NewFlightFlow: View {
             } message: {
                 Text(importError ?? "")
             }
+            .onAppear { applyDefaultAircraft() }
             .task {
                 // So the list can say "Link your Autorouter account" up front
                 // rather than after a spinner and a 409.
@@ -292,6 +296,18 @@ struct NewFlightFlow: View {
             isSignedIn: appState.isAuthenticated,
             autorouterLinked: autorouterLinked,
             mostRecentRoute: mostRecent?.displayName
+        )
+    }
+
+    /// Start the form on the aircraft the pilot last flew, or on the only one
+    /// they have. An import that carries a registration overwrites this, and a
+    /// choice already made — including an import's — is left alone.
+    private func applyDefaultAircraft() {
+        guard !hasDefaultedAircraft else { return }
+        hasDefaultedAircraft = true
+        guard selectedAircraft == nil else { return }
+        selectedAircraft = Aircraft.defaultForNewFlight(
+            flights: allFlights, available: allAircraft
         )
     }
 
