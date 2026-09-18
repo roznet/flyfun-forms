@@ -160,7 +160,11 @@ struct FlightDraftTests {
 
 // MARK: - Flight plan text
 
-@Suite("ICAOFlightPlanText")
+/// The repair lives in `RZFlight.ICAOFlightPlanParser` (it finds field 13 by
+/// shape rather than by counting fields), so forms hands it the text untouched.
+/// These stay because forms is what the bug reached: they pin the behaviour the
+/// import flow depends on to the rzflight revision this app resolves.
+@Suite("Autorouter-shaped flight plans")
 struct FlightPlanTextTests {
 
     /// Shaped like what Autorouter's router/logs actually returns: a space
@@ -174,10 +178,10 @@ struct FlightPlanTextTests {
 
     @Test("a space before the field separators no longer shifts every field")
     func spaceBeforeSeparators() throws {
-        // Straight through the parser this yields departure "N016" and
-        // destination "DOF/", with no date and no time — an import that looks
-        // like it worked and fills the form with the wrong flight.
-        let plan = try #require(ICAOFlightPlanText.parse(Self.autorouterStyle))
+        // This once yielded departure "N016" and destination "DOF/", with no
+        // date and no time — an import that looked like it worked and filled
+        // the form with the wrong flight.
+        let plan = try #require(ICAOFlightPlanParser.parse(Self.autorouterStyle))
 
         #expect(plan.route.departure == "EGTF")
         #expect(plan.route.destination == "LFRQ")
@@ -189,7 +193,7 @@ struct FlightPlanTextTests {
 
     @Test("the draft built from such a plan carries the real route and instant")
     func draftFromAutorouterStylePlan() throws {
-        let plan = try #require(ICAOFlightPlanText.parse(Self.autorouterStyle))
+        let plan = try #require(ICAOFlightPlanParser.parse(Self.autorouterStyle))
         let draft = FlightDraft(plan, provenance: .autorouter(routeID: "42"))
 
         #expect(draft.route.departure == "EGTF")
@@ -197,22 +201,24 @@ struct FlightPlanTextTests {
         #expect(draft.route.departureTime == utc(2026, 5, 16, 7, 30))
     }
 
-    @Test("a canonical plan is left alone")
-    func canonicalPlanUnchanged() throws {
-        let fpl = """
+    @Test("a canonical plan carrying field 19 reads the same")
+    func canonicalPlanWithFieldNineteen() throws {
+        // The same defect without any Autorouter spacing: field 19 alone was
+        // enough to shift every field, so the clipboard import had it too.
+        let plan = try #require(ICAOFlightPlanParser.parse("""
         (FPL-GZIPM-IS
         -C172/L-S/C
         -EGTF1030
         -N0110F065 HAZEL UL9 ORTAC L28 DINARD
         -LFAT0130
-        -DOF/260326 PBN/D2)
-        """
-        let viaHelper = try #require(ICAOFlightPlanText.parse(fpl))
-        let direct = try #require(ICAOFlightPlanParser.parse(fpl))
+        -DOF/260326 PBN/D2
+        -P/TBN R/E J/ D/01 004 C YELLOW)
+        """))
 
-        #expect(viaHelper.route.departure == direct.route.departure)
-        #expect(viaHelper.route.destination == direct.route.destination)
-        #expect(viaHelper.departureTimeUTC?.hour == direct.departureTimeUTC?.hour)
+        #expect(plan.route.departure == "EGTF")
+        #expect(plan.route.destination == "LFAT")
+        #expect(plan.departureTimeUTC?.hour == 10)
+        #expect(plan.altitudeFeet == 6500)
     }
 }
 

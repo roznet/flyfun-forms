@@ -143,7 +143,7 @@ struct AutorouterImportService {
 
     /// Parse a picked route's flight plan into a draft, on-device.
     static func draft(from route: AutorouterRouteSummary) throws -> FlightDraft {
-        guard let plan = ICAOFlightPlanText.parse(route.fplan) else {
+        guard let plan = ICAOFlightPlanParser.parse(route.fplan) else {
             Self.logger.debug("Autorouter route \(route.routeid) had an unparseable fplan")
             throw AutorouterImportError.unparseablePlan
         }

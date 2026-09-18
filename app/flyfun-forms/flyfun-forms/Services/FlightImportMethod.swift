@@ -195,7 +195,7 @@ enum ClipboardFlightPlan {
         guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ImportError.empty
         }
-        guard let plan = ICAOFlightPlanText.parse(text) else {
+        guard let plan = ICAOFlightPlanParser.parse(text) else {
             throw ImportError.unparseable
         }
         return plan
