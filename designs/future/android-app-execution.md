@@ -26,8 +26,9 @@ Checked 2026-09-19 on this machine:
 |---|---|
 | JDK 21 (Temurin) | **Installed** ✓ |
 | Android Studio | **Installed** ✓ (cask, 2026-09-19) |
-| Android SDK | **Missing** ✗ — the first-run wizard has not been completed; the cask installs only the IDE |
-| An AVD (emulator image) | **Missing** ✗ — created from Device Manager after the wizard |
+| Android SDK | **Installed** ✓ — `~/Library/Android/sdk`, platform android-37.0, build-tools 36.0.0, adb 37.0.1 |
+| System image + AVD | **Missing** ✗ — the emulator binary ships with the wizard but no image or AVD does; create one from Device Manager |
+| `cmdline-tools` | **Missing** ✗ — not needed for `./gradlew`, but required for `sdkmanager`/`avdmanager` and CI licence acceptance |
 | Gradle | Not needed — the wrapper handles it |
 | Physical Android device | **Required from S13**; emulator is not trustworthy for camera/MRZ or OAuth deep links |
 | Play Console account | Required only at S16. One-time $25, ~1–2 days ID verification |
@@ -37,9 +38,19 @@ and `~/Library/Android/sdk` exists. Installing the cask is not sufficient — it
 ships the IDE only, and the wizard is what downloads the SDK. Nothing else in
 this plan can start first; every later session needs a working `./gradlew`.
 
-**Minimum SDK: 33** — decided 2026-09-19, see
-[android-app.md §5](./android-app.md). `targetSdk` tracks the latest platform
-the SDK Manager offers, which Play requires for new submissions anyway.
+**SDK levels — settled 2026-09-19:**
+
+| Setting | Value | Note |
+|---|---|---|
+| `minSdk` | **33** | [android-app.md §5](./android-app.md) |
+| `compileSdk` / `targetSdk` | **37** | android-37.0 is installed; Play wants a recent target anyway |
+
+`minSdk` does **not** require its own platform to be installed — only
+`compileSdk` does. There is no need to download the API 33 platform.
+
+**AGP fallback:** API 37 is very new. If the pinned AGP will not accept
+`compileSdk 37`, drop to 36 rather than fighting it — install the API 36
+platform up front so S0 cannot stall on this.
 
 ---
 
