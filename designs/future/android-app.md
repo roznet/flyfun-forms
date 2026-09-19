@@ -13,6 +13,7 @@
 
 - [iOS app](../ios-app.md) — the reference implementation this would mirror
 - [API](../api.md) — the endpoint contract a second client would consume
+- [Execution plan](./android-app-execution.md) — **session-by-session briefs**; start there once the gates below are cleared
 - [Move my data](./move-my-data.md) — **the only iOS↔Android bridge**, and a prerequisite for this plan
 - [flyfun-weather's Android plan](../../../flyfun-weather/main/designs/future/android-app-plan.md) — the same question for the sibling app, with a very different answer (see §1)
 
@@ -326,6 +327,10 @@ without committing to it now.
 
 **~12–16 focused sessions to a Play Store beta.** Phase 2 is the real milestone;
 everything after is enrichment.
+
+These phases are broken into paste-ready session briefs — with agent
+assignment, exact inputs to read and a definition of done — in
+[android-app-execution.md](./android-app-execution.md).
 
 **Prerequisite, before Phase 1:** ship [move-my-data.md](./move-my-data.md) on
 iOS. It defines the interchange format, produces real test fixtures for the
