@@ -35,10 +35,9 @@ struct FlightEditView: View {
     @State private var flightDetailsExpanded = true
     @State private var crewExpanded = true
     @State private var passengersExpanded = true
-    /// Section ids currently on screen, reported by each section header. The
-    /// active pill is the first `navSections` entry in this set — derived from
-    /// our own top-to-bottom order rather than trusting report order.
-    @State private var visibleSections: Set<String> = []
+    /// Which section the compact nav bar highlights. Position-derived, so
+    /// `switchToFlight` swapping the flight underneath has nothing to reset.
+    @State private var sectionSpy = FlightSectionSpy()
 
     /// Formats the API's `departure_date` / `arrival_date`.
     ///
@@ -172,6 +171,7 @@ struct FlightEditView: View {
                     formSections
                     actionsSection
                 }
+                .coordinateSpace(.named(FlightSectionSpy.coordinateSpace))
             }
         }
     }
@@ -211,8 +211,14 @@ struct FlightEditView: View {
 
     private func formAnchorID(direction: String) -> String { "form-\(direction)" }
 
+    /// Falls back to the first pill while the spy has no answer yet, and when
+    /// its answer names a section this flight does not have (the previous
+    /// flight's arrival forms, say).
     private var activeSection: String? {
-        navSections.first { visibleSections.contains($0.id) }?.id ?? navSections.first?.id
+        guard let active = sectionSpy.active,
+              navSections.contains(where: { $0.id == active })
+        else { return navSections.first?.id }
+        return active
     }
 
     /// Wide layout shows no nav bar, so it does not pay for visibility tracking.
@@ -275,7 +281,7 @@ struct FlightEditView: View {
             notificationRow(icao: flight.destinationICAO, label: "Arrival")
         } header: {
             Text("Route")
-                .flightSectionAnchor("route", visible: $visibleSections, tracking: trackingSections)
+                .flightSectionAnchor("route", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -326,7 +332,7 @@ struct FlightEditView: View {
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]
                 )
             }
-            .flightSectionAnchor("schedule", visible: $visibleSections, tracking: trackingSections)
+            .flightSectionAnchor("schedule", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -377,7 +383,7 @@ struct FlightEditView: View {
                 ), axis: .vertical)
                 .lineLimit(2...4)
             }
-            .flightSectionAnchor("details", visible: $visibleSections, tracking: trackingSections)
+            .flightSectionAnchor("details", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -407,7 +413,7 @@ struct FlightEditView: View {
                         }
                 }
             }
-            .flightSectionAnchor("crew", visible: $visibleSections, tracking: trackingSections)
+            .flightSectionAnchor("crew", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -424,7 +430,7 @@ struct FlightEditView: View {
                         }
                 }
             }
-            .flightSectionAnchor("passengers", visible: $visibleSections, tracking: trackingSections)
+            .flightSectionAnchor("passengers", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -458,7 +464,7 @@ struct FlightEditView: View {
             }
         } header: {
             Text("Actions")
-                .flightSectionAnchor("actions", visible: $visibleSections, tracking: trackingSections)
+                .flightSectionAnchor("actions", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -535,7 +541,7 @@ struct FlightEditView: View {
                 Text("\(airport) — \(direction)")
                     .flightSectionAnchor(
                         formAnchorID(direction: direction),
-                        visible: $visibleSections,
+                        spy: sectionSpy,
                         tracking: trackingSections
                     )
             }
