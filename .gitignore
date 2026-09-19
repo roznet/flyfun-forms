@@ -19,3 +19,9 @@ build/
 # Xcode user data
 *.xcuserstate
 xcuserdata/
+
+# Claude: settings.json is shared (tracked so worktrees inherit it);
+# settings.local.json is per-machine.
+.claude/settings.local.json
+.claude/worktrees
+.claude/projects

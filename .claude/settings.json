@@ -1,0 +1,20 @@
+{
+  "worktree": { "bgIsolation": "none" },
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Skill(add-form)",
+      "Skill(devserver)",
+      "Skill(sync-designs)",
+      "mcp__library-docs__list_libraries",
+      "mcp__library-docs__get_index_status",
+      "mcp__library-docs__get_design_doc",
+      "mcp__xcode__XcodeListWindows",
+      "mcp__xcode__XcodeWrite",
+      "mcp__xcode__BuildProject",
+      "mcp__xcode__GetBuildLog",
+      "mcp__xcode__GetTestList",
+      "mcp__xcode__RunSomeTests"
+    ]
+  }
+}
