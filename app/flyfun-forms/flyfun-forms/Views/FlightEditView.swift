@@ -35,6 +35,10 @@ struct FlightEditView: View {
     @State private var flightDetailsExpanded = true
     @State private var crewExpanded = true
     @State private var passengersExpanded = true
+    /// Section ids currently on screen, reported by each section header. The
+    /// active pill is the first `navSections` entry in this set — derived from
+    /// our own top-to-bottom order rather than trusting report order.
+    @State private var visibleSections: Set<String> = []
 
     /// Formats the API's `departure_date` / `arrival_date`.
     ///
@@ -143,15 +147,86 @@ struct FlightEditView: View {
     // MARK: - Layouts
 
     private var compactLayout: some View {
-        Form {
-            routeSection
-            scheduleSection
-            flightDetailsSection
-            peopleButton
-            crewSection
-            passengersSection
-            formSections
-            actionsSection
+        // The nav bar is a sibling pinned above the `Form`, not chrome inside
+        // the scroll layer. That topology is what broke in flyfun-weather (#436
+        // / #437 — a bar above a ScrollView composites zero pixels when a
+        // NavigationSplitView column host is reused), but compact here is a
+        // plain NavigationStack push inside a TabView, which does not reuse a
+        // column host. Verify in the simulator by opening flight A, going back,
+        // then opening flight B before trusting a layout change here.
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                FlightSectionNavBar(sections: navSections, active: activeSection) { id in
+                    expandSection(id)
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(id, anchor: .top)
+                    }
+                }
+                Form {
+                    routeSection
+                    scheduleSection
+                    flightDetailsSection
+                    peopleButton
+                    crewSection
+                    passengersSection
+                    formSections
+                    actionsSection
+                }
+            }
+        }
+    }
+
+    // MARK: - Section navigator (compact only)
+
+    /// Pills in document order. Form sections appear only when `formSections`
+    /// will actually render them, so a pill can never point at nothing.
+    private var navSections: [FlightSection] {
+        var sections: [FlightSection] = [
+            FlightSection("route", String(localized: "Route")),
+            FlightSection("schedule", String(localized: "Schedule")),
+            FlightSection("details", String(localized: "Details")),
+            FlightSection("crew", String(localized: "Crew")),
+            FlightSection("passengers", String(localized: "Passengers")),
+        ]
+        sections += formAnchors.map { FlightSection($0.id, $0.title) }
+        sections.append(FlightSection("actions", String(localized: "Actions")))
+        return sections
+    }
+
+    /// The form sections `formSections` will render, in the same order.
+    private var formAnchors: [(id: String, title: String)] {
+        var anchors: [(id: String, title: String)] = []
+        if !flight.destinationICAO.isEmpty,
+           hasForms(airport: flight.destinationICAO, direction: "arrival") {
+            anchors.append((id: formAnchorID(direction: "arrival"),
+                            title: "\(flight.destinationICAO) arr"))
+        }
+        if !flight.originICAO.isEmpty,
+           hasForms(airport: flight.originICAO, direction: "departure") {
+            anchors.append((id: formAnchorID(direction: "departure"),
+                            title: "\(flight.originICAO) dep"))
+        }
+        return anchors
+    }
+
+    private func formAnchorID(direction: String) -> String { "form-\(direction)" }
+
+    private var activeSection: String? {
+        navSections.first { visibleSections.contains($0.id) }?.id ?? navSections.first?.id
+    }
+
+    /// Wide layout shows no nav bar, so it does not pay for visibility tracking.
+    private var trackingSections: Bool { sizeClass != .regular }
+
+    /// A jump into a collapsed `DisclosureGroup` opens it first — otherwise the
+    /// pill lands on a title with nothing under it.
+    private func expandSection(_ id: String) {
+        switch id {
+        case "schedule": scheduleExpanded = true
+        case "details": flightDetailsExpanded = true
+        case "crew": crewExpanded = true
+        case "passengers": passengersExpanded = true
+        default: break
         }
     }
 
@@ -180,7 +255,7 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var routeSection: some View {
-        Section("Route") {
+        Section {
             Button {
                 showAirportPicker = true
             } label: {
@@ -198,6 +273,9 @@ struct FlightEditView: View {
 
             notificationRow(icao: flight.originICAO, label: "Departure")
             notificationRow(icao: flight.destinationICAO, label: "Arrival")
+        } header: {
+            Text("Route")
+                .flightSectionAnchor("route", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -248,6 +326,7 @@ struct FlightEditView: View {
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]
                 )
             }
+            .flightSectionAnchor("schedule", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -298,6 +377,7 @@ struct FlightEditView: View {
                 ), axis: .vertical)
                 .lineLimit(2...4)
             }
+            .flightSectionAnchor("details", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -327,6 +407,7 @@ struct FlightEditView: View {
                         }
                 }
             }
+            .flightSectionAnchor("crew", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -343,6 +424,7 @@ struct FlightEditView: View {
                         }
                 }
             }
+            .flightSectionAnchor("passengers", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -358,7 +440,7 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var actionsSection: some View {
-        Section("Actions") {
+        Section {
             Button {
                 createReturnFlight()
             } label: {
@@ -374,6 +456,9 @@ struct FlightEditView: View {
             } label: {
                 Label("Duplicate Flight", systemImage: "doc.on.doc")
             }
+        } header: {
+            Text("Actions")
+                .flightSectionAnchor("actions", visible: $visibleSections, tracking: trackingSections)
         }
     }
 
@@ -414,14 +499,23 @@ struct FlightEditView: View {
 
     // MARK: - Form Sections
 
+    /// Whether `formSection` will render anything for this side. `formAnchors`
+    /// reads the same predicate, so the nav can never offer a pill for a
+    /// section that is not on screen.
+    private func hasForms(airport: String, direction: String) -> Bool {
+        let allForms = formDetails[airport] ?? []
+        return allForms.contains { !$0.isWebForm }
+            || allForms.contains { $0.isWebForm && ($0.direction ?? direction) == direction }
+    }
+
     @ViewBuilder
     private func formSection(airport: String, direction: String) -> some View {
         let allForms = formDetails[airport] ?? []
         let forms = allForms.filter { !$0.isWebForm }
         // Official web forms (book-out, PPR…) only on the side they cover
         let webForms = allForms.filter { $0.isWebForm && ($0.direction ?? direction) == direction }
-        if forms.first != nil || !webForms.isEmpty {
-            Section("\(airport) — \(direction)") {
+        if hasForms(airport: airport, direction: direction) {
+            Section {
                 if let primary = forms.first {
                     formRow(airport: airport, formInfo: primary)
                 }
@@ -437,6 +531,13 @@ struct FlightEditView: View {
                         }
                     }
                 }
+            } header: {
+                Text("\(airport) — \(direction)")
+                    .flightSectionAnchor(
+                        formAnchorID(direction: direction),
+                        visible: $visibleSections,
+                        tracking: trackingSections
+                    )
             }
         }
     }
