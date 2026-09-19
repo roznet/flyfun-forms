@@ -3,6 +3,7 @@ import SwiftData
 import RZFlight
 
 struct AircraftEditView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @Bindable var aircraft: Aircraft
 
     @State private var showOwnerPicker = false
@@ -10,7 +11,27 @@ struct AircraftEditView: View {
 
     private let airportDB = AirportDatabase.shared
 
+    private var isWide: Bool { sizeClass != .compact }
+
     var body: some View {
+        VStack(spacing: 0) {
+            if isWide {
+                DetailHeader {
+                    Text(aircraft.displayName)
+                        .font(.system(.title2, design: .monospaced).bold())
+                    if !aircraft.type.isEmpty {
+                        Text(verbatim: aircraft.type)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            formBody
+        }
+        .navigationTitle(aircraft.displayName)
+    }
+
+    private var formBody: some View {
         Form {
             Section("Aircraft") {
                 TextField("Registration", text: $aircraft.registration)
@@ -95,7 +116,9 @@ struct AircraftEditView: View {
                 }
             }
         }
-        .navigationTitle(aircraft.displayName)
+        .platformFormStyle()
+        .frame(maxWidth: isWide ? FormLayout.columnMaxWidth : .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif

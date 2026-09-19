@@ -27,6 +27,8 @@ app/flyfun-forms/flyfun-forms/
 │   ├── FlightsListView.swift
 │   ├── FlightEditView.swift      # Flight details + form generation via share/email
 │   ├── FlightSectionNav.swift    # Compact-width pill bar selecting one FlightEditView section
+│   ├── FormLayout.swift          # Shared wide-layout chrome: form style, column, header, removable row
+│   ├── FlightDetailHeader.swift  # Route + schedule + aircraft banner above the wide flight editor
 │   ├── WebFormView.swift         # Official web form (book-out, PPR…) in a web view, prefilled
 │   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
 │   ├── FlightDateTimeField.swift # Date/time/timezone entry for one end of a flight
@@ -113,6 +115,40 @@ A person can have multiple travel documents (e.g., French + UK passport). `Docum
 The selected document's `issuingCountry` is sent as `nationality` in the API request.
 
 On first launch after migration, existing Person flat id fields are converted to TravelDocument records automatically.
+
+### Wide Layout (macOS / iPad)
+
+Compact and regular width are two designs, not one design at two sizes. The
+regular-width editors are built from three pieces in `FormLayout.swift`:
+
+- **`platformFormStyle()`** — `.formStyle(.grouped)`, applied to every form.
+  This is not cosmetic. macOS `Form` defaults to `.formStyle(.columns)`, which
+  renders `Section("Schedule")` as a bare line of text with no grouping and
+  **centres the whole form** in the space it is given, which is why the Mac
+  editors used to float as a narrow column in the middle of an empty pane.
+- **`FormColumn`** — a grouped form capped at `FormLayout.columnMaxWidth` (620)
+  and pinned top-leading. Wide mode earns its space by showing more at once,
+  never by stretching one label/value row across the window.
+- **`DetailHeader`** — the identity banner. `navigationTitle` is swallowed by
+  `NavigationSplitView` on macOS (the window title bar carries the *content*
+  column's title), so without it the detail pane says nothing about which
+  record is open.
+
+`FlightEditView.wideLayout` splits by meaning: the left column is what the
+flight *is* (notices, schedule, details), the right is who is aboard and what
+comes out of it (crew, passengers, forms). The three flight actions move to a
+toolbar menu and the route moves into `FlightDetailHeader`, so neither sits at
+the far end of a scroll view. `adaptiveSection` keeps the DisclosureGroups on
+compact, where vertical space is rationed, and drops them when wide.
+
+`PersonEditView` mirrors this: identity + role on the left, documents on the
+right, and a document opens **in place** via `DocumentFields` rather than
+pushing a `NavigationStack` nested inside the split view's detail column.
+
+`RemovableRow` carries removal as a button, a context menu *and* a swipe
+action. Crew and passenger rows previously offered `.swipeActions` alone, which
+is a no-op on macOS — there was no way at all to take one person off a flight
+on the Mac short of reopening the whole two-list picker.
 
 ### Flight Import
 
@@ -243,6 +279,13 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - NOTAM notification display in route section: **complete**
 - Collapsible flight detail sections (schedule, details, crew, passengers): **complete**
 - Compact section selector bar on the flight editor (focus one section, "All" to return): **complete**
+- Grouped form style, capped column width and detail headers on macOS/iPad wide: **complete**
+- Crew/passenger removal that works on macOS (button + context menu): **complete**
+- Travel-document expiry state surfaced on the row and in the person header: **complete**
+- Single-control date+time entry on macOS: **not started** — needs a datetime
+  proxy on `ZonedWallClock`, and `flyfun-common` is a *remote* SPM dependency
+  (pinned at 0.6.5), so it is a library release, not an app change. Today the
+  time is two menu pickers, i.e. four interactions to set one time.
 - Next Leg / Return Flight / Duplicate with shared property copying: **complete**
 - Past/upcoming flight split with collapsible past section: **complete**
 - Searchable responsible person picker with contact auto-fill: **complete**

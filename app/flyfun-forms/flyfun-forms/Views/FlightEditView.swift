@@ -74,7 +74,7 @@ struct FlightEditView: View {
 
     var body: some View {
         Group {
-            if sizeClass == .regular {
+            if isWide {
                 wideLayout
             } else {
                 compactLayout
@@ -84,6 +84,17 @@ struct FlightEditView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            if isWide {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        actionButtons
+                    } label: {
+                        Label("Actions", systemImage: "ellipsis.circle")
+                    }
+                }
+            }
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK") {}
         } message: {
@@ -238,25 +249,57 @@ struct FlightEditView: View {
         }
     }
 
-    private var wideLayout: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Form {
-                routeSection
-                scheduleSection
-                flightDetailsSection
-                formSections
-                actionsSection
-            }
-            .frame(minWidth: 300, maxWidth: .infinity)
+    /// Wide is anything that is not an iPhone-width column: the Mac window, and
+    /// the iPad in full or half screen.
+    private var isWide: Bool { sizeClass != .compact }
 
-            Form {
-                peopleButton
-                crewSection
-                passengersSection
+    /// Two panes with a meaning behind the split: the left is what the flight
+    /// *is*, the right is who is aboard and what comes out of it. It used to be
+    /// sections 1-5 on the left and 6-8 on the right, which divides the width
+    /// rather than using it.
+    ///
+    /// The route and the schedule summary move up into the header, and the
+    /// three flight actions move into the toolbar, so neither is buried at the
+    /// far end of a scroll view on a window tall enough to show everything.
+    private var wideLayout: some View {
+        VStack(spacing: 0) {
+            FlightDetailHeader(flight: flight) { showAirportPicker = true }
+            HStack(alignment: .top, spacing: 0) {
+                FormColumn {
+                    noticesSection
+                    scheduleSection
+                    flightDetailsSection
+                }
+                Divider()
+                FormColumn {
+                    crewSection
+                    passengersSection
+                    formSections
+                }
             }
-            .frame(minWidth: 300, maxWidth: .infinity)
         }
-        .padding(.horizontal, 12)
+    }
+
+    /// A section that collapses on iPhone, where vertical space is rationed,
+    /// and is simply open on a wide layout, where it all fits. The nested
+    /// `Section { DisclosureGroup { } }` was also what made the chevrons sit at
+    /// inconsistent indents against the sections that have no group.
+    @ViewBuilder
+    private func adaptiveSection<C: View>(
+        _ title: LocalizedStringKey,
+        isExpanded: Binding<Bool>,
+        @ViewBuilder content: () -> C
+    ) -> some View {
+        // Built once up front: `DisclosureGroup` stores its content, so passing
+        // the non-escaping builder straight through does not compile.
+        let rows = content()
+        if isWide {
+            Section(title) { rows }
+        } else {
+            Section {
+                DisclosureGroup(title, isExpanded: isExpanded) { rows }
+            }
+        }
     }
 
     // MARK: - Sections
@@ -282,6 +325,23 @@ struct FlightEditView: View {
             notificationRow(icao: flight.originICAO, label: "Departure")
             notificationRow(icao: flight.destinationICAO, label: "Arrival")
         }
+    }
+
+    /// Wide layout only: the route row is the header, so the airport notices
+    /// that used to ride along inside the Route section get their own.
+    @ViewBuilder
+    private var noticesSection: some View {
+        if hasNotice(flight.originICAO) || hasNotice(flight.destinationICAO) {
+            Section("Airport Notices") {
+                notificationRow(icao: flight.originICAO, label: "Departure")
+                notificationRow(icao: flight.destinationICAO, label: "Arrival")
+            }
+        }
+    }
+
+    private func hasNotice(_ icao: String) -> Bool {
+        guard let info = notifications[icao] else { return false }
+        return info.found && info.summary != nil
     }
 
     @ViewBuilder
@@ -316,8 +376,7 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var scheduleSection: some View {
-        Section {
-            DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
+        adaptiveSection("Schedule", isExpanded: $scheduleExpanded) {
                 FlightDateTimeField(
                     end: .departure,
                     instant: $flight.departureDateTime,
@@ -330,14 +389,12 @@ struct FlightEditView: View {
                     primaryICAO: flight.destinationICAO,
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]
                 )
-            }
         }
     }
 
     @ViewBuilder
     private var flightDetailsSection: some View {
-        Section {
-            DisclosureGroup("Flight Details", isExpanded: $flightDetailsExpanded) {
+        adaptiveSection("Flight Details", isExpanded: $flightDetailsExpanded) {
                 Picker("Aircraft", selection: $flight.aircraft) {
                     Text("None").tag(nil as Aircraft?)
                     ForEach(allAircraft) { ac in
@@ -380,34 +437,42 @@ struct FlightEditView: View {
                     set: { flight.observations = $0.isEmpty ? nil : $0 }
                 ), axis: .vertical)
                 .lineLimit(2...4)
-            }
         }
     }
 
+    /// Compact only — the wide layout puts an add control in each list instead,
+    /// so changing one person does not start at a screen offering both lists.
     @ViewBuilder
     private var peopleButton: some View {
         Section {
-            Button {
-                editingCrew = flight.crewList
-                editingPassengers = flight.passengerList
-                showPeoplePicker = true
-            } label: {
+            Button(action: openPeoplePicker) {
                 Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
             }
         }
     }
 
+    private func openPeoplePicker() {
+        editingCrew = flight.crewList
+        editingPassengers = flight.passengerList
+        showPeoplePicker = true
+    }
+
     @ViewBuilder
     private var crewSection: some View {
-        Section {
-            DisclosureGroup("Crew (\(flight.crewList.count))", isExpanded: $crewExpanded) {
-                ForEach(flight.crewList) { person in
+        adaptiveSection("Crew (\(flight.crewList.count))", isExpanded: $crewExpanded) {
+            if flight.crewList.isEmpty {
+                Text("Nobody assigned").foregroundStyle(.secondary)
+            }
+            ForEach(flight.crewList) { person in
+                RemovableRow(onRemove: {
+                    flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
+                }) {
                     Text(person.displayName)
-                        .swipeActions {
-                            Button("Remove", role: .destructive) {
-                                flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
-                            }
-                        }
+                }
+            }
+            if isWide {
+                Button(action: openPeoplePicker) {
+                    Label("Add Crew…", systemImage: "person.badge.plus")
                 }
             }
         }
@@ -415,15 +480,20 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var passengersSection: some View {
-        Section {
-            DisclosureGroup("Passengers (\(flight.passengerList.count))", isExpanded: $passengersExpanded) {
-                ForEach(flight.passengerList) { person in
+        adaptiveSection("Passengers (\(flight.passengerList.count))", isExpanded: $passengersExpanded) {
+            if flight.passengerList.isEmpty {
+                Text("Nobody aboard").foregroundStyle(.secondary)
+            }
+            ForEach(flight.passengerList) { person in
+                RemovableRow(onRemove: {
+                    flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
+                }) {
                     Text(person.displayName)
-                        .swipeActions {
-                            Button("Remove", role: .destructive) {
-                                flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
-                            }
-                        }
+                }
+            }
+            if isWide {
+                Button(action: openPeoplePicker) {
+                    Label("Add Passenger…", systemImage: "person.badge.plus")
                 }
             }
         }
@@ -439,9 +509,14 @@ struct FlightEditView: View {
         }
     }
 
+    /// Compact only; the wide layout hangs these off the toolbar menu.
     @ViewBuilder
     private var actionsSection: some View {
-        Section("Actions") {
+        Section("Actions") { actionButtons }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
             Button {
                 createReturnFlight()
             } label: {
@@ -457,7 +532,6 @@ struct FlightEditView: View {
             } label: {
                 Label("Duplicate Flight", systemImage: "doc.on.doc")
             }
-        }
     }
 
     // MARK: - Bindings

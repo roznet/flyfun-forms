@@ -23,25 +23,14 @@ struct PersonEditView: View {
 
     var body: some View {
         Group {
-            if sizeClass == .compact {
+            if isWide {
+                wideLayout
+            } else {
                 Form {
                     personInfoSections
+                    crewFlagSection
                     documentsSections
                 }
-            } else {
-                HStack(alignment: .top, spacing: 16) {
-                    Form {
-                        personInfoSections
-                    }
-                    .frame(minWidth: 300, maxWidth: .infinity)
-                    NavigationStack {
-                        Form {
-                            documentsSections
-                        }
-                    }
-                    .frame(minWidth: 300, maxWidth: .infinity)
-                }
-                .padding(.horizontal)
             }
         }
         .navigationTitle(person.displayName)
@@ -108,6 +97,78 @@ struct PersonEditView: View {
         }
     }
 
+    private var isWide: Bool { sizeClass != .compact }
+
+    /// Identity on the left, travel documents on the right.
+    ///
+    /// The documents column used to be a `NavigationStack` nested inside the
+    /// split view's detail column, so opening a passport pushed a second stack
+    /// inside a half-width pane. Here a document opens in place.
+    private var wideLayout: some View {
+        VStack(spacing: 0) {
+            header
+            HStack(alignment: .top, spacing: 0) {
+                FormColumn {
+                    personInfoSections
+                    crewFlagSection
+                }
+                Divider()
+                FormColumn {
+                    documentsSections
+                }
+            }
+        }
+    }
+
+    private var header: some View {
+        DetailHeader {
+            Text(person.displayName)
+                .font(.title2.bold())
+            HStack(spacing: 6) {
+                if let nationality = person.nationality, !nationality.isEmpty {
+                    Text(verbatim: nationality)
+                    Text(verbatim: "·").foregroundStyle(.tertiary)
+                }
+                Text(activeDocuments.count == 1
+                     ? String(localized: "1 document")
+                     : String(localized: "\(activeDocuments.count) documents"))
+                if let warning = documentWarning {
+                    Text(verbatim: "·").foregroundStyle(.tertiary)
+                    Label(warning.text, systemImage: warning.symbol)
+                        .foregroundStyle(warning.tint)
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var activeDocuments: [TravelDocument] {
+        person.documentList.filter(\.isActive)
+    }
+
+    /// The worst expiry state across the person's active documents, so a stale
+    /// passport is visible before a form generation fails on it.
+    private var documentWarning: (text: String, symbol: String, tint: Color)? {
+        let states = activeDocuments.map { DocumentExpiry(date: $0.expiryDate) }
+        if states.contains(.expired) {
+            return (String(localized: "Document expired"), "exclamationmark.triangle.fill", .red)
+        }
+        if states.contains(.expiringSoon) {
+            return (String(localized: "Expires soon"), "exclamationmark.circle.fill", .orange)
+        }
+        return nil
+    }
+
+    /// A person-level flag; it used to sit unlabelled under Documents, where it
+    /// read as a property of the passport above it.
+    @ViewBuilder
+    private var crewFlagSection: some View {
+        Section("Role") {
+            Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
+        }
+    }
+
     @ViewBuilder
     private var personInfoSections: some View {
         Section("Name") {
@@ -157,26 +218,19 @@ struct PersonEditView: View {
     private var documentsSections: some View {
         Section("Documents") {
             ForEach(person.documentList) { doc in
-                NavigationLink(destination: DocumentEditView(document: doc)) {
-                    VStack(alignment: .leading) {
-                        HStack {
-                            Text(doc.displayLabel)
-                            if !doc.isActive {
-                                Text("Inactive")
-                                    .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(.secondary.opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
+                if isWide {
+                    DisclosureGroup {
+                        DocumentFields(document: doc)
+                        Button("Delete Document", role: .destructive) {
+                            modelContext.delete(doc)
                         }
-                        if let expiry = doc.expiryDate {
-                            Text("Expires \(expiry, format: .dateTime.day().month().year())")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    } label: {
+                        documentLabel(doc)
                     }
-                    .opacity(doc.isActive ? 1 : 0.5)
+                } else {
+                    NavigationLink(destination: DocumentEditView(document: doc)) {
+                        documentLabel(doc)
+                    }
                 }
             }
             .onDelete { offsets in
@@ -192,12 +246,79 @@ struct PersonEditView: View {
                 modelContext.insert(doc)
             }
         }
+    }
 
-        Section {
-            Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
+    @ViewBuilder
+    private func documentLabel(_ doc: TravelDocument) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(doc.displayLabel)
+                if !doc.isActive {
+                    Text("Inactive")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.secondary.opacity(0.2))
+                        .clipShape(Capsule())
+                }
+            }
+            if let expiry = doc.expiryDate {
+                let state = doc.isActive ? DocumentExpiry(date: expiry) : .valid
+                Text("Expires \(expiry, format: .dateTime.day().month().year())")
+                    .font(.caption)
+                    .foregroundStyle(state.tint)
+            }
+        }
+        .opacity(doc.isActive ? 1 : 0.5)
+    }
+}
+
+/// How close a travel document is to being unusable. Six months is the margin
+/// most destinations ask for beyond the date of travel, so it is the point at
+/// which the row stops being plain grey text.
+enum DocumentExpiry {
+    case valid, expiringSoon, expired
+
+    init(date: Date?) {
+        guard let date else { self = .valid; return }
+        if date < Date() {
+            self = .expired
+        } else if date < Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? date {
+            self = .expiringSoon
+        } else {
+            self = .valid
         }
     }
 
+    var tint: Color {
+        switch self {
+        case .valid: .secondary
+        case .expiringSoon: .orange
+        case .expired: .red
+        }
+    }
+}
+
+/// The fields of a travel document, without any container, so the same rows
+/// serve the pushed editor on iPhone and the in-place disclosure on a wide
+/// layout.
+struct DocumentFields: View {
+    @Bindable var document: TravelDocument
+
+    var body: some View {
+        Picker("Document Type", selection: $document.docType) {
+            Text("Passport", comment: "Document type").tag("Passport")
+            Text("Identity card", comment: "Document type").tag("Identity card")
+            Text("Other", comment: "Document type").tag("Other")
+        }
+        TextField("Document Number", text: $document.docNumber)
+        TextField("Issuing Country (e.g. FRA)", text: Binding(
+            get: { document.issuingCountry ?? "" },
+            set: { document.issuingCountry = $0.isEmpty ? nil : $0.uppercased() }
+        ))
+        OptionalDatePicker("Expiry Date", selection: $document.expiryDate)
+        Toggle("Active", isOn: $document.isActive)
+    }
 }
 
 struct DocumentEditView: View {
@@ -210,19 +331,9 @@ struct DocumentEditView: View {
 
     var body: some View {
         Form {
-            Picker("Document Type", selection: $document.docType) {
-                Text("Passport", comment: "Document type").tag("Passport")
-                Text("Identity card", comment: "Document type").tag("Identity card")
-                Text("Other", comment: "Document type").tag("Other")
-            }
-            TextField("Document Number", text: $document.docNumber)
-            TextField("Issuing Country (e.g. FRA)", text: Binding(
-                get: { document.issuingCountry ?? "" },
-                set: { document.issuingCountry = $0.isEmpty ? nil : $0.uppercased() }
-            ))
-            OptionalDatePicker("Expiry Date", selection: $document.expiryDate)
-            Toggle("Active", isOn: $document.isActive)
+            DocumentFields(document: document)
         }
+        .platformFormStyle()
         .navigationTitle(document.displayLabel)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)

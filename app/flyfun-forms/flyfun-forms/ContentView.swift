@@ -71,6 +71,24 @@ struct CompactContentView: View {
 struct WideContentView: View {
     @State private var selectedSection: AppSection? = .people
 
+    private var emptyDetailTitle: LocalizedStringResource {
+        switch selectedSection {
+        case .people: "No Person Selected"
+        case .aircraft: "No Aircraft Selected"
+        case .flights: "No Flight Selected"
+        default: "Nothing Selected"
+        }
+    }
+
+    private var emptyDetailMessage: LocalizedStringResource {
+        switch selectedSection {
+        case .people: "Pick someone from the list, or add a new person."
+        case .aircraft: "Pick an aircraft from the list, or add a new one."
+        case .flights: "Pick a flight from the list, or add a new one."
+        default: "Pick a section in the sidebar to get started."
+        }
+    }
+
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedSection) {
@@ -97,7 +115,11 @@ struct WideContentView: View {
                 }
             }
         } detail: {
-            ContentUnavailableView("Select an Item", systemImage: "doc.text")
+            ContentUnavailableView {
+                Label(String(localized: emptyDetailTitle), systemImage: selectedSection?.icon ?? "doc.text")
+            } description: {
+                Text(emptyDetailMessage)
+            }
         }
     }
 }
@@ -236,6 +258,9 @@ struct SettingsView: View {
                 }
             }
         }
+        .platformFormStyle()
+        .frame(maxWidth: FormLayout.columnMaxWidth, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .navigationTitle("Settings")
         .confirmationDialog(
             "Delete Account",
