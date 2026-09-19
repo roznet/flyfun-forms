@@ -97,4 +97,17 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+}
+
+// Export the schema so migrations have a diffable baseline. The database holds
+// hand-typed passport details and, unlike iOS, has no CloudKit copy behind it -
+// a migration going wrong is unrecoverable, so the schema is tracked in git.
+ksp {
+    arg("room.schemaLocation", layout.projectDirectory.dir("schemas").asFile.path)
 }
