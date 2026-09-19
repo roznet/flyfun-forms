@@ -166,12 +166,11 @@ struct FlightEditView: View {
 
     // MARK: - Section selector (compact only)
 
-    /// Pills in document order, "All" first. Form sections appear only when
-    /// `formSections` will actually render them, so a pill can never select a
-    /// section that turns out to be empty.
+    /// Pills in document order. "All" is not here — the bar pins it. Form
+    /// sections appear only when `formSections` will actually render them, so a
+    /// pill can never select a section that turns out to be empty.
     private var navSections: [FlightSection] {
         var sections: [FlightSection] = [
-            FlightSection(FlightSectionNavBar.allSectionID, String(localized: "All")),
             FlightSection("route", String(localized: "Route")),
             FlightSection("schedule", String(localized: "Schedule")),
             FlightSection("details", String(localized: "Details")),
@@ -218,11 +217,14 @@ struct FlightEditView: View {
     }
 
     private func select(_ id: String) {
+        // Tapping the section you are already in is the second way back to the
+        // full list, so the pinned "All" is never the only route.
+        let backToAll = id == FlightSectionNavBar.allSectionID || id == effectiveSelection
         // Showing a lone collapsed DisclosureGroup would be a title and nothing
         // else, so a section opens when it is picked.
-        expandSection(id)
+        if !backToAll { expandSection(id) }
         withAnimation(.easeInOut(duration: 0.2)) {
-            selectedSection = (id == FlightSectionNavBar.allSectionID) ? nil : id
+            selectedSection = backToAll ? nil : id
         }
     }
 
