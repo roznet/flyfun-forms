@@ -9,6 +9,7 @@ import aero.flyfun.forms.data.FlyFunDatabase
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.RoomFlightRepository
+import aero.flyfun.forms.data.DataTransfer
 import aero.flyfun.forms.data.RoomPeopleRepository
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.ui.aircraft.AircraftEditScreen
@@ -20,6 +21,8 @@ import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.ui.people.PersonEditScreen
+import aero.flyfun.forms.ui.settings.DataTransferViewModel
+import aero.flyfun.forms.ui.settings.SettingsScreen
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AirplanemodeActive
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +78,8 @@ private class Factory(
     private val flights: FlightRepository,
     private val api: ApiClient,
     private val cacheDir: File,
+    private val transfer: DataTransfer,
+    private val appVersion: String,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
@@ -81,6 +87,8 @@ private class Factory(
         modelClass.isAssignableFrom(AircraftViewModel::class.java) -> AircraftViewModel(flights) as T
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
             FlightsViewModel(flights, people, api, cacheDir) as T
+        modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
+            DataTransferViewModel(transfer, cacheDir, appVersion) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
     }
 }
@@ -89,6 +97,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     FLIGHTS("flights", "Flights", Icons.Default.Flight),
     PEOPLE("people", "People", Icons.Default.People),
     AIRCRAFT("aircraft", "Aircraft", Icons.Default.AirplanemodeActive),
+    SETTINGS("settings", "Settings", Icons.Default.Settings),
 }
 
 @Composable
@@ -103,7 +112,16 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
         )
     }
     val factory = remember {
-        Factory(repositories.first, repositories.second, api, context.cacheDir)
+        Factory(
+            people = repositories.first,
+            flights = repositories.second,
+            api = api,
+            cacheDir = context.cacheDir,
+            transfer = DataTransfer(repositories.third),
+            appVersion = runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+            }.getOrDefault(""),
+        )
     }
     var signedIn by remember { mutableStateOf(tokens.isSignedIn) }
 
@@ -152,6 +170,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             flightRoutes(navController, factory, context)
             peopleRoutes(navController, factory)
             aircraftRoutes(navController, factory)
+            settingsRoute(factory, context, tokens, auth) { signedIn = false }
         }
     }
 }
@@ -333,4 +352,49 @@ private fun shareFile(context: Context, file: File) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, "Share ${file.name}"))
+}
+
+
+private fun androidx.navigation.NavGraphBuilder.settingsRoute(
+    factory: ViewModelProvider.Factory,
+    context: Context,
+    tokens: TokenStore,
+    auth: AuthService,
+    onSignedOut: () -> Unit,
+) {
+    composable(Tab.SETTINGS.route) {
+        val vm: DataTransferViewModel = viewModel(factory = factory)
+        val state by vm.state.collectAsState()
+        val scope = rememberCoroutineScope()
+
+        // OpenDocument rather than GetContent: this reads one file the user
+        // chose, with no storage permission and no access to anything else.
+        val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            uri ?: return@rememberLauncherForActivityResult
+            scope.launch {
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null) vm.previewImport(bytes)
+            }
+        }
+
+        SettingsScreen(
+            state = state,
+            signedIn = tokens.isSignedIn,
+            onExportEncrypted = { vm.exportEncrypted() },
+            onExportPlain = { vm.exportPlain() },
+            onPickFile = { picker.launch(arrayOf("*/*")) },
+            onSubmitPassword = { password ->
+                val current = state
+                if (current is aero.flyfun.forms.ui.settings.TransferState.NeedsPassword) {
+                    vm.previewImport(current.bytes, password)
+                }
+            },
+            onConfirmImport = { vm.confirmImport() },
+            onShare = { shareFile(context, it) },
+            onSignOut = { scope.launch { auth.signOut(); onSignedOut() } },
+            onDismiss = { vm.reset() },
+        )
+    }
 }

@@ -33,6 +33,18 @@ interface PersonDao {
     @Query("SELECT * FROM person WHERE deletedAt IS NULL AND isUsualCrew = 1 ORDER BY lastName COLLATE NOCASE")
     suspend fun usualCrew(): List<PersonEntity>
 
+    /** Live rows only, read once rather than observed. */
+    @Query("SELECT * FROM person WHERE deletedAt IS NULL")
+    suspend fun observeAllOnce(): List<PersonEntity>
+
+    /**
+     * Everything, tombstones included. Export needs the tombstones: without
+     * them a deletion made on this device never reaches the other one, and the
+     * record quietly comes back.
+     */
+    @Query("SELECT * FROM person")
+    suspend fun allIncludingDeleted(): List<PersonEntity>
+
     @Upsert
     suspend fun upsert(person: PersonEntity)
 
@@ -61,6 +73,9 @@ interface TravelDocumentDao {
 
     @Query("UPDATE travel_document SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("SELECT * FROM travel_document")
+    suspend fun allIncludingDeleted(): List<TravelDocumentEntity>
 }
 
 @Dao
@@ -84,6 +99,9 @@ interface AircraftDao {
 
     @Query("UPDATE aircraft SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("SELECT * FROM aircraft")
+    suspend fun allIncludingDeleted(): List<AircraftEntity>
 }
 
 @Dao
@@ -100,6 +118,9 @@ interface TripDao {
 
     @Query("UPDATE trip SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("SELECT * FROM trip")
+    suspend fun allIncludingDeleted(): List<TripEntity>
 }
 
 @Dao
@@ -149,6 +170,12 @@ interface FlightDao {
 
     @Query("UPDATE flight SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("SELECT * FROM flight")
+    suspend fun allIncludingDeleted(): List<FlightEntity>
+
+    @Query("SELECT * FROM flight_person")
+    suspend fun allMemberships(): List<FlightPersonCrossRef>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addPerson(ref: FlightPersonCrossRef)
