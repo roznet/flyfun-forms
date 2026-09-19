@@ -25,3 +25,10 @@ xcuserdata/
 .claude/settings.local.json
 .claude/worktrees
 .claude/projects
+
+# Android
+.gradle/
+local.properties
+.idea/
+*.iml
+.cxx/
