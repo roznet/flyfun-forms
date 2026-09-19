@@ -26,6 +26,7 @@ app/flyfun-forms/flyfun-forms/
 │   ├── AircraftEditView.swift
 │   ├── FlightsListView.swift
 │   ├── FlightEditView.swift      # Flight details + form generation via share/email
+│   ├── FlightSectionNav.swift    # Compact-width pill bar selecting one FlightEditView section
 │   ├── WebFormView.swift         # Official web form (book-out, PPR…) in a web view, prefilled
 │   ├── NewFlightFlow.swift       # Two-step new flight creation (route → people)
 │   ├── FlightDateTimeField.swift # Date/time/timezone entry for one end of a flight
@@ -241,6 +242,7 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - Localized email text with language preference (local/English/both): **complete**
 - NOTAM notification display in route section: **complete**
 - Collapsible flight detail sections (schedule, details, crew, passengers): **complete**
+- Compact section selector bar on the flight editor (focus one section, "All" to return): **complete**
 - Next Leg / Return Flight / Duplicate with shared property copying: **complete**
 - Past/upcoming flight split with collapsible past section: **complete**
 - Searchable responsible person picker with contact auto-fill: **complete**
