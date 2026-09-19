@@ -184,11 +184,15 @@ fun FlightEditScreen(
                     label = { Text("To (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f))
             }
 
-            Text(
-                "Departs ${DAY.format(flight.departureInstant)} at ${HHMM.format(flight.departureInstant)}Z · " +
-                    "arrives ${DAY.format(flight.arrivalInstant)} at ${HHMM.format(flight.arrivalInstant)}Z",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            ScheduleField("Departure", flight.departureInstant) { onSave(flight.copy(departureInstant = it)) }
+            ScheduleField("Arrival", flight.arrivalInstant) { onSave(flight.copy(arrivalInstant = it)) }
+            if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
+                Text(
+                    "Arrival is before departure.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             Text("Aircraft", style = MaterialTheme.typography.titleMedium)
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
