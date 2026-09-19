@@ -27,9 +27,11 @@ struct FlightSection: Identifiable, Equatable {
 /// Selecting instead of scrolling removes the whole class of problem: the pill
 /// *is* the state, so there is nothing to keep in sync and nothing to measure.
 struct FlightSectionNavBar: View {
-    /// Shows every section. First pill, and the default.
+    /// Shows every section, and the default.
     static let allSectionID = "all"
 
+    /// Section pills, in document order. "All" is not among them — it is
+    /// pinned, see below.
     let sections: [FlightSection]
     let selected: String
     let onSelect: (String) -> Void
@@ -38,22 +40,32 @@ struct FlightSectionNavBar: View {
     @State private var pillPosition = ScrollPosition(idType: String.self)
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(sections) { section in
-                    pill(section)
+        HStack(spacing: 8) {
+            // "All" sits OUTSIDE the scroller. Focusing a section late in the
+            // list used to scroll the bar with it, leaving the way back several
+            // swipes to the left; pinned, it is always one tap away.
+            pill(FlightSection(Self.allSectionID, String(localized: "All")))
+
+            Divider().frame(height: 18)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(sections) { section in
+                        pill(section)
+                    }
+                }
+                .padding(.trailing, 16)
+                .scrollTargetLayout()
+            }
+            .scrollPosition($pillPosition)
+            .onChange(of: selected) { _, newValue in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    pillPosition.scrollTo(id: newValue, anchor: .center)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .scrollTargetLayout()
         }
-        .scrollPosition($pillPosition)
-        .onChange(of: selected) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                pillPosition.scrollTo(id: newValue, anchor: .center)
-            }
-        }
+        .padding(.leading, 16)
+        .padding(.vertical, 6)
         .background(.regularMaterial)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.secondary.opacity(0.3)).frame(height: 0.5)
