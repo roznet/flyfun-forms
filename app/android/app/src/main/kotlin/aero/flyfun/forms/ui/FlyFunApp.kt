@@ -20,6 +20,7 @@ import aero.flyfun.forms.ui.flights.FlightListScreen
 import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeopleViewModel
+import aero.flyfun.forms.scan.ScanScreen
 import aero.flyfun.forms.ui.people.PersonEditScreen
 import aero.flyfun.forms.ui.settings.DataTransferViewModel
 import aero.flyfun.forms.ui.settings.SettingsScreen
@@ -261,6 +262,30 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
         )
     }
     composable(
+        "person/{personId}/scan",
+        arguments = listOf(navArgument("personId") { type = NavType.StringType }),
+    ) { entry ->
+        val personId = entry.arguments?.getString("personId").orEmpty()
+        val vm: PeopleViewModel = viewModel(factory = factory)
+        ScanScreen(
+            onScanned = { result ->
+                // The scan fills the document; the person's own name is left
+                // alone, because the pilot may have spelled it deliberately and
+                // an MRZ is transliterated and upper-cased.
+                vm.addDocument(
+                    personId = personId,
+                    docType = if (result.format == aero.flyfun.forms.logic.MRZFormat.TD1) "Identity card" else "Passport",
+                    docNumber = result.passportNumber,
+                    issuingCountry = result.issuingCountry,
+                    expiry = result.expiryDate,
+                )
+                nav.popBackStack()
+            },
+            onBack = { nav.popBackStack() },
+        )
+    }
+
+    composable(
         "person/{personId}",
         arguments = listOf(navArgument("personId") { type = NavType.StringType }),
     ) { entry ->
@@ -277,6 +302,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
                 },
                 onDeleteDocument = { id -> vm.deleteDocument(id) },
                 onBack = { nav.popBackStack() },
+                onScan = { nav.navigate("person/$personId/scan") },
             )
         }
     }

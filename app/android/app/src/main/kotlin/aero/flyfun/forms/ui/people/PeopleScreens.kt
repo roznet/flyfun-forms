@@ -107,6 +107,7 @@ fun PersonEditScreen(
     onAddDocument: (String, String, String?, LocalDate?) -> Unit,
     onDeleteDocument: (String) -> Unit,
     onBack: () -> Unit,
+    onScan: (() -> Unit)? = null,
 ) {
     val existing = initial?.person
     var firstName by remember { mutableStateOf(existing?.firstName.orEmpty()) }
@@ -190,6 +191,7 @@ fun PersonEditScreen(
                         onAddDocument(type, number, country, expiry)
                     },
                     onDelete = onDeleteDocument,
+                    onScan = onScan,
                 )
             } else {
                 Text(
@@ -206,6 +208,7 @@ private fun DocumentSection(
     documents: List<TravelDocumentEntity>,
     onAdd: (String, String, String?, LocalDate?) -> Unit,
     onDelete: (String) -> Unit,
+    onScan: (() -> Unit)? = null,
 ) {
     var number by remember { mutableStateOf("") }
     var country by remember { mutableStateOf("") }
@@ -255,13 +258,18 @@ private fun DocumentSection(
                 modifier = Modifier.weight(1f),
             )
         }
-        TextButton(
-            enabled = number.isNotBlank(),
-            onClick = {
-                onAdd("Passport", number.trim(), country.trim().ifBlank { null }, null)
-                number = ""
-                country = ""
-            },
-        ) { Text("Add passport") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(
+                enabled = number.isNotBlank(),
+                onClick = {
+                    onAdd("Passport", number.trim(), country.trim().ifBlank { null }, null)
+                    number = ""
+                    country = ""
+                },
+            ) { Text("Add passport") }
+            if (onScan != null) {
+                TextButton(onClick = onScan) { Text("Scan passport") }
+            }
+        }
     }
 }
