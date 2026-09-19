@@ -35,9 +35,8 @@ struct FlightEditView: View {
     @State private var flightDetailsExpanded = true
     @State private var crewExpanded = true
     @State private var passengersExpanded = true
-    /// Which section the compact nav bar highlights. Position-derived, so
-    /// `switchToFlight` swapping the flight underneath has nothing to reset.
-    @State private var sectionSpy = FlightSectionSpy()
+    /// Which section the compact nav bar is showing. `nil` shows all of them.
+    @State private var selectedSection: String?
 
     /// Formats the API's `departure_date` / `arrival_date`.
     ///
@@ -146,99 +145,87 @@ struct FlightEditView: View {
     // MARK: - Layouts
 
     private var compactLayout: some View {
-        // The nav bar is a sibling pinned above the `Form`, not chrome inside
-        // the scroll layer. That topology is what broke in flyfun-weather (#436
-        // / #437 — a bar above a ScrollView composites zero pixels when a
-        // NavigationSplitView column host is reused), but compact here is a
-        // plain NavigationStack push inside a TabView, which does not reuse a
-        // column host. Verify in the simulator by opening flight A, going back,
-        // then opening flight B before trusting a layout change here.
-        ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-                FlightSectionNavBar(sections: navSections, active: activeSection) { id in
-                    expandSection(id)
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        proxy.scrollTo(id, anchor: .top)
-                    }
-                }
-                Form {
-                    routeSection
-                    scheduleSection
-                    flightDetailsSection
-                    peopleButton
-                    crewSection
-                    passengersSection
-                    formSections
-                    actionsSection
-                }
-                // The form's own top edge, and how far it has scrolled. Both
-                // are container-level modifiers, so unlike a row's geometry
-                // callback they report continuously while the list scrolls —
-                // which is what keeps the anchor positions honest.
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.frame(in: .global).minY
-                } action: { top in
-                    sectionSpy.reportFormTop(top)
-                }
-                .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                    geometry.contentOffset.y
-                } action: { _, offset in
-                    sectionSpy.reportScrollOffset(offset)
-                }
+        VStack(spacing: 0) {
+            FlightSectionNavBar(
+                sections: navSections,
+                selected: effectiveSelection ?? FlightSectionNavBar.allSectionID,
+                onSelect: select
+            )
+            Form {
+                if shows("route") { routeSection }
+                if shows("schedule") { scheduleSection }
+                if shows("details") { flightDetailsSection }
+                if shows("crew") || shows("passengers") { peopleButton }
+                if shows("crew") { crewSection }
+                if shows("passengers") { passengersSection }
+                formSections
+                if shows("actions") { actionsSection }
             }
         }
     }
 
-    // MARK: - Section navigator (compact only)
+    // MARK: - Section selector (compact only)
 
-    /// Pills in document order. Form sections appear only when `formSections`
-    /// will actually render them, so a pill can never point at nothing.
+    /// Pills in document order, "All" first. Form sections appear only when
+    /// `formSections` will actually render them, so a pill can never select a
+    /// section that turns out to be empty.
     private var navSections: [FlightSection] {
         var sections: [FlightSection] = [
+            FlightSection(FlightSectionNavBar.allSectionID, String(localized: "All")),
             FlightSection("route", String(localized: "Route")),
             FlightSection("schedule", String(localized: "Schedule")),
             FlightSection("details", String(localized: "Details")),
             FlightSection("crew", String(localized: "Crew")),
             FlightSection("passengers", String(localized: "Passengers")),
         ]
-        sections += formAnchors.map { FlightSection($0.id, $0.title) }
+        sections += formIDs.map { FlightSection($0.id, $0.title) }
         sections.append(FlightSection("actions", String(localized: "Actions")))
         return sections
     }
 
     /// The form sections `formSections` will render, in the same order.
-    private var formAnchors: [(id: String, title: String)] {
-        var anchors: [(id: String, title: String)] = []
+    private var formIDs: [(id: String, title: String)] {
+        var ids: [(id: String, title: String)] = []
         if !flight.destinationICAO.isEmpty,
            hasForms(airport: flight.destinationICAO, direction: "arrival") {
-            anchors.append((id: formAnchorID(direction: "arrival"),
-                            title: "\(flight.destinationICAO) arr"))
+            ids.append((id: formSectionID(direction: "arrival"),
+                        title: "\(flight.destinationICAO) arr"))
         }
         if !flight.originICAO.isEmpty,
            hasForms(airport: flight.originICAO, direction: "departure") {
-            anchors.append((id: formAnchorID(direction: "departure"),
-                            title: "\(flight.originICAO) dep"))
+            ids.append((id: formSectionID(direction: "departure"),
+                        title: "\(flight.originICAO) dep"))
         }
-        return anchors
+        return ids
     }
 
-    private func formAnchorID(direction: String) -> String { "form-\(direction)" }
+    private func formSectionID(direction: String) -> String { "form-\(direction)" }
 
-    /// Falls back to the first pill while the spy has no answer yet, and when
-    /// its answer names a section this flight does not have (the previous
-    /// flight's arrival forms, say).
-    private var activeSection: String? {
-        guard let active = sectionSpy.active,
-              navSections.contains(where: { $0.id == active })
-        else { return navSections.first?.id }
-        return active
+    /// Falls back to showing everything when the selection names a section this
+    /// flight does not have — `switchToFlight` keeps the same view instance, so
+    /// the previous flight's arrival forms can still be selected.
+    private var effectiveSelection: String? {
+        guard let selectedSection,
+              navSections.contains(where: { $0.id == selectedSection })
+        else { return nil }
+        return selectedSection
     }
 
-    /// Wide layout shows no nav bar, so it does not pay for visibility tracking.
-    private var trackingSections: Bool { sizeClass != .regular }
+    /// Wide layout has no bar, so it always shows every section.
+    private func shows(_ id: String) -> Bool {
+        guard sizeClass != .regular, let selection = effectiveSelection else { return true }
+        return selection == id
+    }
 
-    /// A jump into a collapsed `DisclosureGroup` opens it first — otherwise the
-    /// pill lands on a title with nothing under it.
+    private func select(_ id: String) {
+        // Showing a lone collapsed DisclosureGroup would be a title and nothing
+        // else, so a section opens when it is picked.
+        expandSection(id)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            selectedSection = (id == FlightSectionNavBar.allSectionID) ? nil : id
+        }
+    }
+
     private func expandSection(_ id: String) {
         switch id {
         case "schedule": scheduleExpanded = true
@@ -275,7 +262,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var routeSection: some View {
         Section("Route") {
-            FlightSectionAnchor(id: "route", spy: sectionSpy, tracking: trackingSections)
             Button {
                 showAirportPicker = true
             } label: {
@@ -329,7 +315,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var scheduleSection: some View {
         Section {
-            FlightSectionAnchor(id: "schedule", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
                 FlightDateTimeField(
                     end: .departure,
@@ -350,7 +335,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var flightDetailsSection: some View {
         Section {
-            FlightSectionAnchor(id: "details", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Flight Details", isExpanded: $flightDetailsExpanded) {
                 Picker("Aircraft", selection: $flight.aircraft) {
                     Text("None").tag(nil as Aircraft?)
@@ -414,7 +398,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var crewSection: some View {
         Section {
-            FlightSectionAnchor(id: "crew", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Crew (\(flight.crewList.count))", isExpanded: $crewExpanded) {
                 ForEach(flight.crewList) { person in
                     Text(person.displayName)
@@ -431,7 +414,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var passengersSection: some View {
         Section {
-            FlightSectionAnchor(id: "passengers", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Passengers (\(flight.passengerList.count))", isExpanded: $passengersExpanded) {
                 ForEach(flight.passengerList) { person in
                     Text(person.displayName)
@@ -447,10 +429,10 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var formSections: some View {
-        if !flight.destinationICAO.isEmpty {
+        if !flight.destinationICAO.isEmpty, shows(formSectionID(direction: "arrival")) {
             formSection(airport: flight.destinationICAO, direction: "arrival")
         }
-        if !flight.originICAO.isEmpty {
+        if !flight.originICAO.isEmpty, shows(formSectionID(direction: "departure")) {
             formSection(airport: flight.originICAO, direction: "departure")
         }
     }
@@ -458,7 +440,6 @@ struct FlightEditView: View {
     @ViewBuilder
     private var actionsSection: some View {
         Section("Actions") {
-            FlightSectionAnchor(id: "actions", spy: sectionSpy, tracking: trackingSections)
             Button {
                 createReturnFlight()
             } label: {
@@ -514,9 +495,9 @@ struct FlightEditView: View {
 
     // MARK: - Form Sections
 
-    /// Whether `formSection` will render anything for this side. `formAnchors`
-    /// reads the same predicate, so the nav can never offer a pill for a
-    /// section that is not on screen.
+    /// Whether `formSection` will render anything for this side. `formIDs`
+    /// reads the same predicate, so the bar can never offer a pill for a
+    /// section that turns out to be empty.
     private func hasForms(airport: String, direction: String) -> Bool {
         let allForms = formDetails[airport] ?? []
         return allForms.contains { !$0.isWebForm }
@@ -531,11 +512,6 @@ struct FlightEditView: View {
         let webForms = allForms.filter { $0.isWebForm && ($0.direction ?? direction) == direction }
         if hasForms(airport: airport, direction: direction) {
             Section("\(airport) — \(direction)") {
-                FlightSectionAnchor(
-                    id: formAnchorID(direction: direction),
-                    spy: sectionSpy,
-                    tracking: trackingSections
-                )
                 if let primary = forms.first {
                     formRow(airport: airport, formInfo: primary)
                 }
