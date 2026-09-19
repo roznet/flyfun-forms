@@ -20,10 +20,50 @@
 
 ## 1. Before anything: human-gated prerequisites
 
-Checked 2026-09-19 on this machine:
+**All tooling prerequisites are satisfied as of 2026-09-19. S0 is ready to start.**
 
 | Prerequisite | Status |
 |---|---|
+| JDK 21 (Temurin) | ✓ `21.0.12.1` |
+| Android Studio | ✓ installed via Homebrew cask |
+| Android SDK | ✓ `~/Library/Android/sdk` (6.4 GB) |
+| Platforms | ✓ `android-37.0` (compile/target) + `android-36` (AGP fallback) |
+| Build-Tools | ✓ `36.0.0` |
+| Platform-Tools / adb | ✓ `37.0.1` |
+| `cmdline-tools` | ✓ `latest` — `sdkmanager` is deprecated; the replacement is `android sdk` |
+| System image | ✓ `android-37.0;google_apis;arm64-v8a` |
+| AVD | ✓ `flyfun_pixel10_api37` (Pixel 10, Android 17 "CinnamonBun") — **boot-verified, ~35 s to `sys.boot_completed`** |
+| Physical Android device | Still required from **S13** — emulators are not trustworthy for camera/MRZ or OAuth deep links |
+| Play Console account | Required only at **S16**. One-time $25, ~1–2 days ID verification |
+
+**SDK levels — settled 2026-09-19:**
+
+| Setting | Value | Note |
+|---|---|---|
+| `minSdk` | **33** | [android-app.md §5](./android-app.md) |
+| `compileSdk` / `targetSdk` | **37** | Android 17; Play wants a recent target anyway |
+
+`minSdk` does **not** require its own platform to be installed — only
+`compileSdk` does. There is no need to download the API 33 platform.
+
+**AGP fallback:** API 37 is very new. If the pinned AGP will not accept
+`compileSdk 37`, drop to 36 — the platform is already installed, so this costs
+a one-line change rather than a stalled session.
+
+### Headless emulator recipe
+
+The AVD boots without a GUI, which is what CI and an agent session want:
+
+```sh
+export ANDROID_HOME=~/Library/Android/sdk
+$ANDROID_HOME/emulator/emulator -avd flyfun_pixel10_api37 \
+    -no-window -no-audio -no-snapshot -gpu swiftshader_indirect &
+$ANDROID_HOME/platform-tools/adb wait-for-device
+# then poll: adb shell getprop sys.boot_completed  -> 1
+$ANDROID_HOME/platform-tools/adb emu kill          # shut down
+```
+
+---|---|
 | JDK 21 (Temurin) | **Installed** ✓ |
 | Android Studio | **Installed** ✓ (cask, 2026-09-19) |
 | Android SDK | **Installed** ✓ — `~/Library/Android/sdk`, platform android-37.0, build-tools 36.0.0, adb 37.0.1 |
