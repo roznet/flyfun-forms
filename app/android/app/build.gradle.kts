@@ -73,6 +73,10 @@ androidComponents {
     }
 }
 
+tasks.withType<Test>().configureEach {
+    testLogging { events("passed", "failed", "skipped") }
+}
+
 dependencies {
     implementation(project(":core-logic"))
 
@@ -94,6 +98,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.androidx.browser)
+    implementation(libs.androidx.security.crypto)
     implementation(libs.retrofit.serialization)
     implementation(libs.kotlinx.serialization.json)
 
