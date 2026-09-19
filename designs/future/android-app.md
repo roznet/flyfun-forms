@@ -275,7 +275,7 @@ suspend fun peopleOn(flightId: String, role: String): List<PersonEntity>
 | OCR | ML Kit Text Recognition | Vision equivalent |
 | Camera | CameraX | AVFoundation equivalent |
 | Crypto | Tink | Cross-platform consistency with iOS CryptoKit |
-| Min SDK | **GATE** — decide before Phase 1 | Compose + CameraX are comfortable at API 26+; higher reduces device-fragmentation testing |
+| Min SDK | **33** (Android 13) — decided 2026-09-19 | Lowest floor that gives per-app language preferences natively, which matters because the app ships en/fr/de/es. Also the photo picker and granular media permissions. API 26 would only buy native `java.time`; 34/35 buy little more for this app. `targetSdk` tracks the latest platform |
 
 **Structure the ported logic (MRZ, resolver, CSV, merge) as a pure Kotlin module
 with no Android dependencies.** That keeps Kotlin Multiplatform available later
@@ -360,7 +360,7 @@ on the emulator alone.
 |---|---|---|
 | **G1** | Who is the Android user — new pilots, or existing iOS users wanting a second device? | Everything. If the latter, Option A cannot serve them and the economics change |
 | **G2** | Sync model (§3) | Phase 1 schema |
-| **G3** | Min SDK (§5) | Phase 1 scaffolding |
+| ~~G3~~ | ~~Min SDK~~ — **resolved 2026-09-19: minSdk 33** (§5) | — |
 | **G4** | FPL parsing: Kotlin port or server endpoint (§4) | Phase 3 |
 | **G5** | Is the permanent two-release-train cost (§1) acceptable? | Go/no-go |
 

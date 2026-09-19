@@ -25,19 +25,21 @@ Checked 2026-09-19 on this machine:
 | Prerequisite | Status |
 |---|---|
 | JDK 21 (Temurin) | **Installed** ✓ |
-| Android SDK | **Missing** ✗ |
-| Android Studio | **Missing** ✗ |
+| Android Studio | **Installed** ✓ (cask, 2026-09-19) |
+| Android SDK | **Missing** ✗ — the first-run wizard has not been completed; the cask installs only the IDE |
+| An AVD (emulator image) | **Missing** ✗ — created from Device Manager after the wizard |
 | Gradle | Not needed — the wrapper handles it |
 | Physical Android device | **Required from S13**; emulator is not trustworthy for camera/MRZ or OAuth deep links |
 | Play Console account | Required only at S16. One-time $25, ~1–2 days ID verification |
 
-**S0 is blocked until Android Studio is installed** (it bundles the SDK and an
-emulator image). Nothing else in this plan can start first — every later session
-needs a working `./gradlew`.
+**S0 is blocked until the Android Studio first-run wizard has been completed**
+and `~/Library/Android/sdk` exists. Installing the cask is not sufficient — it
+ships the IDE only, and the wizard is what downloads the SDK. Nothing else in
+this plan can start first; every later session needs a working `./gradlew`.
 
-Also decide before S0: **minimum SDK** ([android-app.md §5](./android-app.md)).
-API 26 is comfortable for Compose and CameraX; higher cuts device-fragmentation
-testing. This is a one-line decision that is annoying to change later.
+**Minimum SDK: 33** — decided 2026-09-19, see
+[android-app.md §5](./android-app.md). `targetSdk` tracks the latest platform
+the SDK Manager offers, which Play requires for new submissions anyway.
 
 ---
 
@@ -373,7 +375,6 @@ the other fifteen, on the real stack rather than an analogy.
 | Gate | Question | Stops |
 |---|---|---|
 | **G1** | Who is the Android user — new pilots, or existing iOS users wanting a second device? | If the latter, local-only cannot serve them and S14 carries far more weight than planned |
-| **G3** | Minimum SDK | S0 |
 | **G4** | FPL parsing: Kotlin port or server endpoint | S12 |
 | **G5** | Is a permanent second release train acceptable? | Everything |
 
