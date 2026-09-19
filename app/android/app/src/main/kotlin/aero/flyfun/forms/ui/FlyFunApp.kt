@@ -21,6 +21,7 @@ import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
+import aero.flyfun.forms.ui.webform.WebFormScreen
 import aero.flyfun.forms.ui.people.PersonEditScreen
 import aero.flyfun.forms.ui.settings.DataTransferViewModel
 import aero.flyfun.forms.ui.settings.SettingsScreen
@@ -221,6 +222,12 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.load(flightId) }
 
+        // A fetched fill plan takes over the screen until it is dismissed.
+        (generate as? aero.flyfun.forms.ui.flights.GenerateState.WebPlan)?.let { web ->
+            WebFormScreen(plan = web.plan, onBack = { vm.clearGenerateState() })
+            return@composable
+        }
+
         FlightEditScreen(
             detail = detail,
             aircraftOptions = aircraft,
@@ -231,6 +238,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             onSetCrew = { vm.setCrew(flightId, it) },
             onSetPassengers = { vm.setPassengers(flightId, it) },
             onGenerate = { airport, form -> vm.generateForm(airport, form) },
+            onOpenWebForm = { airport, form -> vm.prefillWebForm(airport, form) },
             onShare = { shareFile(context, it) },
             onDismissGenerate = { vm.clearGenerateState() },
             onBack = { nav.popBackStack() },

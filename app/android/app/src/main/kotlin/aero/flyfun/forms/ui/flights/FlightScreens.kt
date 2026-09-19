@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -133,6 +132,7 @@ fun FlightEditScreen(
     onSetCrew: (List<String>) -> Unit,
     onSetPassengers: (List<String>) -> Unit,
     onGenerate: (String, FormInfo) -> Unit,
+    onOpenWebForm: (String, FormInfo) -> Unit,
     onShare: (java.io.File) -> Unit,
     onDismissGenerate: () -> Unit,
     onBack: () -> Unit,
@@ -215,7 +215,9 @@ fun FlightEditScreen(
                 label = { Text("Observations") }, modifier = Modifier.fillMaxWidth())
 
             Text("Forms", style = MaterialTheme.typography.titleMedium)
-            airportForms.forEach { airport -> AirportFormsCard(airport, generateState, onGenerate) }
+            airportForms.forEach { airport ->
+                AirportFormsCard(airport, generateState, onGenerate, onOpenWebForm)
+            }
             if (airportForms.isEmpty()) {
                 Text(
                     "Save the route to see which forms these airports need.",
@@ -259,6 +261,7 @@ private fun AirportFormsCard(
     airport: AirportForms,
     state: GenerateState,
     onGenerate: (String, FormInfo) -> Unit,
+    onOpenWebForm: (String, FormInfo) -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -285,9 +288,12 @@ private fun AirportFormsCard(
                             }
                         }
                         if (form.isWebForm) {
-                            // Web forms are prefilled in a browser via /prefill,
-                            // not generated as a file. Not yet built.
-                            AssistChip(onClick = {}, enabled = false, label = { Text("Web") })
+                            // The airport's own page: prefilled via /prefill and
+                            // submitted by the pilot, never by the app.
+                            OutlinedButton(
+                                enabled = state !is GenerateState.Working,
+                                onClick = { onOpenWebForm(airport.icao, form) },
+                            ) { Text("Open") }
                         } else {
                             OutlinedButton(
                                 enabled = state !is GenerateState.Working,

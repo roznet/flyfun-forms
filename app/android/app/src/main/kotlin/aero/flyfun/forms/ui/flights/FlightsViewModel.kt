@@ -7,6 +7,7 @@ import aero.flyfun.forms.data.FormRequestBuilder
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.net.ApiClient
+import aero.flyfun.forms.net.FillPlan
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.ServerValidationError
 import androidx.lifecycle.ViewModel
@@ -42,6 +43,9 @@ sealed interface GenerateState {
     data class Ready(val file: File, val label: String) : GenerateState
     data class Invalid(val errors: List<ServerValidationError>) : GenerateState
     data class Failed(val message: String) : GenerateState
+
+    /** A web form's prefill plan, ready to open in a WebView. */
+    data class WebPlan(val plan: FillPlan) : GenerateState
 }
 
 class FlightsViewModel(
@@ -171,6 +175,38 @@ class FlightsViewModel(
                     else -> GenerateState.Failed("Server returned ${response.code()}.")
                 }
             },
+            onFailure = { GenerateState.Failed(it.friendlyMessage()) },
+        )
+    }
+
+    /**
+     * Web forms are the airport's own page, so the server returns a plan of
+     * values to type into it rather than a file. Same request body as
+     * /generate - only the endpoint and what comes back differ.
+     */
+    fun prefillWebForm(airport: String, form: FormInfo) = viewModelScope.launch {
+        val current = _detail.value ?: return@launch
+        val aircraft = current.aircraft
+        if (aircraft == null) {
+            _generate.value = GenerateState.Failed("Pick an aircraft for this flight first.")
+            return@launch
+        }
+        _generate.value = GenerateState.Working(form.id)
+
+        val documents = (current.crew + current.passengers).associate { person ->
+            person.id to people.resolveDocument(person.id, airport)
+        }
+        val request = FormRequestBuilder.build(
+            airport = airport,
+            formId = form.id,
+            flight = current.flight,
+            aircraft = aircraft,
+            crew = current.crew,
+            passengers = current.passengers,
+            documentFor = { documents[it.id] },
+        )
+        _generate.value = runCatching { api.forms.prefill(request) }.fold(
+            onSuccess = { GenerateState.WebPlan(it) },
             onFailure = { GenerateState.Failed(it.friendlyMessage()) },
         )
     }
