@@ -171,7 +171,20 @@ struct FlightEditView: View {
                     formSections
                     actionsSection
                 }
-                .coordinateSpace(.named(FlightSectionSpy.coordinateSpace))
+                // The form's own top edge, and how far it has scrolled. Both
+                // are container-level modifiers, so unlike a row's geometry
+                // callback they report continuously while the list scrolls —
+                // which is what keeps the anchor positions honest.
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.frame(in: .global).minY
+                } action: { top in
+                    sectionSpy.reportFormTop(top)
+                }
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.contentOffset.y
+                } action: { _, offset in
+                    sectionSpy.reportScrollOffset(offset)
+                }
             }
         }
     }
@@ -261,7 +274,8 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var routeSection: some View {
-        Section {
+        Section("Route") {
+            FlightSectionAnchor(id: "route", spy: sectionSpy, tracking: trackingSections)
             Button {
                 showAirportPicker = true
             } label: {
@@ -279,9 +293,6 @@ struct FlightEditView: View {
 
             notificationRow(icao: flight.originICAO, label: "Departure")
             notificationRow(icao: flight.destinationICAO, label: "Arrival")
-        } header: {
-            Text("Route")
-                .flightSectionAnchor("route", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -318,6 +329,7 @@ struct FlightEditView: View {
     @ViewBuilder
     private var scheduleSection: some View {
         Section {
+            FlightSectionAnchor(id: "schedule", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Schedule", isExpanded: $scheduleExpanded) {
                 FlightDateTimeField(
                     end: .departure,
@@ -332,13 +344,13 @@ struct FlightEditView: View {
                     zoneICAOs: [flight.originICAO, flight.destinationICAO]
                 )
             }
-            .flightSectionAnchor("schedule", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
     @ViewBuilder
     private var flightDetailsSection: some View {
         Section {
+            FlightSectionAnchor(id: "details", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Flight Details", isExpanded: $flightDetailsExpanded) {
                 Picker("Aircraft", selection: $flight.aircraft) {
                     Text("None").tag(nil as Aircraft?)
@@ -383,7 +395,6 @@ struct FlightEditView: View {
                 ), axis: .vertical)
                 .lineLimit(2...4)
             }
-            .flightSectionAnchor("details", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -403,6 +414,7 @@ struct FlightEditView: View {
     @ViewBuilder
     private var crewSection: some View {
         Section {
+            FlightSectionAnchor(id: "crew", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Crew (\(flight.crewList.count))", isExpanded: $crewExpanded) {
                 ForEach(flight.crewList) { person in
                     Text(person.displayName)
@@ -413,13 +425,13 @@ struct FlightEditView: View {
                         }
                 }
             }
-            .flightSectionAnchor("crew", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
     @ViewBuilder
     private var passengersSection: some View {
         Section {
+            FlightSectionAnchor(id: "passengers", spy: sectionSpy, tracking: trackingSections)
             DisclosureGroup("Passengers (\(flight.passengerList.count))", isExpanded: $passengersExpanded) {
                 ForEach(flight.passengerList) { person in
                     Text(person.displayName)
@@ -430,7 +442,6 @@ struct FlightEditView: View {
                         }
                 }
             }
-            .flightSectionAnchor("passengers", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -446,7 +457,8 @@ struct FlightEditView: View {
 
     @ViewBuilder
     private var actionsSection: some View {
-        Section {
+        Section("Actions") {
+            FlightSectionAnchor(id: "actions", spy: sectionSpy, tracking: trackingSections)
             Button {
                 createReturnFlight()
             } label: {
@@ -462,9 +474,6 @@ struct FlightEditView: View {
             } label: {
                 Label("Duplicate Flight", systemImage: "doc.on.doc")
             }
-        } header: {
-            Text("Actions")
-                .flightSectionAnchor("actions", spy: sectionSpy, tracking: trackingSections)
         }
     }
 
@@ -521,7 +530,12 @@ struct FlightEditView: View {
         // Official web forms (book-out, PPR…) only on the side they cover
         let webForms = allForms.filter { $0.isWebForm && ($0.direction ?? direction) == direction }
         if hasForms(airport: airport, direction: direction) {
-            Section {
+            Section("\(airport) — \(direction)") {
+                FlightSectionAnchor(
+                    id: formAnchorID(direction: direction),
+                    spy: sectionSpy,
+                    tracking: trackingSections
+                )
                 if let primary = forms.first {
                     formRow(airport: airport, formInfo: primary)
                 }
@@ -537,13 +551,6 @@ struct FlightEditView: View {
                         }
                     }
                 }
-            } header: {
-                Text("\(airport) — \(direction)")
-                    .flightSectionAnchor(
-                        formAnchorID(direction: direction),
-                        spy: sectionSpy,
-                        tracking: trackingSections
-                    )
             }
         }
     }

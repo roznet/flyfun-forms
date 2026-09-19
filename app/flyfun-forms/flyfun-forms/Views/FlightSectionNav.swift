@@ -11,59 +11,119 @@ struct FlightSection: Identifiable, Equatable {
     }
 }
 
-/// Tracks which flight section the user is looking at.
+/// Tracks which flight section is at the top of the screen.
 ///
-/// Every section header reports its offset from the top of the `Form` whenever
-/// its frame moves, and the active section is the deepest header that has
-/// reached the top edge. This is *position* truth rather than *event* truth,
-/// which matters twice:
+/// Each section's anchor row reports where its top edge sits on screen, and the
+/// active section is the deepest anchor that has reached the top of the form.
+/// Positions rather than visibility events, so `switchToFlight` swapping the
+/// flight under the same view has nothing to reset, and so scrolling inside a
+/// section taller than the screen keeps the highlight on that section instead
+/// of jumping ahead to the next header creeping in from the bottom.
 ///
-/// - `switchToFlight` swaps the flight under the same `FlightEditView`
-///   instance, so a set of "these ids were seen" would carry over from the old
-///   flight with no event to correct it. Offsets carry over too, but they stay
-///   correct, because they describe where the headers actually are.
-/// - While scrolling inside a section taller than the screen, no header is on
-///   screen at all. A "topmost visible header" rule would jump the highlight to
-///   the *next* section as its header crept in from the bottom; holding the
-///   last header that passed the top keeps it on the section being read.
-///
-/// Only `active` is observable. The offsets churn on every scroll frame and
-/// must not re-evaluate the enclosing view.
+/// Only `active` is observable. Positions churn on every scroll frame and must
+/// not re-evaluate the enclosing view.
 @Observable
 final class FlightSectionSpy {
-    /// Coordinate space the offsets are measured in — the `Form` itself, so 0
-    /// is its top edge and a header scrolled past it reads negative.
-    static let coordinateSpace = "flightSections"
-
-    /// A header counts as passed once its top is within this many points of the
-    /// form's top edge, so the pill flips as the title arrives rather than only
-    /// after it has scrolled away.
-    private static let passedThreshold: CGFloat = 24
+    /// How far below the form's top edge an anchor may sit and still count as
+    /// the current section. Roughly one section-header height, so the pill
+    /// flips as the heading arrives at the top rather than after it has gone.
+    private static let passedThreshold: CGFloat = 40
 
     private(set) var active: String?
 
-    @ObservationIgnored private var offsets: [String: CGFloat] = [:]
+    /// Each anchor's top edge in screen space, paired with the scroll offset it
+    /// was measured at.
+    ///
+    /// Screen space, not a named ancestor space: `List` hosts its rows in
+    /// separate contexts, and a `.named(_:)` space declared on the `Form` does
+    /// not resolve from inside them — every row then reports the same number
+    /// and the "deepest" anchor becomes whichever one the dictionary happens to
+    /// yield.
+    ///
+    /// The paired offset is what makes this robust to a row's geometry callback
+    /// not re-firing while the list scrolls: scrolling translates rows 1:1 with
+    /// the content offset, so a measurement taken at a known offset stays exact
+    /// once corrected by how far we have scrolled since. The scroll offset
+    /// itself comes from a modifier on the scroll container, which does report
+    /// continuously.
+    @ObservationIgnored private var tops: [String: (top: CGFloat, offset: CGFloat)] = [:]
+    @ObservationIgnored private var formTop: CGFloat = 0
+    @ObservationIgnored private var scrollOffset: CGFloat = 0
 
-    /// `offset == nil` drops a header the lazy `List` has recycled.
-    func report(_ id: String, offset: CGFloat?) {
-        if let offset {
-            offsets[id] = offset
+    func reportFormTop(_ y: CGFloat) {
+        formTop = y
+        recompute()
+    }
+
+    func reportScrollOffset(_ y: CGFloat) {
+        scrollOffset = y
+        recompute()
+    }
+
+    /// `top == nil` drops an anchor the lazy `List` has recycled.
+    func report(_ id: String, top: CGFloat?) {
+        if let top {
+            tops[id] = (top: top, offset: scrollOffset)
         } else {
-            offsets.removeValue(forKey: id)
+            tops.removeValue(forKey: id)
         }
+        recompute()
+    }
 
+    /// Where an anchor sits now, correcting its measurement for scrolling since.
+    private func currentTop(_ entry: (top: CGFloat, offset: CGFloat)) -> CGFloat {
+        entry.top - (scrollOffset - entry.offset)
+    }
+
+    private func recompute() {
+        let passed = tops.filter { currentTop($0.value) - formTop <= Self.passedThreshold }
         // Closest to the top edge from above wins. When nothing qualifies — we
-        // are above the first header, or deep inside a long section whose
-        // header has been recycled — the previous answer still holds.
-        let passed = offsets.filter { $0.value <= Self.passedThreshold }
-        guard let deepest = passed.max(by: { $0.value < $1.value })?.key else { return }
+        // are above the first anchor, or deep inside a long section whose
+        // anchor has been recycled — the previous answer still holds.
+        guard let deepest = passed.max(by: { currentTop($0.value) < currentTop($1.value) })?.key
+        else { return }
         if deepest != active { active = deepest }
+    }
+}
+
+/// Marks where a section begins, as a zero-height row at the top of it.
+///
+/// It has to be a row. In a `List`, section headers are not addressable by
+/// `ScrollViewProxy.scrollTo` and do not take part in row geometry, so
+/// anchoring on them leaves taps dead and the highlight stuck — which is
+/// exactly what the first cut of this did.
+///
+/// `tracking` is false in layouts with no nav bar. The `.id` still applies
+/// unconditionally: dropping it would change the row's identity by size class.
+struct FlightSectionAnchor: View {
+    let id: String
+    let spy: FlightSectionSpy
+    var tracking: Bool = true
+
+    var body: some View {
+        Color.clear
+            .frame(height: 0)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityHidden(true)
+            .id(id)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.frame(in: .global).minY
+            } action: { top in
+                guard tracking else { return }
+                spy.report(id, top: top)
+            }
+            .onDisappear {
+                guard tracking else { return }
+                spy.report(id, top: nil)
+            }
     }
 }
 
 /// Horizontally-scrollable pill bar that jumps between the sections of a long
 /// `Form`, mirroring the flyfun-weather briefing's scroll-spy rail: it
-/// highlights whichever section is nearest the top and scrolls to one on tap.
+/// highlights whichever section is at the top and scrolls to one on tap.
 ///
 /// Compact width only. The wide layout already splits the flight across two
 /// columns, so it has nothing to jump between.
@@ -126,40 +186,5 @@ struct FlightSectionNavBar: View {
         .buttonStyle(.plain)
         .id(pillID(section.id))
         .accessibilityIdentifier("flightSectionPill_\(section.id)")
-    }
-}
-
-extension View {
-    /// Marks a `Form` section header as a jump target for `FlightSectionNavBar`.
-    ///
-    /// `.id` is what `ScrollViewProxy.scrollTo` addresses — it works for rows a
-    /// lazy `List` has not materialised yet, which is the whole point.
-    /// Anchoring on the header (rather than the first row) means a jump lands
-    /// with the section title at the top, so you can see where you arrived.
-    ///
-    /// The geometry report is what keeps the active pill honest. It is measured
-    /// against the `Form`'s own named coordinate space rather than
-    /// `.scrollView`, so it does not depend on that space resolving inside a
-    /// `List`, and `onDisappear` drops headers the `List` recycles.
-    ///
-    /// `tracking` is false in layouts that show no nav bar: the `.id` still
-    /// applies unconditionally, because dropping it would change the row's
-    /// SwiftUI identity between size classes.
-    func flightSectionAnchor(
-        _ id: String,
-        spy: FlightSectionSpy,
-        tracking: Bool = true
-    ) -> some View {
-        self.id(id)
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.frame(in: .named(FlightSectionSpy.coordinateSpace)).minY
-            } action: { offset in
-                guard tracking else { return }
-                spy.report(id, offset: offset)
-            }
-            .onDisappear {
-                guard tracking else { return }
-                spy.report(id, offset: nil)
-            }
     }
 }
