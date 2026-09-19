@@ -50,6 +50,26 @@
 `compileSdk 37`, drop to 36 — the platform is already installed, so this costs
 a one-line change rather than a stalled session.
 
+### Driving the UI from a session
+
+`uiautomator dump` + `adb shell input tap` works, with one trap that costs a
+confusing half hour: **the soft keyboard shifts the layout between the dump and
+the tap**, so coordinates read while the IME is up land somewhere else once it
+closes. Send `input keyevent 4` (BACK) to dismiss the IME, wait, re-dump, then
+tap. `keyevent 111` (ESC) does not reliably close it.
+
+Two more, both observed:
+
+- Compose's clickable node is the *parent* of the node carrying the text, and
+  the text node reports `clickable="false"`. Tapping the centre of the text
+  bounds usually still lands inside the button, but match on the clickable
+  ancestor when it does not.
+- A `TextButton`'s `enabled` state is not reflected on the text node, so a dump
+  cannot tell you whether a button is disabled. Check the state that drives it.
+
+For anything load-bearing prefer an instrumented test over poking the UI - the
+Room layer's 10 tests run in seconds and do not depend on pixel coordinates.
+
 ### Headless emulator recipe
 
 The AVD boots without a GUI, which is what CI and an agent session want:
