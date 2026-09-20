@@ -1,0 +1,31 @@
+# The Dockerfile copies only pyproject.toml and src/. Everything listed here is
+# context uploaded to the Docker daemon on every build for nothing.
+#
+# app/ is the reason this file exists: it holds the Xcode project and, since the
+# Android client landed, a Gradle project whose build output reaches ~700 MB
+# once anyone compiles in this worktree. None of it is needed to build a Python
+# image.
+#
+# Deliberately a denylist rather than a `*` + `!src/` allowlist: if a future
+# Dockerfile copies something new, a denylist keeps working, whereas a
+# mis-specified allowlist breaks the deploy.
+
+app/
+venv/
+data/
+tmp/
+previews/
+.git/
+.github/
+.claude/
+.agents/
+
+__pycache__/
+**/__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+.DS_Store
+**/.DS_Store
+.env
