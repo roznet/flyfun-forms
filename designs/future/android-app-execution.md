@@ -50,6 +50,26 @@
 `compileSdk 37`, drop to 36 — the platform is already installed, so this costs
 a one-line change rather than a stalled session.
 
+### Driving the UI from a session
+
+`uiautomator dump` + `adb shell input tap` works, with one trap that costs a
+confusing half hour: **the soft keyboard shifts the layout between the dump and
+the tap**, so coordinates read while the IME is up land somewhere else once it
+closes. Send `input keyevent 4` (BACK) to dismiss the IME, wait, re-dump, then
+tap. `keyevent 111` (ESC) does not reliably close it.
+
+Two more, both observed:
+
+- Compose's clickable node is the *parent* of the node carrying the text, and
+  the text node reports `clickable="false"`. Tapping the centre of the text
+  bounds usually still lands inside the button, but match on the clickable
+  ancestor when it does not.
+- A `TextButton`'s `enabled` state is not reflected on the text node, so a dump
+  cannot tell you whether a button is disabled. Check the state that drives it.
+
+For anything load-bearing prefer an instrumented test over poking the UI - the
+Room layer's 10 tests run in seconds and do not depend on pixel coordinates.
+
 ### Headless emulator recipe
 
 The AVD boots without a GUI, which is what CI and an agent session want:
@@ -126,6 +146,49 @@ The rules that follow from that:
 
 Keeping server work off the `android-app` branch means the branch stays a pure
 client addition and can merge whenever it is ready.
+
+---
+
+## 2b. Status, 2026-09-19
+
+Built on branch `android-app`: **6,532 lines of Kotlin, 112 JVM tests and 17
+instrumented tests**, all green on an API 37 emulator.
+
+| # | Session | State |
+|---|---|---|
+| S0 | Bootstrap | **Done** |
+| S1 | Auth + generate spike | **Done** — Custom Tabs + `/auth/exchange`. No server change was needed: `flyfunforms` is already allowlisted |
+| S2 | MRZ parser | **Done** — 20 tests |
+| S3 | People CSV | **Done** — 18 tests; fixed an escaped-quote bug present in the Swift original |
+| S4 | DocumentResolver | **Done** — 14 tests |
+| S5 | ZonedWallClock + schedule editing | **Done** — 12 tests incl. both DST directions |
+| S6 | Room schema | **Done** — 10 instrumented tests |
+| S7 | API client + repositories | **Done** — 8 wire-format tests |
+| S8–S11 | People, aircraft, flights, form generation | **Done** — driven end to end on device |
+| S12 | Flight import paths | **Not done** — see below |
+| S13 | MRZ scanning | **Done** (camera + ML Kit); contact import **not done** |
+| S14 | Move my data | **Done** — 7 instrumented round-trip tests; file verified by decrypting it independently in Python |
+| S15 | Web forms | **Done**; localisation **not done** |
+| S16 | Play Store | **Blocked** — needs a Play Console account |
+
+### What is deliberately not done, and why
+
+- **S12 flight import.** The ICAO flight-plan path depends on the
+  `POST /flightplan/parse` endpoint this plan recommends adding server-side
+  (gate G4). Writing a third Kotlin copy of the parser is the mistake
+  `designs/ios-app.md` already records making once. The autorouter and weather
+  import paths are server-backed and would be small once G4 is settled.
+- **Localisation.** The infrastructure is a mechanical refactor, but only 18 of
+  51 user-facing strings have an exact match in `Localizable.xcstrings`, and
+  several of those have no French translation. The remaining ~33 need real
+  aviation French, German and Spanish. These are documents a border officer
+  reads; inventing the terminology is not appropriate, so the strings stay
+  English pending a translator.
+- **Contact import.** The fuzzy-merge resolution screen is a genuine piece of
+  UI design, not a port, and nothing else depends on it.
+- **A real MRZ scan.** Verified as far as an emulator goes: permission gate,
+  CameraX binding and preview all work. Reading an actual passport needs the
+  physical device S13 always required.
 
 ---
 

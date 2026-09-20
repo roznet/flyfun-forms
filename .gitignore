@@ -2,7 +2,10 @@
 
 tmp/
 previews/
-data/
+# Anchored: unanchored `data/` also matched the Kotlin `data` package in
+# the Android app and silently dropped those files from commits.
+/data/
+src/flightforms/data/
 venv/
 *.db
 !app/flyfun-forms/flyfun-forms/airports.db
@@ -25,3 +28,10 @@ xcuserdata/
 .claude/settings.local.json
 .claude/worktrees
 .claude/projects
+
+# Android
+.gradle/
+local.properties
+.idea/
+*.iml
+.cxx/
