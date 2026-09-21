@@ -40,7 +40,7 @@ python -m flightforms.cli generate \
     --airport LSGS --form immigration \
     --origin LFPG --destination LSGS \
     --date 2024-03-15 --time 10:00 \
-    --registration N122DR --type S22T --owner "John Doe" \
+    --registration ZZ-TEST --type S22T --owner "John Doe" \
     --crew crew.csv --passengers pax.csv \
     -o filled_form.pdf
 
@@ -53,7 +53,7 @@ python -m flightforms.cli trip \
     --api-key ff_abc123 \
     --legs LFPG,LSGS,EGTF \
     --crew crew.csv --passengers pax.csv \
-    --registration N122DR --type S22T --owner "John Doe"
+    --registration ZZ-TEST --type S22T --owner "John Doe"
 ```
 
 ## Key Choices

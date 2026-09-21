@@ -292,7 +292,7 @@ class TestEmailText:
             "origin": "LFQA",
             "destination": airport,
             "departure_date": "2026-03-21",
-            "registration": "N122DR",
+            "registration": "ZZ-TEST",
         }
         base.update(overrides)
         return base
@@ -301,7 +301,7 @@ class TestEmailText:
         resp = client.post("/email-text", json=self._body())
         assert resp.status_code == 200
         data = resp.json()
-        assert "N122DR" in data["subject_en"]
+        assert "ZZ-TEST" in data["subject_en"]
         assert "General Declaration" in data["subject_en"]
         assert "LFQA" in data["body_en"]
         assert "LOWS" in data["body_en"]

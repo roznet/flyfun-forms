@@ -39,7 +39,7 @@ struct FlightDetailHeader: View {
         }
     }
 
-    /// `Fri 20 Sep 2026 · 13:30 LSGS → 15:30 EGTF · 2h00 · N122DR`
+    /// `Fri 20 Sep 2026 · 13:30 LSGS → 15:30 EGTF · 2h00 · ZZ-TEST`
     private var subtitle: some View {
         HStack(spacing: 6) {
             Text(Self.dayText(flight.departureDateTime, zone: zone(for: flight.originICAO)))

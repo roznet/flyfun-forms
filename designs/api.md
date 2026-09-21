@@ -95,7 +95,7 @@ Returns `{"status": "ok"}`.
         "arrival_date": "2024-03-15", "arrival_time_utc": "11:30",
         "nature": "Private"
     },
-    "aircraft": {"registration": "N122DR", "type": "S22T", "owner": "..."},
+    "aircraft": {"registration": "ZZ-TEST", "type": "S22T", "owner": "..."},
     "crew": [{"first_name": "John", "last_name": "Doe", "dob": "1980-01-01", ...}],
     "passengers": [...]
 }
