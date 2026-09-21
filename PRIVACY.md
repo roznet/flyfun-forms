@@ -11,9 +11,9 @@ FlightForms handles sensitive personal data — passport numbers, dates of birth
 All personal data (crew, passengers, travel documents, flights) is stored locally using Apple's SwiftData framework and synced via **CloudKit private database**.
 
 - **Encrypted at rest** — iOS Data Protection encrypts the on-device database when the device is locked
-- **Encrypted in iCloud** — CloudKit private databases are encrypted and accessible only to the signed-in iCloud account
+- **Encrypted in iCloud** — CloudKit private databases are encrypted and tied to your own iCloud account; no other app user or developer can open them
 - **Synced across your devices** — data follows Apple's standard CloudKit sync, meaning it is available on your iPhone, iPad, and Mac under the same Apple ID
-- **No third-party access** — neither FlightForms nor anyone else can read your CloudKit private data; only your iCloud account has the keys
+- **No access by FlightForms** — we have no copy of, and no way to read, your CloudKit private data. It is held by Apple under your own iCloud account and Apple's terms. By default Apple manages the iCloud encryption keys; if you turn on [Advanced Data Protection](https://support.apple.com/en-gb/102651), the keys are held only on your devices and Apple cannot read the data either
 - **Authentication tokens in Keychain** — JWT credentials are stored in the iOS/macOS Keychain, the most secure storage available on Apple platforms
 
 ## Server-Side Processing
