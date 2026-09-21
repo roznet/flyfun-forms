@@ -9,9 +9,7 @@
   "max_crew": 4,
   "max_passengers": 7,
   "send_to": "preavis-vols-douane-le-mans@douane.finances.gouv.fr",
-  "email_overrides": {
-    "LFRM": {"cc": ["codt-idf@douane.finances.gouv.fr"]}
-  },
+  "email_lookup": "aip_customs_emails.lookup.json",
   "default_observations": "Rien à déclarer",
   "date_format": "%d/%m/%Y",
   "checkbox_on": "X",

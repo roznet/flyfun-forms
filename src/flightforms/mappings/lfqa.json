@@ -8,9 +8,7 @@
   "max_crew": 3,
   "max_passengers": 3,
   "send_to": "codt-metz@douane.finances.gouv.fr",
-  "email_overrides": {
-    "LFSD": {"cc": ["bsi-dijon@douane.finances.gouv.fr"]}
-  },
+  "email_lookup": "aip_customs_emails.lookup.json",
   "default_observations": "Rien à déclarer",
   "date_format": "%d/%m/%Y",
   "has_connecting_flight": false,

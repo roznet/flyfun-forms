@@ -68,6 +68,11 @@ def email_text(
         subject_local = subject_en
         body_local = body_en
 
+    # Some airports mandate a subject (LFOH: 'ppf le havre octeville')
+    email = mapping.email_for(request.airport)
+    if email and email["subject"]:
+        subject_en = subject_local = email["subject"]
+
     return EmailTextResponse(
         subject_en=subject_en,
         body_en=body_en,

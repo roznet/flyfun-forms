@@ -112,6 +112,17 @@ class TestMappingRegistry:
         assert path.exists()
         assert path.suffix == ".pdf"
 
+    def test_aip_email_puts_customs_before_handling(self, registry):
+        """LFOH's AIP says to e-mail customs: the customs notice comes first."""
+        forms = [f.id for f in registry.get_forms_for_airport("LFOH")]
+        assert forms[:2] == ["french_customs", "myhandling"]
+
+    def test_no_aip_email_keeps_handling_first(self, registry):
+        """LFMD's AIP says only "On request"; LFOT's says "Via My Handling"."""
+        for icao in ("LFMD", "LFOT"):
+            forms = [f.id for f in registry.get_forms_for_airport(icao)]
+            assert forms[:2] == ["myhandling", "french_customs"], icao
+
     def test_lfqa_exact_overrides_prefix(self, registry):
         """LFQA has an exact mapping that should take priority over LF prefix."""
         forms = registry.get_forms_for_airport("LFQA")
@@ -142,3 +153,74 @@ class TestMappingRegistry:
         assert "ZZZZ" in reg.all_airports()
         forms = reg.get_forms_for_airport("ZZZZ")
         assert forms[0].id == "custom"
+
+
+# ── Per-airport e-mail and the order it sets ─────────────────────────────────
+
+def _write_registry(tmp_path, mappings: dict, lookup: dict | None = None) -> MappingRegistry:
+    mappings_dir = tmp_path / "mappings"
+    templates_dir = tmp_path / "templates"
+    mappings_dir.mkdir()
+    templates_dir.mkdir()
+    for name, data in mappings.items():
+        (mappings_dir / f"{name}.json").write_text(json.dumps(data))
+    if lookup is not None:
+        (mappings_dir / "emails.lookup.json").write_text(json.dumps({"airports": lookup}))
+    return MappingRegistry(str(mappings_dir), str(templates_dir))
+
+
+class TestEmailFor:
+    def test_layers_send_to_then_lookup_then_override(self, tmp_path):
+        reg = _write_registry(tmp_path, {
+            "customs": {
+                "icao_prefix": "ZZ", "template": "t.pdf", "type": "pdf_acroform",
+                "send_to": "default@example.com",
+                "email_lookup": "emails.lookup.json",
+                "email_overrides": {"ZZBB": {"cc": ["hand@example.com"]}},
+            },
+        }, lookup={
+            "ZZAA": {"to": ["aip@example.com"], "cc": ["aip-cc@example.com"], "subject": "ppf zzaa"},
+            "ZZBB": {"to": ["aip@example.com"], "cc": ["aip-cc@example.com"]},
+        })
+        m = reg.get_form("ZZAA", "customs")
+        assert m.email_for("ZZAA") == {
+            "to": ["aip@example.com"], "cc": ["aip-cc@example.com"], "subject": "ppf zzaa",
+        }
+        # The hand-written override replaces only the key it sets
+        assert m.email_for("ZZBB") == {
+            "to": ["aip@example.com"], "cc": ["hand@example.com"], "subject": None,
+        }
+        assert m.email_for("ZZCC") == {"to": ["default@example.com"], "cc": [], "subject": None}
+
+    def test_no_address_is_none(self, tmp_path):
+        reg = _write_registry(tmp_path, {
+            "handling": {"icao_list": ["ZZAA"], "template": "t.xlsx", "type": "xlsx"},
+        })
+        assert reg.get_form("ZZAA", "handling").email_for("ZZAA") is None
+
+    def test_lookup_outside_mappings_dir_rejected(self, tmp_path):
+        with pytest.raises(ValueError):
+            _write_registry(tmp_path, {
+                "customs": {"icao_prefix": "ZZ", "template": "t.pdf", "type": "pdf_acroform",
+                            "email_lookup": "../outside.lookup.json"},
+            })
+
+
+class TestEmailOrdering:
+    def _registry(self, tmp_path):
+        return _write_registry(tmp_path, {
+            "airport": {"icao": "ZZAA", "template": "t.pdf", "type": "pdf_acroform"},
+            "handling": {"icao_list": ["ZZAA", "ZZBB"], "template": "t.xlsx", "type": "xlsx"},
+            "customs": {"icao_prefix": "ZZ", "template": "t.pdf", "type": "pdf_acroform",
+                        "email_lookup": "emails.lookup.json"},
+            "fallback": {"default": True, "template": "t.pdf", "type": "pdf_acroform"},
+        }, lookup={"ZZAA": {"to": ["c@example.com"], "cc": []}})
+
+    def test_form_with_email_outranks_listed_form(self, tmp_path):
+        forms = [f.id for f in self._registry(tmp_path).get_forms_for_airport("ZZAA")]
+        # The airport's own form stays first
+        assert forms == ["airport", "customs", "handling", "fallback"]
+
+    def test_without_email_listed_form_first(self, tmp_path):
+        forms = [f.id for f in self._registry(tmp_path).get_forms_for_airport("ZZBB")]
+        assert forms == ["handling", "customs", "fallback"]
