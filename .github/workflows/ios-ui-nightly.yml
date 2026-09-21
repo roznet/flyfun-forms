@@ -1,0 +1,127 @@
+name: iOS UI (nightly)
+
+# The XCUI journeys in `flyfun-formsUITests`, run nightly rather than on PRs
+# (see ios.yml for why). Breakage surfaces within a day, and the result bundle
+# carries the screenshots to explain it. Not a gate: a failure here is a
+# message, not a block.
+#
+# The journeys run the app in its UI-test mode (FLYFUN_UITEST + FLYFUN_MOCK):
+# in-memory fixtures, every request answered by a stub. Nothing here reaches a
+# server or an iCloud account.
+
+on:
+  schedule:
+    # Off-round minute: scheduled jobs queue at the top of the hour.
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The `changed` guard reads this workflow's own run history.
+  actions: read
+
+concurrency:
+  group: ios-ui-nightly
+  cancel-in-progress: false
+
+jobs:
+  # Skip the simulator when main has not moved since the last green run.
+  # Compared against the last *successful* run, so a broken main re-tests
+  # nightly until it is fixed rather than going quiet after one red run.
+  changed:
+    name: New commits since last pass?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" \
+                   --workflow ios-ui-nightly.yml --status success \
+                   --limit 1 --json headSha -q '.[0].headSha // ""')
+          echo "HEAD:          $GITHUB_SHA"
+          echo "last green on: ${last:-<none>}"
+          if [ "$last" = "$GITHUB_SHA" ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Unchanged since the last green run — skipping the simulator." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  ui:
+    name: xcodebuild test (UI)
+    needs: changed
+    if: github.event_name == 'workflow_dispatch' || needs.changed.outputs.should_run == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    env:
+      # Pinned to match ios.yml: the two workflows differ in what they run, nothing else.
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DESTINATION: 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('app/flyfun-forms/flyfun-forms.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project app/flyfun-forms/flyfun-forms.xcodeproj \
+            -scheme flyfun-forms \
+            -clonedSourcePackagesDirPath .spm
+
+      # -retry-tests-on-failure re-runs only the tests that failed, so a
+      # simulator launch hiccup self-heals and what is reported reproduces.
+      - name: UI tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project app/flyfun-forms/flyfun-forms.xcodeproj \
+            -scheme flyfun-forms \
+            -destination "$DESTINATION" \
+            -only-testing:flyfun-formsUITests \
+            -clonedSourcePackagesDirPath .spm \
+            -resultBundlePath ui.xcresult \
+            -retry-tests-on-failure \
+            -test-iterations 2 \
+            -skipMacroValidation \
+            -quiet
+
+      # Zero tests run is a silent pass (see ios.yml). `-quiet` also swallows
+      # the assertion text, so failures are printed into the run summary rather
+      # than needing the result bundle downloaded to read four lines.
+      - name: Guard against a vacuous pass
+        if: always()
+        run: |
+          summary=$(xcrun xcresulttool get test-results summary --path ui.xcresult)
+          total=$(echo "$summary" | python3 -c 'import json,sys; print(json.load(sys.stdin)["totalTestCount"])')
+          passed=$(echo "$summary" | python3 -c 'import json,sys; print(json.load(sys.stdin)["passedTests"])')
+          failed=$(echo "$summary" | python3 -c 'import json,sys; print(json.load(sys.stdin)["failedTests"])')
+          echo "UI journeys: $passed passed, $failed failed (of $total)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::xcodebuild ran 0 UI tests — the -only-testing filter matched nothing."
+            exit 1
+          fi
+          if [ "$failed" -gt 0 ]; then
+            echo "$summary" | python3 -c "import json,sys; [print('- **%s** - %s' % (t.get('testName'), t.get('failureText'))) for t in json.load(sys.stdin).get('testFailures', [])]" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Always: the journeys attach screenshots, and a passing run's are how a
+      # layout regression no assertion covers gets noticed.
+      - name: Upload result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ui-xcresult
+          path: ui.xcresult
+          retention-days: 14

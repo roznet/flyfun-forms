@@ -1,0 +1,91 @@
+name: iOS
+
+# Gates PRs on the iOS unit target (`flyfun-formsTests`), which until now ran
+# only when someone remembered to. The XCUI journeys are deliberately not run
+# here: they drive a simulator, they are the flaky half of the suite, and a
+# launch hiccup failing a PR teaches everyone to ignore red. They run nightly in
+# ios-ui-nightly.yml instead. Same split as flyfun-weather's ios.yml.
+#
+# The repo is public, so standard GitHub-hosted macOS runners are free.
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+      - 'app/flyfun-forms/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: xcodebuild test
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    env:
+      # Pinned so a runner-image bump cannot change the compiler under us.
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # OS=latest rather than a pin: the installed runtimes move with the image,
+      # and an unavailable pin is a hard failure.
+      DESTINATION: 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every SPM dependency is a public repo, so resolution needs no token.
+      - name: Cache SPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('app/flyfun-forms/flyfun-forms.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project app/flyfun-forms/flyfun-forms.xcodeproj \
+            -scheme flyfun-forms \
+            -clonedSourcePackagesDirPath .spm
+
+      # -only-testing filters execution, not the build, so the UI target still
+      # compiles here: a journey that stops building fails the PR.
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project app/flyfun-forms/flyfun-forms.xcodeproj \
+            -scheme flyfun-forms \
+            -destination "$DESTINATION" \
+            -only-testing:flyfun-formsTests \
+            -clonedSourcePackagesDirPath .spm \
+            -resultBundlePath unit.xcresult \
+            -skipMacroValidation \
+            -quiet
+
+      # A filter that matches nothing is a silent pass: "** TEST SUCCEEDED **",
+      # exit 0, zero tests run. Read the count back from the result bundle.
+      - name: Guard against a vacuous pass
+        run: |
+          total=$(xcrun xcresulttool get test-results summary --path unit.xcresult \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["totalTestCount"])')
+          echo "Ran $total unit tests" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$total" -eq 0 ]; then
+            echo "::error::xcodebuild reported success but ran 0 tests — the -only-testing filter matched nothing."
+            exit 1
+          fi
+
+      - name: Upload result bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unit-xcresult
+          path: unit.xcresult
+          retention-days: 7
