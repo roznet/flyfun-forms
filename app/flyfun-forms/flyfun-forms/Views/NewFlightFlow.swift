@@ -82,8 +82,10 @@ struct NewFlightFlow: View {
                     if step == .route {
                         Button("Next") { step = .people }
                             .disabled(originICAO.isEmpty && destinationICAO.isEmpty)
+                            .accessibilityIdentifier("newFlightNextButton")
                     } else {
                         Button("Create Flight") { createFlight() }
+                            .accessibilityIdentifier("createFlightButton")
                     }
                 }
             }
@@ -157,6 +159,7 @@ struct NewFlightFlow: View {
                 Text(importSummary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("importSummary")
             }
         } header: {
             Text("Import")
@@ -178,6 +181,7 @@ struct NewFlightFlow: View {
                     }
                 }
             }
+            .accessibilityIdentifier("newFlightRouteButton")
         }
 
         Section("Schedule") {
@@ -202,6 +206,7 @@ struct NewFlightFlow: View {
                     Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
                 }
             }
+            .accessibilityIdentifier("newFlightAircraftPicker")
         }
     }
 

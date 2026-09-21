@@ -33,6 +33,7 @@ struct AirportPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("airportPickerDoneButton")
                 }
             }
         }
@@ -89,6 +90,7 @@ struct AirportPickerView: View {
     private var searchField: some View {
         TextField("Search airport name or ICAO...", text: $searchText)
             .textFieldStyle(.roundedBorder)
+            .accessibilityIdentifier("airportSearchField")
             .padding(.horizontal)
             .padding(.bottom, 8)
             #if os(iOS)
@@ -125,6 +127,7 @@ struct AirportPickerView: View {
                         AirportRow(airport: airport, selectedICAO: activeFieldICAO)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("airportResult-\(airport.icao)")
                 }
             }
         }

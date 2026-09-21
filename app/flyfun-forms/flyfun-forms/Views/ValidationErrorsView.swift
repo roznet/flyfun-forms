@@ -21,6 +21,7 @@ struct ValidationErrorsView: View {
                     }
                 }
                 .padding(.vertical, 2)
+                .accessibilityIdentifier("validationError-\(error.field)")
             }
             .navigationTitle("Validation Errors")
             #if os(iOS)

@@ -44,6 +44,7 @@ struct FlightImportMethodList: View {
                     row(method, availability: availability)
                 }
                 .disabled(!availability.isAvailable)
+                .accessibilityIdentifier("importMethod-\(method.id)")
             }
             .navigationTitle(String(localized: "Import Flight"))
             #if os(iOS)

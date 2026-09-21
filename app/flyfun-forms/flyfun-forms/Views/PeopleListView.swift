@@ -64,6 +64,7 @@ struct PeopleListView: View {
                         }
                     }
                 }
+                .accessibilityIdentifier("personRow-\(person.lastName)")
             }
             .onDelete(perform: deletePeople)
         }
@@ -89,6 +90,7 @@ struct PeopleListView: View {
                     } label: {
                         Label("Add Person", systemImage: "person.badge.plus")
                     }
+                    .accessibilityIdentifier("addPersonButton")
                     #if os(iOS)
                     Button {
                         showingScanSheet = true
@@ -123,6 +125,7 @@ struct PeopleListView: View {
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
+                .accessibilityIdentifier("addPersonMenu")
             }
         }
         .fileImporter(

@@ -126,6 +126,7 @@ struct FlightImportContext: Equatable {
     /// picks the method.
     @MainActor
     static var pasteboardHasText: Bool {
+        if UITestMode.clipboard != nil { return true }
         #if os(iOS)
         return UIPasteboard.general.hasStrings
         #else
@@ -188,9 +189,9 @@ enum ClipboardFlightPlan {
     @MainActor
     static func read() throws -> ICAOFlightPlan {
         #if os(iOS)
-        let text = UIPasteboard.general.string
+        let text = UITestMode.clipboard ?? UIPasteboard.general.string
         #else
-        let text = NSPasteboard.general.string(forType: .string)
+        let text = UITestMode.clipboard ?? NSPasteboard.general.string(forType: .string)
         #endif
         guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ImportError.empty

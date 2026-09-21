@@ -28,6 +28,16 @@ final class AirportTimezoneCache {
     }()
 
     private init() {
+        #if DEBUG
+        if UITestMode.isActive {
+            // Fixed zones, and no disk cache in either direction: a UI test
+            // must not depend on what an earlier run happened to resolve.
+            for (icao, identifier) in UITestFixtures.timeZones {
+                cache[icao] = TimeZone(identifier: identifier)
+            }
+            return
+        }
+        #endif
         loadFromDisk()
     }
 
@@ -47,7 +57,8 @@ final class AirportTimezoneCache {
     /// already in flight is not started twice, and every observer sees the
     /// result because the cache is observable rather than notifying one caller.
     func resolve(icao: String) {
-        guard !icao.isEmpty, cache[icao] == nil, !pending.contains(icao) else { return }
+        guard !icao.isEmpty, cache[icao] == nil, !pending.contains(icao),
+              !UITestMode.isActive else { return }
         pending.insert(icao)
 
         Task {
@@ -68,6 +79,7 @@ final class AirportTimezoneCache {
 
     /// Pre-warm the cache for a set of ICAO codes.
     func preload(icaos: Set<String>) async {
+        guard !UITestMode.isActive else { return }
         await AirportDatabase.shared.ready()
 
         let toResolve = icaos.filter { !$0.isEmpty && cache[$0] == nil && !pending.contains($0) }

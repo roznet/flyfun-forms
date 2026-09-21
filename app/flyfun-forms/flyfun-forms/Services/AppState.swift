@@ -7,7 +7,7 @@ import OSLog
 @Observable
 @MainActor
 final class AppState {
-    @ObservationIgnored let tokenStore: KeychainBearerTokenStore
+    @ObservationIgnored let tokenStore: any BearerTokenStore
     @ObservationIgnored private(set) var rollingSession: RollingBearerSession!
 
     /// Mirror of the keychain JWT — observable so SwiftUI re-renders on
@@ -20,7 +20,11 @@ final class AppState {
     var isAuthenticated: Bool { APIConfig.isDevMode || jwt != nil }
 
     init() {
-        let store = KeychainBearerTokenStore(service: "net.ro-z.flyfun-forms")
+        // A UI test run is signed in from launch, and never touches the
+        // keychain the developer's own session lives in.
+        let store: any BearerTokenStore = UITestMode.isActive
+            ? InMemoryBearerTokenStore(initialToken: "uitest-token")
+            : KeychainBearerTokenStore(service: "net.ro-z.flyfun-forms")
         self.tokenStore = store
         self.jwt = store.token
 

@@ -67,6 +67,7 @@ struct FlightsListView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("pastFlightsToggle")
                 }
             }
         }
@@ -83,6 +84,7 @@ struct FlightsListView: View {
                 } label: {
                     Label("Add Flight", systemImage: "plus")
                 }
+                .accessibilityIdentifier("addFlightButton")
             }
         }
         .sheet(isPresented: $showNewFlightFlow) {
@@ -121,6 +123,7 @@ struct FlightsListView: View {
                 }
             }
         }
+        .accessibilityIdentifier("flightRow-\(flight.originICAO)-\(flight.destinationICAO)")
     }
 
     private func deleteFlights(_ offsets: IndexSet, from list: [Flight]) {

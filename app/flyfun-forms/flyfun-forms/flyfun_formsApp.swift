@@ -6,6 +6,14 @@ struct flyfun_formsApp: App {
     @State private var appState = AppState()
     let catalog = AirportCatalog(baseURL: APIConfig.baseURL)
 
+    init() {
+        #if DEBUG
+        if UITestMode.isMocked {
+            UITestURLProtocol.install()
+        }
+        #endif
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Person.self,
@@ -14,6 +22,11 @@ struct flyfun_formsApp: App {
             Flight.self,
             Trip.self,
         ])
+        #if DEBUG
+        if UITestMode.isActive {
+            return UITestFixtures.makeContainer(schema: schema)
+        }
+        #endif
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
