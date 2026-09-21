@@ -239,6 +239,36 @@ if appState.isAuthenticated {
 - **Share sheet over fileExporter:** `UIActivityViewController` (iOS) / custom save/copy/reveal view (macOS) gives users more export options than the file-save dialog.
 - **Dev vs prod base URL:** `#if targetEnvironment(simulator) || os(macOS)` switches to `localhost.ro-z.me:8443` for local dev server testing. Physical iOS devices use `forms.flyfun.aero`.
 
+## UI Tests
+
+`flyfun-formsUITests` holds the XCUI journeys (iPhone only). They launch the
+app with DEBUG-only switches read by `Services/UITestMode.swift`:
+
+- **`FLYFUN_UITEST=1`** — signed in from launch through an in-memory token
+  store (the keychain is never touched), on an **in-memory, non-CloudKit**
+  `ModelContainer` seeded by `UITestSupport/UITestFixtures.swift`, with fixed
+  airport timezones instead of the reverse-geocode. Never the CloudKit store:
+  that would write fixture passports into the simulator's iCloud account.
+- **`FLYFUN_MOCK=1`** — `UITestSupport/UITestURLProtocol` answers every request
+  (everything goes through `URLSession.shared`, `RollingBearerSession`
+  included). Airport details are server output pasted into
+  `UITestAirportFixtures.swift`. An unstubbed request fails and is logged; the
+  suite fails the test for it.
+- **`FLYFUN_UITEST_CAPTURE_DIR`** — the stub writes each request body there, so
+  a journey asserts on **what the app sent** (the server's output is covered by
+  the Python snapshot tests).
+- **`FLYFUN_UITEST_CLIPBOARD`** / **`FLYFUN_MOCK_GENERATE=422`** — the
+  pasteboard read (avoids the "Allow Paste" prompt) and the `/generate` status.
+
+Selectors are accessibility identifiers. Two traps: a `Form` is a lazy `List`,
+so rows below the fold are absent from the tree until scrolled to (hence the
+section pills, and portrait pinned in `setUp`); and later section pills sit
+past the screen edge with no hit point until the bar is dragged.
+
+CI: `.github/workflows/ios.yml` gates PRs on the unit target;
+`ios-ui-nightly.yml` runs the journeys nightly and is not a gate. Run
+`-only-testing:flyfun-formsUITests` locally before merging a UI change.
+
 ## Releasing
 
 The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight checks, bumps the version, archives, tags `{ios|macos}/{version}`, and saves the approved What's New to `release-notes/{platform}-{version}.txt`. It then stages the release with `scripts/asc.py stage`: it creates or reuses the App Store version, writes What's New, uploads the archive, waits for processing and attaches the build. The script **cannot submit** — that stays a click in App Store Connect.
