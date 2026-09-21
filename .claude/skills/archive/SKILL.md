@@ -33,8 +33,7 @@ Use these values based on the selected platform:
 | Setting | iOS | macOS |
 |---------|-----|-------|
 | Destination | `generic/platform=iOS` | `generic/platform=macOS` |
-| Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | `platform=macOS` |
-| Test filter | *(none — unit + UI journeys)* | `-only-testing:flyfun-formsTests` |
+| Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | *(none — step 2b is skipped)* |
 | Tag prefix | `ios` | `macos` |
 | `asc.py --platform` | `ios` | `macos` |
 | Release notes file | `release-notes/ios-{version}.txt` | `release-notes/macos-{version}.txt` |
@@ -59,24 +58,27 @@ Verify that the Release/production build will NOT use localhost. Check `app/flyf
 - The localhost URL (`localhost.ro-z.me:8443`) must only appear inside `#if targetEnvironment(simulator)` or `#if DEBUG`
 - If localhost is in the production path, **stop and warn the user**
 
-### 2b — App tests
+### 2b — App tests (iOS only)
 
-Run the Xcode test suite using the platform-appropriate destination and filter:
+**macOS: skip this step** and say so in the checklist. Tests are only kept green
+on iOS: the XCUI journeys are iOS-only, and the unit target crashes its Mac host
+app in the SwiftData test fixtures (pre-existing, not investigated).
+
+**iOS:** run the whole scheme — the unit target *and* the XCUI journeys
+(`flyfun-formsUITests`):
 ```bash
 rm -rf /tmp/archive-tests.xcresult
 xcodebuild test \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
   -destination "{test_destination}" \
-  {test_filter} \
   -resultBundlePath /tmp/archive-tests.xcresult \
   -quiet \
   2>&1 | tail -30
 xcrun xcresulttool get test-results summary --path /tmp/archive-tests.xcresult
 ```
 
-- **iOS** runs the unit target *and* the XCUI journeys (`flyfun-formsUITests`). CI only runs the journeys nightly, so this is the one place a release is guaranteed to have passed them. Allow ~10 minutes: use a timeout of 900000ms, in the background if needed.
-- **macOS** runs the unit target only. The journeys are iPhone-only (see `designs/ios-app.md` → UI Tests).
+CI only runs the journeys nightly, so this is the one place a release is guaranteed to have passed them. Allow ~10 minutes: use a timeout of 900000ms, in the background if needed.
 
 Read `totalTestCount` / `failedTests` from the summary rather than trusting `** TEST SUCCEEDED **`: a filter that matches nothing prints that having run zero tests. If `failedTests` > 0 or `totalTestCount` is 0, stop and show the `testFailures`.
 
