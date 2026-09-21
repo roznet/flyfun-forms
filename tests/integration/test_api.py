@@ -349,7 +349,7 @@ class TestEmailText:
         data = resp.json()
         assert data["subject_en"] == "ppf le havre octeville"
         assert data["subject_local"] == "ppf le havre octeville"
-        assert "N122DR" in data["body_en"]
+        assert "ZZ-TEST" in data["body_en"]
 
     def test_unknown_form_404(self, client):
         resp = client.post("/email-text", json=self._body(form="nonexistent"))
