@@ -104,8 +104,9 @@ airport/form, return bytes; nothing else touches the request body).
      URL, but that is not reachable from inside the app.
   2. The notice is written for the *pilot*. It says nothing about the **passengers** whose
      passport data the pilot types in — see the Art. 14 point below.
-  3. `PRIVACY.md` currently **overstates one thing**: it says a previewed form "is deleted
-     as soon as you dismiss the preview." That was true, and is no longer (§9).
+  3. `PRIVACY.md` used to say a previewed form "is deleted as soon as you dismiss the
+     preview." That stopped being true (§9); the notice was corrected on 2026-09-21 to say
+     the file stays in the temp directory until the OS clears it.
 - **Art. 14 (data not obtained from the data subject):** a passenger's passport details
   reach the app from the *pilot*, not from the passenger. The duty to tell that passenger
   what is happening sits with whoever is the controller of the manifest — the pilot or their
@@ -290,10 +291,10 @@ resolved). Points that bear on GDPR specifically:
   when QuickLook was replaced by `fileExporter`/share-sheet; the `.onChange(of: previewURL)`
   that called `removeItem` went with it. So a filled PDF containing passport numbers persists
   in the app's tmp directory until iOS decides to purge it. Impact is genuinely low — it is
-  the owner's own device and the file is covered by Data Protection — but it is **claimed as
-  fixed in two documents and is not**, which is the part that matters. Fix: delete the file
-  when the share sheet or mail composer dismisses (`shareFileURL` is already the single
-  lifetime anchor), then correct `PRIVACY.md` and the audit.
+  the owner's own device and the file is covered by Data Protection — but it is **still claimed
+  as fixed in `SECURITY_AUDIT.md` §16** (`PRIVACY.md` was corrected 2026-09-21). Fix: delete
+  the file when the share sheet or mail composer dismisses (`shareFileURL` is already the
+  single lifetime anchor), then correct the audit and restore the stronger `PRIVACY.md` wording.
 - **No rate limiting on `/generate`** (audit §17) — a stolen token could be used freely. Not a
   confidentiality breach of stored data (there is none), but it belongs on the list.
 

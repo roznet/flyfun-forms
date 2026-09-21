@@ -10,7 +10,7 @@ FlightForms handles sensitive personal data — passport numbers, dates of birth
 
 All personal data (crew, passengers, travel documents, flights) is stored locally using Apple's SwiftData framework and synced via **CloudKit private database**.
 
-- **Encrypted at rest** — iOS Data Protection encrypts the on-device database when the device is locked
+- **Encrypted at rest** — on iPhone and iPad, iOS Data Protection encrypts the on-device database when the device has a passcode. The app uses the iOS default protection level: data is locked from boot until you first unlock the device, and after that first unlock it remains available to the system even while the screen is locked. On a Mac, at-rest encryption comes from FileVault, if enabled
 - **Encrypted in iCloud** — CloudKit private databases are encrypted and tied to your own iCloud account; no other app user or developer can open them
 - **Synced across your devices** — data follows Apple's standard CloudKit sync, meaning it is available on your iPhone, iPad, and Mac under the same Apple ID
 - **No access by FlightForms** — we have no copy of, and no way to read, your CloudKit private data. It is held by Apple under your own iCloud account and Apple's terms. By default Apple manages the iCloud encryption keys; if you turn on [Advanced Data Protection](https://support.apple.com/en-gb/102651), the keys are held only on your devices and Apple cannot read the data either
@@ -60,7 +60,7 @@ The server stores only:
 
 ## Temporary Files
 
-When you preview a generated form on your device, the PDF is written to a temporary file. This file is deleted as soon as you dismiss the preview. Even before deletion, it is protected by iOS Data Protection encryption.
+When you generate a form, the filled file is written to the app's temporary directory on your device so it can be saved, shared or emailed. The app does not currently delete this file afterwards; it stays until the operating system clears the temporary directory. The file never leaves your device unless you send it, and it is covered by the same at-rest encryption as the rest of the app's data.
 
 ## CLI Tool
 
@@ -76,4 +76,4 @@ The command-line tool sends the same data to the server for form generation. If 
 | Network transport | TLS / HTTPS with HSTS |
 | Server processing | In-memory only, no persistence of personal data |
 | Server logs | Usage metrics only, no PII |
-| Temporary files | Deleted after use, encrypted at rest by iOS |
+| Temporary files | Kept on device until the OS clears them, encrypted at rest |
