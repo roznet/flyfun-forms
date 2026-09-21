@@ -106,14 +106,16 @@ class TestPdfFillerLSGS:
         assert len(reader.pages) >= 1
 
     def test_output_flattened(self, registry, resolver):
-        normal_bytes = self._generate(registry, resolver, flatten=False)
-        flat_bytes = self._generate(registry, resolver, flatten=True)
-        # Count annotations: flattened should have far fewer (widget annots removed)
-        normal_reader = PdfReader(BytesIO(normal_bytes))
-        flat_reader = PdfReader(BytesIO(flat_bytes))
-        normal_count = sum(len(p.get("/Annots", [])) for p in normal_reader.pages)
-        flat_count = sum(len(p.get("/Annots", [])) for p in flat_reader.pages)
-        assert flat_count < normal_count
+        reader = PdfReader(BytesIO(self._generate(registry, resolver, flatten=True)))
+        # No form left to edit (the template's non-field annotations stay)...
+        assert "/AcroForm" not in reader.trailer["/Root"]
+        for page in reader.pages:
+            for annot in page.get("/Annots", []):
+                assert annot.get_object()["/Subtype"] != "/Widget"
+        # ...and the values are painted on the page
+        text = reader.pages[0].extract_text()
+        assert "ZZ-TST" in text
+        assert "Kowalski" in text
 
     def test_fields_filled(self, registry, resolver):
         pdf_bytes = self._generate(registry, resolver, flatten=False)
@@ -212,6 +214,12 @@ class TestFrenchCustomsFiller:
         for page in reader.pages:
             annots = page.get("/Annots", [])
             assert len(annots) == 0
+        assert "/AcroForm" not in reader.trailer["/Root"]
+        # Both pages share one /Resources: page 2's fields must not replace
+        # page 1's values
+        text = reader.pages[0].extract_text()
+        assert "ZZ-TST" in text
+        assert "Kowalski" in text
 
     def test_combined_person_list(self, registry, resolver):
         """Crew + passengers should be combined — 1 crew + 2 pax = 3 people."""
