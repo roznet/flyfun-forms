@@ -127,6 +127,18 @@ class TestAirports:
         form_ids = [f["id"] for f in data["forms"]]
         assert "french_customs" in form_ids
 
+    def test_airport_detail_customs_email_from_aip(self, client):
+        forms = client.get("/airports/LFOH").json()["forms"]
+        assert forms[0]["id"] == "french_customs"
+        assert forms[0]["email"]["to"] == ["bsep-le-havre@douane.finances.gouv.fr"]
+        assert "operations@lehavre.aeroport.fr" in forms[0]["email"]["cc"]
+
+    def test_airport_detail_hand_written_email(self, client):
+        """LFRG's AIP names no address; the mapping's override supplies it."""
+        forms = client.get("/airports/LFRG").json()["forms"]
+        customs = next(f for f in forms if f["id"] == "french_customs")
+        assert customs["email"]["to"] == ["operations@aeroportdeauville.com"]
+
     def test_airport_detail_unknown_gets_default(self, client):
         resp = client.get("/airports/XXXX")
         assert resp.status_code == 200
@@ -329,6 +341,15 @@ class TestEmailText:
         data = resp.json()
         assert data["subject_local"] == data["subject_en"]
         assert data["body_local"] == data["body_en"]
+
+    def test_aip_mandated_subject(self, client):
+        resp = client.post("/email-text", json=self._body(
+            airport="LFOH", form="french_customs", destination="LFOH",
+        ))
+        data = resp.json()
+        assert data["subject_en"] == "ppf le havre octeville"
+        assert data["subject_local"] == "ppf le havre octeville"
+        assert "N122DR" in data["body_en"]
 
     def test_unknown_form_404(self, client):
         resp = client.post("/email-text", json=self._body(form="nonexistent"))

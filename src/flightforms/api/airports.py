@@ -84,17 +84,8 @@ def get_airport(
             else:
                 extra.append(ef)
 
-        # Resolve email config: form-level send_to + per-airport overrides
-        email = None
-        to_list = [m.send_to] if m.send_to else []
-        cc_list = []
-        override = m.email_overrides.get(icao, {})
-        if "to" in override:
-            to_list = override["to"] if isinstance(override["to"], list) else [override["to"]]
-        if "cc" in override:
-            cc_list = override["cc"] if isinstance(override["cc"], list) else [override["cc"]]
-        if to_list or cc_list:
-            email = EmailConfig(to=to_list, cc=cc_list)
+        resolved = m.email_for(icao)
+        email = EmailConfig(to=resolved["to"], cc=resolved["cc"]) if resolved else None
 
         forms.append(FormInfo(
             id=m.id,

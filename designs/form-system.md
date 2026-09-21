@@ -30,7 +30,8 @@ src/flightforms/
 │   └── myhandling_request.xlsx
 └── mappings/                # JSON mapping configs
     ├── lsgs.json
-    ├── french_customs.json    # LF* prefix + 55 airport email_overrides
+    ├── french_customs.json    # LF* prefix; e-mails from the AIP lookup
+    ├── aip_customs_emails.lookup.json  # generated: ICAO → customs to/cc/subject from AIP
     ├── gendec_icao.json
     ├── gendec_form.json       # Default form for unmatched airports
     ├── lfqa.json              # icao_list: 11 CODT Metz airports
@@ -47,7 +48,7 @@ src/flightforms/
 ### How It Works
 
 1. **Discovery:** `MappingRegistry` scans `mappings/` at startup, builds ICAO → form config index
-2. **Resolution:** Request comes in with airport ICAO → exact match first, then prefix match (e.g., `LFOH` → `LF*` → `french_customs.json`), then default fallback (`"default": true` mappings for airports with no specific form)
+2. **Resolution:** Request comes in with airport ICAO → every mapping that matches, in order: the airport's own form (`icao`); then `icao_list` and prefix matches that hold an e-mail for the airport; then the other `icao_list` matches; then prefix matches; then defaults (`"default": true`). See [Customs e-mails from the AIP](#customs-e-mails-from-the-aip) for why an e-mail moves a form up.
 3. **Filling:** `generate.py` selects the right filler based on `type` in mapping (`pdf_acroform`, `pdf_acroform_french`, `docx`, `xlsx`)
 4. **Output:** Filler reads template, maps canonical fields → template fields using the mapping, writes filled file
 
@@ -77,9 +78,9 @@ Scope is set by exactly one of `icao`, `icao_list`, `icao_prefix`, or `default`:
     "has_connecting_flight": false,
     "default_observations": "Nothing to declare",
     "send_to": "email@example.com",  // default email recipient
-    "email_overrides": {             // per-airport email overrides (to/cc)
-        "LFMT": {"to": ["customs@lfmt.example"]},
-        "LFOH": {"to": ["ops@lfoh.example"], "cc": ["cc@example"]}
+    "email_lookup": "aip_customs_emails.lookup.json", // per-airport e-mails generated from the AIP
+    "email_overrides": {             // hand-written per-airport to/cc/subject, layered last
+        "LFRG": {"to": ["ops@lfrg.example"]}
     },
     "required_fields": {         // arrays of required field names per section
         "flight": ["origin", "destination", "departure_date"],
@@ -229,7 +230,7 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 | Mapping ID | Scope | Format | Label |
 |------------|-------|--------|-------|
 | `lsgs` | LSGS (Sion, CH) | PDF AcroForm | Immigration Information |
-| `french_customs` | LF* (France, 55 airports with email overrides) | PDF AcroForm (french) | Préavis Douane |
+| `french_customs` | LF* (France; e-mails for ~53 airports from the AIP) | PDF AcroForm (french) | Préavis Douane |
 | `lfqa` | 11 CODT Metz airports (icao_list) | PDF AcroForm | Préavis Douane (CODT Metz) |
 | `lfrm` | LFRM (Le Mans Arnage, FR) | PDF AcroForm | Préavis Douane (Le Mans Arnage) |
 | `myhandling` | 117 airports across EU (icao_list) | XLSX (column_map) | Handling Request (myhandling) |
@@ -244,7 +245,16 @@ filled_bytes = fill_pdf(template_path, mapping, request, airport_resolver)
 ## Key Choices
 
 - **JSON mappings, not code:** New forms don't require Python changes — just template + JSON. This is the core extensibility mechanism.
-- **Four-tier resolution:** Exact ICAO match → `icao_list` match → prefix match → default fallback. `icao_list` allows multiple airports to share one mapping without duplicating JSON files (e.g., LFQA/LFQB/LFGJ share one CODT Metz form, myhandling covers 117 airports).
+- **Tiered resolution:** Exact ICAO match → `icao_list`/prefix matches that hold an e-mail for the airport → other `icao_list` matches → prefix matches → default fallback. `icao_list` allows multiple airports to share one mapping without duplicating JSON files (e.g., LFQA/LFQB/LFGJ share one CODT Metz form, myhandling covers 117 airports) — but being on a long list is not a statement about the airport, so it doesn't outrank a form the AIP says to e-mail.
+
+## Customs e-mails from the AIP
+
+The French AIP's "Customs and immigration" field (302) says how to notify customs at each airport, and many name the addresses. That text decides both where the customs form goes and which form is offered first:
+
+- **Where it goes:** `scripts/sync_aip_emails.py` reads field 302 from the euro_aip airports database (the one flyfun-apps builds, `flyfun-apps/main/data/airports.db`), extracts addresses with euro_aip's `CustomInterpreter` (`contact_emails`, `email_subject`; needs euro-aip ≥ 0.18.0), and writes `aip_customs_emails.lookup.json` for every airport a mapping with `email_lookup` covers. First address → `to`, the rest → `cc`; the AIRAC date is recorded in the file. Run it after each AIRAC refresh of that database, read the printed diff, commit the lookup.
+- **Which form first:** a form holding an e-mail for the airport ranks above one that merely lists it. LFOH's AIP says to e-mail `bsep-le-havre@douane…`, so the customs notice comes before myhandling; LFMD's says only "On request" and LFOT's "Via My Handling", so myhandling stays first there. No per-airport ordering to maintain.
+- **Subject:** when the AIP mandates one (LFOH: `ppf le havre octeville`) it's in the lookup and `POST /email-text` returns it as both subjects. The app takes the subject from the server, so no app release is involved.
+- **Layering:** `FormMapping.email_for()` starts from `send_to`, applies the lookup, then `email_overrides`, each replacing only the keys it sets. Keep `email_overrides` for airports whose AIP names no address (LFRG: "E-mail AD administration") — an override that duplicates the AIP just goes stale.
 - **Separate fillers per format:** PDF, DOCX, XLSX have fundamentally different filling mechanics. No shared abstraction forced.
 - **Templates bundled in Docker image:** Templates ship with the code. No external template storage needed.
 - **Prefill the official page, don't submit for the pilot:** web forms open on the airport's own site with our values in; the pilot checks and submits. No test submissions to arrange with the airport, the pilot sees the site's own confirmation, and page changes are fixed in the mapping on the server rather than in an app release.

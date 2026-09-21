@@ -41,6 +41,28 @@ class FormMapping:
         self.preferred_prefix: Optional[str] = data.get("preferred_prefix")
         self.email_overrides: dict = data.get("email_overrides", {})
         self.email_templates: dict = data.get("email_templates", {})
+        # Per-airport e-mails generated from the AIP (scripts/sync_aip_emails.py);
+        # the registry fills them in from the "email_lookup" file.
+        self.email_lookup: Optional[str] = data.get("email_lookup")
+        self.lookup_emails: dict = {}
+
+    def email_for(self, icao: str) -> Optional[dict]:
+        """Where to send this form for *icao*: ``{"to", "cc", "subject"}``, or None.
+
+        Layers, each replacing only the keys it sets: the form-level
+        ``send_to``, then the AIP-generated lookup, then the hand-written
+        ``email_overrides`` (for airports whose AIP names no address).
+        """
+        email: dict = {"to": [self.send_to] if self.send_to else [], "cc": [], "subject": None}
+        for layer in (self.lookup_emails.get(icao, {}), self.email_overrides.get(icao, {})):
+            for key in ("to", "cc"):
+                if key in layer:
+                    email[key] = layer[key] if isinstance(layer[key], list) else [layer[key]]
+            if "subject" in layer:
+                email["subject"] = layer["subject"]
+        if not email["to"] and not email["cc"]:
+            return None
+        return email
 
     @property
     def required_fields(self) -> dict:
@@ -145,6 +167,8 @@ class MappingRegistry:
                 data = json.load(f)
             mapping_id = path.stem
             mapping = FormMapping(data, mapping_id)
+            if mapping.email_lookup:
+                mapping.lookup_emails = self._load_email_lookup(mapping.email_lookup)
             if mapping.icao:
                 self._by_icao.setdefault(mapping.icao, []).append(mapping)
             elif mapping.icao_list:
@@ -155,31 +179,45 @@ class MappingRegistry:
             elif mapping.is_default:
                 self._defaults.append(mapping)
 
+    def _load_email_lookup(self, filename: str) -> dict:
+        path = (self.mappings_dir / filename).resolve()
+        if not path.is_relative_to(self.mappings_dir.resolve()):
+            raise ValueError("Invalid email_lookup path")
+        with open(path) as f:
+            return json.load(f)["airports"]
+
     def get_forms_for_airport(self, icao: str) -> list[FormMapping]:
         """Get all form mappings for an airport.
 
-        Returns exact ICAO matches first, then prefix matches, then
-        defaults.  Among defaults, forms whose preferred_prefix matches
-        the airport are sorted first.
+        Order: forms written for this one airport (``icao``); then, among
+        ``icao_list`` and prefix matches, those holding an e-mail for the
+        airport — the AIP says that is how to notify customs there, so the
+        form to send outranks one that merely lists the airport (LFOH's
+        customs notice before myhandling; LFMD, with no address, keeps
+        myhandling first); then the remaining ``icao_list`` matches, then
+        prefix matches, then defaults.  Among defaults, forms whose
+        preferred_prefix matches the airport are sorted first.
         """
         seen_ids: set[str] = set()
         result: list[FormMapping] = []
 
-        # 1. Exact ICAO matches (most specific)
+        exact: list[FormMapping] = []
+        listed: list[FormMapping] = []
         for m in self._by_icao.get(icao, []):
+            (exact if m.icao == icao else listed).append(m)
+        prefixed = [
+            m for prefix, mappings in self._by_prefix.items()
+            if icao.startswith(prefix) for m in mappings
+        ]
+        with_email = [m for m in listed + prefixed if m.email_for(icao)]
+        without_email = [m for m in listed + prefixed if not m.email_for(icao)]
+
+        for m in exact + with_email + without_email:
             if m.id not in seen_ids:
                 result.append(m)
                 seen_ids.add(m.id)
 
-        # 2. Prefix matches
-        for prefix, mappings in self._by_prefix.items():
-            if icao.startswith(prefix):
-                for m in mappings:
-                    if m.id not in seen_ids:
-                        result.append(m)
-                        seen_ids.add(m.id)
-
-        # 3. Defaults: preferred match first, then no-preference, then non-matching
+        # Defaults: preferred match first, then no-preference, then non-matching
         preferred = []
         no_pref = []
         non_matching = []
