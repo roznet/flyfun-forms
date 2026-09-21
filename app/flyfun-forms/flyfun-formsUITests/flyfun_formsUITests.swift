@@ -9,7 +9,7 @@
 //  accessibilityIdentifiers rather than visible text where one exists, so they
 //  survive copy and localisation changes.
 //
-//  The fixture records named here (Alice Martin, F-UITA, EGTF → LFRM, …) are
+//  The fixture records named here (Test Pilot, ZZ-TEST, EGTF → LFRM, …) are
 //  defined in `UITestFixtures.seed`.
 //
 
@@ -75,14 +75,14 @@ final class flyfun_formsUITests: XCTestCase {
         let app = launchApp()
 
         openTab(app, "People")
-        for lastName in ["Martin", "Dupont", "Klein"] {
+        for lastName in ["Pilot", "Passenger", "Traveller"] {
             XCTAssertTrue(element(app, "personRow-\(lastName)").waitForExistence(timeout: Self.uiTimeout),
                           "\(lastName) should be listed")
         }
 
         openTab(app, "Aircraft")
-        XCTAssertTrue(element(app, "aircraftRow-F-UITA").waitForExistence(timeout: Self.uiTimeout),
-                      "F-UITA should be listed")
+        XCTAssertTrue(element(app, "aircraftRow-ZZ-TEST").waitForExistence(timeout: Self.uiTimeout),
+                      "ZZ-TEST should be listed")
 
         openTab(app, "Flights")
         XCTAssertTrue(element(app, "flightRow-EGTF-LFRM").waitForExistence(timeout: Self.uiTimeout),
@@ -94,9 +94,9 @@ final class flyfun_formsUITests: XCTestCase {
                       "expanding Past Flights should show last month's flight")
 
         openTab(app, "People")
-        element(app, "personRow-Klein").tap()
+        element(app, "personRow-Traveller").tap()
         let passport = element(app, "documentRow-DEU")
-        XCTAssertTrue(passport.waitForExistence(timeout: Self.uiTimeout), "Carla's passport should be listed")
+        XCTAssertTrue(passport.waitForExistence(timeout: Self.uiTimeout), "the expired passport should be listed")
         let expiry = passport.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Expires'")).firstMatch
         XCTAssertTrue(expiry.exists, "the passport row should show its expiry date")
         XCTAssertEqual(expiry.value as? String, "Document expired",
@@ -125,8 +125,8 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertTrue(suggestion.waitForExistence(timeout: Self.uiTimeout),
                       "the people step should suggest a crew from earlier flights")
         suggestion.tap()
-        XCTAssertTrue(app.staticTexts["Alice Martin"].waitForExistence(timeout: Self.uiTimeout),
-                      "the suggestion should put Alice on the crew")
+        XCTAssertTrue(app.staticTexts["Test Pilot"].waitForExistence(timeout: Self.uiTimeout),
+                      "the suggestion should put Test Pilot on the crew")
 
         element(app, "createFlightButton").tap()
         XCTAssertTrue(app.navigationBars["EGTF > LFAC"].waitForExistence(timeout: Self.uiTimeout),
@@ -137,10 +137,11 @@ final class flyfun_formsUITests: XCTestCase {
     }
 
     /// Journey 3: an ICAO flight plan on the clipboard fills the route, and a
-    /// registration the app has never seen becomes a new aircraft.
+    /// registration the app has never seen becomes a new aircraft — once the
+    /// flight is created, and not if the import is cancelled.
     @MainActor
     func testPasteFlightPlanFillsRouteAndCreatesAircraft() throws {
-        let plan = "(FPL-N122DR-ZG-S22T/L-SBDGORVY/LB2-LSGS0800-N0178A110 SAPRE1D SAPRE/N0189F180 IFR L615 DJL A6 SOMDA T11 VATRI B3 BILGO H20 XORBI H40 ABB N20 ELDAX M8 WAFFU Y8 GWC-EGTF0257-PBN/A1B2C2D2L1O2 DOF/260927)"
+        let plan = "(FPL-ZZNEW-ZG-S22T/L-SBDGORVY/LB2-LSGS0800-N0178A110 SAPRE1D SAPRE/N0189F180 IFR L615 DJL A6 SOMDA T11 VATRI B3 BILGO H20 XORBI H40 ABB N20 ELDAX M8 WAFFU Y8 GWC-EGTF0257-PBN/A1B2C2D2L1O2 DOF/260927)"
         let app = launchApp(environment: ["FLYFUN_UITEST_CLIPBOARD": plan])
         openTab(app, "Flights")
         element(app, "addFlightButton").tap()
@@ -159,8 +160,32 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertTrue(route.label.contains("LSGS → EGTF"), "the plan's route should be filled, got: \(route.label)")
         let aircraft = element(app, "newFlightAircraftPicker")
         scrollTo(app, aircraft)
-        XCTAssertTrue(aircraft.label.contains("N122DR"),
-                      "the unknown registration should be created and selected, got: \(aircraft.label)")
+        XCTAssertTrue(aircraft.label.contains("ZZNEW"),
+                      "the unknown registration should be offered and selected, got: \(aircraft.label)")
+
+        // Cancelled, the import leaves nothing behind: the aircraft is only
+        // staged until the flight is created.
+        element(app, "newFlightCancelButton").tap()
+        openTab(app, "Aircraft")
+        XCTAssertTrue(element(app, "aircraftRow-ZZ-TEST").waitForExistence(timeout: Self.uiTimeout))
+        XCTAssertFalse(element(app, "aircraftRow-ZZNEW").exists,
+                       "a cancelled import should not leave its aircraft on file")
+
+        // Created, it is kept.
+        openTab(app, "Flights")
+        element(app, "addFlightButton").tap()
+        XCTAssertTrue(importButton.waitForExistence(timeout: Self.uiTimeout))
+        importButton.tap()
+        XCTAssertTrue(method.waitForExistence(timeout: Self.uiTimeout))
+        method.tap()
+        XCTAssertTrue(element(app, "importSummary").waitForExistence(timeout: Self.uiTimeout))
+        element(app, "newFlightNextButton").tap()
+        element(app, "createFlightButton").tap()
+        XCTAssertTrue(app.navigationBars["LSGS > EGTF"].waitForExistence(timeout: Self.uiTimeout),
+                      "creating the flight should open it")
+        openTab(app, "Aircraft")
+        XCTAssertTrue(element(app, "aircraftRow-ZZNEW").waitForExistence(timeout: Self.uiTimeout),
+                      "creating the flight should add the imported aircraft")
     }
 
     /// Journey 4: the schedule is written through the instant *and* the legacy
@@ -213,21 +238,21 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertEqual(flight["origin"] as? String, "EGTF")
         XCTAssertEqual(flight["destination"] as? String, "LFRM")
         XCTAssertEqual(flight["departure_time_utc"] as? String, "09:00")
-        XCTAssertEqual(flight["contact"] as? String, "Alice Martin", "the responsible person is the contact")
+        XCTAssertEqual(flight["contact"] as? String, "Test Pilot", "the responsible person is the contact")
 
         let aircraft = try XCTUnwrap(request["aircraft"] as? [String: Any])
-        XCTAssertEqual(aircraft["registration"] as? String, "F-UITA")
+        XCTAssertEqual(aircraft["registration"] as? String, "ZZ-TEST")
 
         let crew = try XCTUnwrap(request["crew"] as? [[String: Any]])
         XCTAssertEqual(crew.count, 1)
-        XCTAssertEqual(crew.first?["last_name"] as? String, "Martin")
+        XCTAssertEqual(crew.first?["last_name"] as? String, "Pilot")
         XCTAssertEqual(crew.first?["function"] as? String, "Pilot")
-        // Alice holds French and British passports; LFRM is Schengen.
+        // Test Pilot holds French and British passports; LFRM is Schengen.
         XCTAssertEqual(crew.first?["id_number"] as? String, "FXA000001", "a Schengen airport should get the French passport")
         XCTAssertEqual(crew.first?["nationality"] as? String, "FRA")
 
         let passengers = try XCTUnwrap(request["passengers"] as? [[String: Any]])
-        XCTAssertEqual(passengers.first?["last_name"] as? String, "Dupont")
+        XCTAssertEqual(passengers.first?["last_name"] as? String, "Passenger")
         XCTAssertEqual(passengers.first?["id_type"] as? String, "Identity card")
     }
 
@@ -263,10 +288,10 @@ final class flyfun_formsUITests: XCTestCase {
         let firstName = app.textFields["personFirstNameField"]
         XCTAssertTrue(firstName.waitForExistence(timeout: Self.uiTimeout), "the person editor should open")
         firstName.tap()
-        firstName.typeText("Dana")
+        firstName.typeText("New")
         let lastName = app.textFields["personLastNameField"]
         lastName.tap()
-        lastName.typeText("Weber")
+        lastName.typeText("Person")
 
         let addDocument = element(app, "addDocumentButton")
         scrollTo(app, addDocument)
@@ -293,8 +318,8 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertEqual(expiry.value as? String, "Document expired", "a passport expiring today is expired")
 
         goBack(app)
-        XCTAssertTrue(element(app, "personRow-Weber").waitForExistence(timeout: Self.uiTimeout),
-                      "Dana Weber should be listed")
+        XCTAssertTrue(element(app, "personRow-Person").waitForExistence(timeout: Self.uiTimeout),
+                      "New Person should be listed")
     }
 
     /// Journey 8: return flight, next leg and duplicate each open the new leg

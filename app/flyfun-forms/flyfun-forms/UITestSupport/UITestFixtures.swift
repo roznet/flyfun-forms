@@ -38,55 +38,56 @@ enum UITestFixtures {
         }
     }
 
-    /// - Alice Martin, usual crew, holding a French and a British passport, so
+    /// - Test Pilot, usual crew, holding a French and a British passport, so
     ///   the document picked for a form depends on the airport's region.
-    /// - Bob Dupont, a passenger with a French identity card.
-    /// - Carla Klein, whose only passport has expired.
-    /// - F-UITA, the one aircraft.
+    /// - Sample Passenger, a passenger with a French identity card.
+    /// - Expired Traveller, whose only passport has expired.
+    /// - ZZ-TEST, the one aircraft. ZZ is no nationality prefix, so no real
+    ///   aircraft carries it; the names are as plainly made up.
     /// - EGTF → LFRM in 30 days and LFRM → EGTF two days later, as one trip.
     /// - EGTF → LFAC 20 days ago, in the past section.
     static func seed(_ context: ModelContext) {
-        let alice = person("Alice", "Martin", born: (1980, 4, 12), sex: "Female", usualCrew: true, in: context)
-        alice.phone = "+33 100 000 001"
-        alice.email = "alice@example.com"
-        alice.address = "1 Rue de l'Essai, 72000 Le Mans"
-        document(for: alice, "Passport", "FXA000001", "FRA", expiresInDays: 5 * 365, in: context)
-        document(for: alice, "Passport", "GBA000001", "GBR", expiresInDays: 3 * 365, in: context)
+        let pilot = person("Test", "Pilot", born: (1980, 4, 12), sex: "Female", usualCrew: true, in: context)
+        pilot.phone = "+00 000 000 001"
+        pilot.email = "pilot@example.com"
+        pilot.address = "1 Test Street, Testville"
+        document(for: pilot, "Passport", "FXA000001", "FRA", expiresInDays: 5 * 365, in: context)
+        document(for: pilot, "Passport", "GBA000001", "GBR", expiresInDays: 3 * 365, in: context)
 
-        let bob = person("Bob", "Dupont", born: (1975, 9, 3), sex: "Male", usualCrew: false, in: context)
-        document(for: bob, "Identity card", "IDF000002", "FRA", expiresInDays: 4 * 365, in: context)
+        let passenger = person("Sample", "Passenger", born: (1975, 9, 3), sex: "Male", usualCrew: false, in: context)
+        document(for: passenger, "Identity card", "IDF000002", "FRA", expiresInDays: 4 * 365, in: context)
 
-        let carla = person("Carla", "Klein", born: (1990, 1, 20), sex: "Female", usualCrew: false, in: context)
-        document(for: carla, "Passport", "DEA000003", "DEU", expiresInDays: -30, in: context)
+        let traveller = person("Expired", "Traveller", born: (1990, 1, 20), sex: "Female", usualCrew: false, in: context)
+        document(for: traveller, "Passport", "DEA000003", "DEU", expiresInDays: -30, in: context)
 
-        let aircraft = Aircraft(registration: "F-UITA", type: "DR40")
-        aircraft.owner = "Aéroclub d'Essai"
+        let aircraft = Aircraft(registration: "ZZ-TEST", type: "DR40")
+        aircraft.owner = "Test Aero Club"
         aircraft.usualBase = "EGTF"
         context.insert(aircraft)
 
-        let trip = Trip(name: "Le Mans weekend")
+        let trip = Trip(name: "Test trip")
         context.insert(trip)
 
         let outbound = flight("EGTF", "LFRM", day: 30, departureHour: 9, arrivalHour: 10, in: context)
         outbound.aircraft = aircraft
-        outbound.crew = [alice]
-        outbound.passengers = [bob]
-        outbound.responsiblePerson = alice
+        outbound.crew = [pilot]
+        outbound.passengers = [passenger]
+        outbound.responsiblePerson = pilot
         outbound.trip = trip
         outbound.legOrder = 0
 
         let inbound = flight("LFRM", "EGTF", day: 32, departureHour: 12, arrivalHour: 13, in: context)
         inbound.aircraft = aircraft
-        inbound.crew = [alice]
-        inbound.passengers = [bob]
-        inbound.responsiblePerson = alice
+        inbound.crew = [pilot]
+        inbound.passengers = [passenger]
+        inbound.responsiblePerson = pilot
         inbound.trip = trip
         inbound.legOrder = 1
 
         let past = flight("EGTF", "LFAC", day: -20, departureHour: 8, arrivalHour: 9, in: context)
         past.aircraft = aircraft
-        past.crew = [alice]
-        past.passengers = [carla]
+        past.crew = [pilot]
+        past.passengers = [traveller]
 
         try? context.save()
     }
