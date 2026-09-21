@@ -14,6 +14,7 @@ from pypdf import PdfReader, PdfWriter
 from ..api.models import GenerateRequest
 from ..registry import FormMapping
 from ._datetime import utc_to_local
+from ._flatten import flatten_form
 
 
 def _parse_date(date_str: str, fmt: str) -> str:
@@ -132,7 +133,9 @@ def fill_french_customs(
 
     # Apply updates
     for page in writer.pages:
-        writer.update_page_form_field_values(page, updates, auto_regenerate=flatten)
+        writer.update_page_form_field_values(page, updates, auto_regenerate=False)
+    if flatten:
+        flatten_form(writer)
 
     output = BytesIO()
     writer.write(output)

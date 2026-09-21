@@ -19,6 +19,7 @@ from pypdf.generic import (
 from ..api.models import GenerateRequest
 from ..registry import FormMapping
 from ._datetime import utc_to_local
+from ._flatten import flatten_form
 
 
 # Characters that don't decompose via NFKD but have obvious Latin base letters.
@@ -350,7 +351,7 @@ def fill_pdf(
 
     # Apply all updates
     for page in writer.pages:
-        writer.update_page_form_field_values(page, updates, auto_regenerate=flatten)
+        writer.update_page_form_field_values(page, updates, auto_regenerate=False)
 
     # Draw text that fits: pypdf renders auto-size fields at a flat 12pt, and
     # leaves a fixed size alone even when it overflows a short box (which puts
@@ -358,6 +359,8 @@ def fill_pdf(
     # appearance for both cases.  Sizes come from the template, because filling
     # rewrites an inherited auto-size /DA to a concrete "12 Tf".
     _fix_text_appearances(writer, updates, _template_font_sizes(reader))
+    if flatten:
+        flatten_form(writer)
 
     output = BytesIO()
     writer.write(output)
