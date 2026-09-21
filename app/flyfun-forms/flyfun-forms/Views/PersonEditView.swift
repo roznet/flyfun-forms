@@ -174,8 +174,10 @@ struct PersonEditView: View {
         Section("Name") {
             TextField("First Name", text: $person.firstName)
                 .textContentType(.givenName)
+                .accessibilityIdentifier("personFirstNameField")
             TextField("Last Name", text: $person.lastName)
                 .textContentType(.familyName)
+                .accessibilityIdentifier("personLastNameField")
         }
 
         Section("Details") {
@@ -231,6 +233,7 @@ struct PersonEditView: View {
                     NavigationLink(destination: DocumentEditView(document: doc)) {
                         documentLabel(doc)
                     }
+                    .accessibilityIdentifier("documentRow-\(doc.issuingCountry ?? "new")")
                 }
             }
             .onDelete { offsets in
@@ -245,6 +248,7 @@ struct PersonEditView: View {
                 doc.person = person
                 modelContext.insert(doc)
             }
+            .accessibilityIdentifier("addDocumentButton")
         }
     }
 
@@ -267,6 +271,7 @@ struct PersonEditView: View {
                 Text("Expires \(expiry, format: .dateTime.day().month().year())")
                     .font(.caption)
                     .foregroundStyle(state.tint)
+                    .accessibilityValue(state.spokenState ?? "")
             }
         }
         .opacity(doc.isActive ? 1 : 0.5)
@@ -287,6 +292,16 @@ enum DocumentExpiry {
             self = .expiringSoon
         } else {
             self = .valid
+        }
+    }
+
+    /// Said alongside the expiry date, so the state is not carried by the
+    /// row's colour alone. Nil when there is nothing to flag.
+    var spokenState: String? {
+        switch self {
+        case .valid: nil
+        case .expiringSoon: String(localized: "Expires soon")
+        case .expired: String(localized: "Document expired")
         }
     }
 
@@ -312,10 +327,12 @@ struct DocumentFields: View {
             Text("Other", comment: "Document type").tag("Other")
         }
         TextField("Document Number", text: $document.docNumber)
+            .accessibilityIdentifier("documentNumberField")
         TextField("Issuing Country (e.g. FRA)", text: Binding(
             get: { document.issuingCountry ?? "" },
             set: { document.issuingCountry = $0.isEmpty ? nil : $0.uppercased() }
         ))
+        .accessibilityIdentifier("documentCountryField")
         OptionalDatePicker("Expiry Date", selection: $document.expiryDate)
         Toggle("Active", isOn: $document.isActive)
     }

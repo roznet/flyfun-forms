@@ -321,6 +321,7 @@ struct FlightEditView: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("flightRouteButton")
 
             notificationRow(icao: flight.originICAO, label: "Departure")
             notificationRow(icao: flight.destinationICAO, label: "Arrival")
@@ -522,16 +523,19 @@ struct FlightEditView: View {
             } label: {
                 Label("Create Return Flight", systemImage: "arrow.uturn.left")
             }
+            .accessibilityIdentifier("createReturnFlightButton")
             Button {
                 createNextLeg()
             } label: {
                 Label("Create Next Leg", systemImage: "arrow.right")
             }
+            .accessibilityIdentifier("createNextLegButton")
             Button {
                 duplicateFlight()
             } label: {
                 Label("Duplicate Flight", systemImage: "doc.on.doc")
             }
+            .accessibilityIdentifier("duplicateFlightButton")
     }
 
     // MARK: - Bindings
@@ -623,6 +627,7 @@ struct FlightEditView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(isGenerating)
+                .accessibilityIdentifier("shareForm-\(airport)-\(formInfo.id)")
 
                 Spacer()
 
@@ -639,6 +644,7 @@ struct FlightEditView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(isGenerating)
+                .accessibilityIdentifier("emailForm-\(airport)-\(formInfo.id)")
             }
         }
     }

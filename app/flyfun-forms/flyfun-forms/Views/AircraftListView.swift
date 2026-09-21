@@ -20,6 +20,7 @@ struct AircraftListView: View {
                         }
                     }
                 }
+                .accessibilityIdentifier("aircraftRow-\(ac.registration)")
             }
             .onDelete(perform: deleteAircraft)
         }
