@@ -18,6 +18,10 @@ struct NewFlightFlow: View {
     @State private var departureInstant = Flight.defaultScheduleInstant()
     @State private var arrivalInstant = Flight.defaultScheduleInstant()
     @State private var selectedAircraft: Aircraft?
+    /// An aircraft an import named that is not on file yet. Built but not
+    /// inserted: it reaches the store only if the flight is created with it,
+    /// so a cancelled or replaced import leaves nothing behind.
+    @State private var importedAircraft: Aircraft?
     @State private var selectedCrew: [Person] = []
     @State private var selectedPassengers: [Person] = []
     @State private var selectedResponsiblePerson: Person?
@@ -76,6 +80,7 @@ struct NewFlightFlow: View {
                         Button("Back") { step = .route }
                     } else {
                         Button("Cancel") { dismiss() }
+                            .accessibilityIdentifier("newFlightCancelButton")
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -202,7 +207,7 @@ struct NewFlightFlow: View {
         Section("Aircraft") {
             Picker("Aircraft", selection: $selectedAircraft) {
                 Text("None").tag(nil as Aircraft?)
-                ForEach(allAircraft) { ac in
+                ForEach(aircraftChoices) { ac in
                     Text("\(ac.registration) (\(ac.type))").tag(ac as Aircraft?)
                 }
             }
@@ -442,19 +447,34 @@ struct NewFlightFlow: View {
         importSummary = draft.provenance.summary
     }
 
-    /// Select an existing aircraft matching `registration` (ignoring dashes /
-    /// case), or insert a new one. Shared by every import method that carries a
-    /// registration.
+    /// The aircraft on file, plus the one an import named if it is new.
+    private var aircraftChoices: [Aircraft] {
+        allAircraft + (importedAircraft.map { [$0] } ?? [])
+    }
+
+    /// Select an existing aircraft matching `registration`, or stage a new one
+    /// for `createFlight()` to insert. Shared by every import method that
+    /// carries a registration.
+    ///
+    /// Not inserted here: it used to be, which left an aircraft behind on every
+    /// cancelled import, and one per registration when a second import
+    /// replaced the first.
     private func resolveOrCreateAircraft(registration: String, type: String) {
-        let normalizedReg = registration.replacingOccurrences(of: "-", with: "").uppercased()
-        if let existing = allAircraft.first(where: { ac in
-            ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalizedReg
-        }) {
+        if let existing = existingAircraft(registration: registration) {
+            importedAircraft = nil
             selectedAircraft = existing
         } else {
             let ac = Aircraft(registration: registration, type: type)
-            modelContext.insert(ac)
+            importedAircraft = ac
             selectedAircraft = ac
+        }
+    }
+
+    /// The aircraft on file with this registration, ignoring dashes and case.
+    private func existingAircraft(registration: String) -> Aircraft? {
+        let normalized = registration.replacingOccurrences(of: "-", with: "").uppercased()
+        return allAircraft.first { ac in
+            ac.registration.replacingOccurrences(of: "-", with: "").uppercased() == normalized
         }
     }
 
@@ -466,6 +486,15 @@ struct NewFlightFlow: View {
         flight.destinationICAO = destinationICAO
         flight.departureDateTime = departureInstant
         flight.arrivalDateTime = arrivalInstant
+        if let staged = importedAircraft, selectedAircraft === staged {
+            // Created with the aircraft the import named: now it is real —
+            // unless one with that registration arrived meanwhile (a sync).
+            if let existing = existingAircraft(registration: staged.registration) {
+                selectedAircraft = existing
+            } else {
+                modelContext.insert(staged)
+            }
+        }
         flight.aircraft = selectedAircraft
         flight.crew = selectedCrew.isEmpty ? nil : selectedCrew
         flight.passengers = selectedPassengers.isEmpty ? nil : selectedPassengers
