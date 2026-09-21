@@ -34,6 +34,7 @@ Use these values based on the selected platform:
 |---------|-----|-------|
 | Destination | `generic/platform=iOS` | `generic/platform=macOS` |
 | Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | `platform=macOS` |
+| Test filter | *(none — unit + UI journeys)* | `-only-testing:flyfun-formsTests` |
 | Tag prefix | `ios` | `macos` |
 | `asc.py --platform` | `ios` | `macos` |
 | Release notes file | `release-notes/ios-{version}.txt` | `release-notes/macos-{version}.txt` |
@@ -60,16 +61,24 @@ Verify that the Release/production build will NOT use localhost. Check `app/flyf
 
 ### 2b — App tests
 
-Run the Xcode test suite using the platform-appropriate destination:
+Run the Xcode test suite using the platform-appropriate destination and filter:
 ```bash
+rm -rf /tmp/archive-tests.xcresult
 xcodebuild test \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
   -destination "{test_destination}" \
+  {test_filter} \
+  -resultBundlePath /tmp/archive-tests.xcresult \
   -quiet \
   2>&1 | tail -30
+xcrun xcresulttool get test-results summary --path /tmp/archive-tests.xcresult
 ```
-If tests fail, stop and show the failures. Use timeout of 300000ms.
+
+- **iOS** runs the unit target *and* the XCUI journeys (`flyfun-formsUITests`). CI only runs the journeys nightly, so this is the one place a release is guaranteed to have passed them. Allow ~10 minutes: use a timeout of 900000ms, in the background if needed.
+- **macOS** runs the unit target only. The journeys are iPhone-only (see `designs/ios-app.md` → UI Tests).
+
+Read `totalTestCount` / `failedTests` from the summary rather than trusting `** TEST SUCCEEDED **`: a filter that matches nothing prints that having run zero tests. If `failedTests` > 0 or `totalTestCount` is 0, stop and show the `testFailures`.
 
 ### 2c — Backend tests
 
@@ -135,7 +144,7 @@ For `MARKETING_VERSION`, apply the bump type:
 
 Update ALL occurrences in `project.pbxproj` using the Edit tool with `replace_all`. There are typically 2 occurrences of `MARKETING_VERSION` and 2 of `CURRENT_PROJECT_VERSION` for the main target (Debug + Release).
 
-**Important**: Only update the entries for the main target (flyfun-forms), not the test target. The test target entries typically have different surrounding context. Check line numbers to distinguish them.
+**Important**: Only update the entries for the main target (flyfun-forms), not the two test targets (`flyfun-formsTests`, `flyfun-formsUITests`). The test target entries typically have different surrounding context. Check line numbers to distinguish them.
 
 Show the user: "Bumped to X.Y (build N)"
 
