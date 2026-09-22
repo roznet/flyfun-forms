@@ -16,7 +16,7 @@ dependencies = [
     "pypdf>=4.0,<5.0",
     "python-docx>=1.0,<2.0",
     "openpyxl>=3.1,<4.0",
-    "euro-aip>=0.2.0,<1.0",
+    "euro-aip>=0.18.0,<1.0",  # 0.18: customs contacts, for scripts/sync_aip_emails.py
     "pytz>=2024.1",
 ]
 
