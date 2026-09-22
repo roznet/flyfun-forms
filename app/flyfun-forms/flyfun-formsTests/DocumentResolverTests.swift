@@ -52,11 +52,6 @@ private func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
 @Suite("DocumentResolver")
 struct DocumentResolverTests {
 
-    // Clear any leftover user overrides before each test
-    init() {
-        UserDefaults.standard.removeObject(forKey: "documentPreferences")
-    }
-
     @Test("No documents returns nil")
     @MainActor
     func noDocuments() throws {
@@ -181,5 +176,45 @@ struct DocumentResolverTests {
             let result = DocumentResolver.resolve(person: person, airport: airport)
             #expect(result?.docNumber == "PP-ITA-001", "Expected ITA doc for Schengen airport \(airport)")
         }
+    }
+
+    @Test("Document chosen for the flight wins over region match")
+    @MainActor
+    func chosenDocumentWins() throws {
+        let container = try makeTestContainer()
+        let (person, docs) = makePerson(container: container, documents: [
+            ("Passport", "FR-1", "FRA", date(2030, 1, 1)),
+            ("Passport", "GB-1", "GBR", date(2031, 1, 1)),
+        ])
+        let result = DocumentResolver.resolve(person: person, airport: "LFPB", chosenDocNumbers: ["GB-1"])
+        #expect(result === docs[1])
+    }
+
+    @Test("Chosen document that is inactive falls back to automatic")
+    @MainActor
+    func chosenInactiveIgnored() throws {
+        let container = try makeTestContainer()
+        let (person, docs) = makePerson(container: container, documents: [
+            ("Passport", "FR-1", "FRA", date(2030, 1, 1)),
+            ("Passport", "GB-1", "GBR", date(2031, 1, 1)),
+        ])
+        docs[1].isActive = false
+        let result = DocumentResolver.resolve(person: person, airport: "EGTF", chosenDocNumbers: ["GB-1"])
+        #expect(result === docs[0])
+    }
+
+    @Test("Choosing replaces this person's choice and keeps others'")
+    @MainActor
+    func choosingReplaces() throws {
+        let container = try makeTestContainer()
+        let (person, docs) = makePerson(container: container, documents: [
+            ("Passport", "FR-1", "FRA", nil),
+            ("Passport", "GB-1", "GBR", nil),
+        ])
+        let start = ["FR-1", "OTHER-9"]
+        let switched = DocumentResolver.choosing(docs[1], for: person, in: start)
+        #expect(Set(switched) == ["GB-1", "OTHER-9"])
+        let automatic = DocumentResolver.choosing(nil, for: person, in: switched)
+        #expect(automatic == ["OTHER-9"])
     }
 }

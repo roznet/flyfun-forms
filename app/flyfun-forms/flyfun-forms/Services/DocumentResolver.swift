@@ -4,7 +4,7 @@ import SwiftData
 /// Selects the best TravelDocument for a person given a target airport.
 ///
 /// Resolution order:
-/// 1. User override (remembered choice for this person + airport prefix)
+/// 1. The document chosen for this flight (`chosenDocNumbers`)
 /// 2. Region match (Schengen, UK, etc.) — prefer document from matching issuing country
 /// 3. Tiebreak by latest expiry date
 /// 4. Fallback to first document
@@ -64,18 +64,21 @@ enum DocumentResolver {
     // MARK: - Public API
 
     /// Resolve the best document for a person given a target airport ICAO.
-    static func resolve(person: Person, airport: String) -> TravelDocument? {
+    ///
+    /// `chosenDocNumbers` are the documents the pilot picked by hand for the
+    /// flight (`Flight.chosenDocNumbers`); one of this person's active
+    /// documents in that set wins over the automatic choice.
+    static func resolve(person: Person, airport: String, chosenDocNumbers: [String] = []) -> TravelDocument? {
         let docs = person.documentList.filter(\.isActive)
         guard !docs.isEmpty else { return nil }
         if docs.count == 1 { return docs[0] }
 
-        let prefix = String(airport.prefix(2))
-
-        // 1. Check user override
-        if let overrideID = userOverride(personID: person.persistentModelID.hashValue, prefix: prefix),
-           let doc = docs.first(where: { $0.persistentModelID.hashValue == overrideID }) {
+        // 1. The pilot's choice for this flight
+        if let doc = chosen(person: person, in: chosenDocNumbers) {
             return doc
         }
+
+        let prefix = String(airport.prefix(2))
 
         // 2. Region match
         let region = prefixRegions[prefix] ?? .other
@@ -95,18 +98,25 @@ enum DocumentResolver {
         return candidates.sorted { ($0.expiryDate ?? .distantPast) > ($1.expiryDate ?? .distantPast) }.first
     }
 
-    // MARK: - User overrides (UserDefaults)
+    // MARK: - Per-flight choice
 
-    private static let overridesKey = "documentPreferences"
-
-    static func setOverride(personID: Int, prefix: String, documentID: Int) {
-        var prefs = UserDefaults.standard.dictionary(forKey: overridesKey) as? [String: Int] ?? [:]
-        prefs["\(personID)_\(prefix)"] = documentID
-        UserDefaults.standard.set(prefs, forKey: overridesKey)
+    /// The person's active document picked by hand, if any.
+    ///
+    /// Choices are keyed by document number: unlike a model identifier it is
+    /// stable across launches and devices, and syncs through CloudKit.
+    static func chosen(person: Person, in chosenDocNumbers: [String]) -> TravelDocument? {
+        guard !chosenDocNumbers.isEmpty else { return nil }
+        return person.documentList.first { $0.isActive && !$0.docNumber.isEmpty && chosenDocNumbers.contains($0.docNumber) }
     }
 
-    private static func userOverride(personID: Int, prefix: String) -> Int? {
-        let prefs = UserDefaults.standard.dictionary(forKey: overridesKey) as? [String: Int] ?? [:]
-        return prefs["\(personID)_\(prefix)"]
+    /// `chosenDocNumbers` with the person's choice set to `document`, or
+    /// cleared back to automatic when `document` is nil.
+    static func choosing(_ document: TravelDocument?, for person: Person, in chosenDocNumbers: [String]) -> [String] {
+        let personNumbers = Set(person.documentList.map(\.docNumber))
+        var result = chosenDocNumbers.filter { !personNumbers.contains($0) }
+        if let document, !document.docNumber.isEmpty {
+            result.append(document.docNumber)
+        }
+        return result
     }
 }

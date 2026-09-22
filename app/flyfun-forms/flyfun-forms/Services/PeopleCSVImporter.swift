@@ -91,33 +91,57 @@ struct PeopleCSVImporter {
         return result
     }
 
-    /// Import parsed people into SwiftData, skipping duplicates by first+last+DOB.
+    /// Import parsed people into SwiftData.
+    ///
+    /// People are matched by first+last name+DOB, both against existing people
+    /// and against earlier rows of the same file: a person listed on several
+    /// rows (one per passport or ID card) becomes one person with several
+    /// documents. A matched row only adds its document when the person doesn't
+    /// already hold that document number; otherwise it is skipped.
     @discardableResult
     static func importInto(
         _ context: ModelContext,
         from data: Data
-    ) throws -> (imported: Int, skipped: Int) {
+    ) throws -> (imported: Int, documentsAdded: Int, skipped: Int) {
         let parsed = try parse(data: data)
 
         let existing = (try? context.fetch(FetchDescriptor<Person>())) ?? []
-        let existingKeys = Set(existing.map { personKey($0.firstName, $0.lastName, $0.dateOfBirth) })
+        var people: [String: Person] = [:]
+        var docNumbers: [String: Set<String>] = [:]
+        for person in existing {
+            let key = personKey(person.firstName, person.lastName, person.dateOfBirth)
+            people[key] = people[key] ?? person
+            docNumbers[key, default: []].formUnion(person.documentList.map(\.docNumber))
+        }
 
         var imported = 0
+        var documentsAdded = 0
         var skipped = 0
         for csv in parsed {
             let key = personKey(csv.firstName, csv.lastName, csv.dateOfBirth)
-            if existingKeys.contains(key) {
-                skipped += 1
-                continue
-            }
-            let person = Person(firstName: csv.firstName, lastName: csv.lastName)
-            person.sex = csv.sex
-            person.dateOfBirth = csv.dateOfBirth
-            person.nationality = csv.nationality
-            person.isUsualCrew = csv.isCrew
-            context.insert(person)
+            let docNumber = csv.idNumber ?? ""
+            let hasNewDocument = !docNumber.isEmpty && !(docNumbers[key]?.contains(docNumber) ?? false)
 
-            if let docNumber = csv.idNumber, !docNumber.isEmpty {
+            let person: Person
+            if let match = people[key] {
+                guard hasNewDocument else {
+                    skipped += 1
+                    continue
+                }
+                person = match
+                documentsAdded += 1
+            } else {
+                person = Person(firstName: csv.firstName, lastName: csv.lastName)
+                person.sex = csv.sex
+                person.dateOfBirth = csv.dateOfBirth
+                person.nationality = csv.nationality
+                person.isUsualCrew = csv.isCrew
+                context.insert(person)
+                people[key] = person
+                imported += 1
+            }
+
+            if hasNewDocument {
                 let doc = TravelDocument(
                     docType: csv.idType ?? "Passport",
                     docNumber: docNumber,
@@ -126,10 +150,10 @@ struct PeopleCSVImporter {
                 )
                 doc.person = person
                 context.insert(doc)
+                docNumbers[key, default: []].insert(docNumber)
             }
-            imported += 1
         }
-        return (imported, skipped)
+        return (imported, documentsAdded, skipped)
     }
 
     private static func personKey(_ first: String, _ last: String, _ dob: Date?) -> String {

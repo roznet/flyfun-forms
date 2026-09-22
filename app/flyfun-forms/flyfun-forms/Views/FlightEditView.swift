@@ -468,7 +468,7 @@ struct FlightEditView: View {
                 RemovableRow(onRemove: {
                     flight.crew?.removeAll { $0.persistentModelID == person.persistentModelID }
                 }) {
-                    Text(person.displayName)
+                    personLabel(person)
                 }
             }
             if isWide {
@@ -489,7 +489,7 @@ struct FlightEditView: View {
                 RemovableRow(onRemove: {
                     flight.passengers?.removeAll { $0.persistentModelID == person.persistentModelID }
                 }) {
-                    Text(person.displayName)
+                    personLabel(person)
                 }
             }
             if isWide {
@@ -497,6 +497,43 @@ struct FlightEditView: View {
                     Label("Add Passenger…", systemImage: "person.badge.plus")
                 }
             }
+        }
+    }
+
+    /// A crew or passenger row: the name, plus a document picker for people
+    /// carrying more than one active document.
+    @ViewBuilder
+    private func personLabel(_ person: Person) -> some View {
+        let docs = person.documentList.filter(\.isActive)
+        if docs.count > 1 {
+            let chosen = DocumentResolver.chosen(person: person, in: flight.chosenDocNumberList)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(person.displayName)
+                Menu {
+                    Picker("Document", selection: Binding(
+                        get: { chosen?.docNumber ?? "" },
+                        set: { number in
+                            let doc = docs.first { $0.docNumber == number }
+                            let updated = DocumentResolver.choosing(doc, for: person, in: flight.chosenDocNumberList)
+                            flight.chosenDocNumbers = updated.isEmpty ? nil : updated
+                        }
+                    )) {
+                        Text("Automatic").tag("")
+                        ForEach(docs.filter { !$0.docNumber.isEmpty }) { doc in
+                            Text(doc.displayLabel).tag(doc.docNumber)
+                        }
+                    }
+                } label: {
+                    Label(chosen?.displayLabel ?? String(localized: "Document: Automatic"),
+                          systemImage: "person.text.rectangle")
+                        .font(.caption)
+                }
+                .menuStyle(.button)
+                .buttonStyle(.borderless)
+                .fixedSize()
+            }
+        } else {
+            Text(person.displayName)
         }
     }
 
@@ -1112,7 +1149,7 @@ struct FlightEditView: View {
     }
 
     private func personPayload(_ p: Person, function: String? = nil, airport: String) -> PersonPayload {
-        let doc = DocumentResolver.resolve(person: p, airport: airport)
+        let doc = DocumentResolver.resolve(person: p, airport: airport, chosenDocNumbers: flight.chosenDocNumberList)
         return PersonPayload(
             function: function,
             firstName: p.firstName,

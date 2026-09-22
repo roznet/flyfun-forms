@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftData
 @testable import flyfun_forms
 
 // MARK: - Helpers
@@ -412,5 +413,83 @@ struct APITypesTests {
         #expect(json["id_issuing_country"] as? String == "XYZ")
         #expect(json["id_expiry"] as? String == "2030-06-15")
         #expect(json["place_of_birth"] as? String == "Northville")
+    }
+}
+
+// MARK: - Import tests
+
+@Suite("PeopleCSVImporter.importInto")
+@MainActor
+struct CSVImportTests {
+
+    // Held for the suite's lifetime: a context outliving its container crashes.
+    private let container: ModelContainer
+
+    init() throws {
+        container = try ModelContainer(
+            for: Person.self, TravelDocument.self, Aircraft.self, Flight.self, Trip.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+    }
+
+    private func makeContext() throws -> ModelContext {
+        container.mainContext
+    }
+
+    private let header = "First Name,Last Name,DoB,Doc Type,Doc Number,Doc Expiry,Doc Issuing State"
+
+    @Test("Same person on several rows becomes one person with several documents")
+    func mergesRowsIntoDocuments() throws {
+        let context = try makeContext()
+        let csv = """
+        \(header)
+        Zara,Kowalski,1985-03-22,Passport,PP-1,2030-06-15,XYZ
+        Zara,Kowalski,1985-03-22,Identity card,ID-2,2031-01-01,ABC
+        """
+        let result = try PeopleCSVImporter.importInto(context, from: csvData(csv))
+        #expect(result.imported == 1)
+        #expect(result.documentsAdded == 1)
+        #expect(result.skipped == 0)
+
+        let people = try context.fetch(FetchDescriptor<Person>())
+        #expect(people.count == 1)
+        #expect(Set(people[0].documentList.map(\.docNumber)) == ["PP-1", "ID-2"])
+    }
+
+    @Test("Same name with a different birth date stays a separate person")
+    func differentBirthDateSeparate() throws {
+        let context = try makeContext()
+        let csv = """
+        \(header)
+        Zara,Kowalski,1985-03-22,Passport,PP-1,,
+        Zara,Kowalski,1990-01-01,Passport,PP-2,,
+        """
+        let result = try PeopleCSVImporter.importInto(context, from: csvData(csv))
+        #expect(result.imported == 2)
+        #expect(try context.fetch(FetchDescriptor<Person>()).count == 2)
+    }
+
+    @Test("Re-import adds new documents to an existing person and skips known ones")
+    func reimportAddsOnlyNewDocuments() throws {
+        let context = try makeContext()
+        let first = """
+        \(header)
+        Zara,Kowalski,1985-03-22,Passport,PP-1,,
+        """
+        try PeopleCSVImporter.importInto(context, from: csvData(first))
+
+        let second = """
+        \(header)
+        Zara,Kowalski,1985-03-22,Passport,PP-1,,
+        Zara,Kowalski,1985-03-22,Passport,PP-3,,
+        """
+        let result = try PeopleCSVImporter.importInto(context, from: csvData(second))
+        #expect(result.imported == 0)
+        #expect(result.documentsAdded == 1)
+        #expect(result.skipped == 1)
+
+        let people = try context.fetch(FetchDescriptor<Person>())
+        #expect(people.count == 1)
+        #expect(Set(people[0].documentList.map(\.docNumber)) == ["PP-1", "PP-3"])
     }
 }

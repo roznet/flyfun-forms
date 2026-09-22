@@ -49,6 +49,10 @@ final class Flight {
     var trip: Trip?
     var legOrder: Int = 0
 
+    /// Travel documents picked by hand for this flight, by document number,
+    /// for people who carry more than one. See `DocumentResolver.chosen`.
+    var chosenDocNumbers: [String]?
+
     /// The absolute departure moment.
     ///
     /// Setting it writes the day and the UTC time-of-day *together*, so an edit
@@ -237,6 +241,7 @@ final class Flight {
     // Safe accessors for nil arrays
     var crewList: [Person] { crew ?? [] }
     var passengerList: [Person] { passengers ?? [] }
+    var chosenDocNumberList: [String] { chosenDocNumbers ?? [] }
 
     init() {}
 
@@ -245,6 +250,7 @@ final class Flight {
         newFlight.aircraft = aircraft
         newFlight.crew = crew
         newFlight.passengers = passengers
+        newFlight.chosenDocNumbers = chosenDocNumbers
         newFlight.nature = nature
         newFlight.contact = contact
         newFlight.reasonForVisit = reasonForVisit

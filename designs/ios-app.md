@@ -92,7 +92,7 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 
 **Aircraft:** registration, type, owner, ownerAddress, isAirplane, usualBase
 
-**Flight:** departureInstant, arrivalInstant, departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder. `copyCommon(to:)` copies shared properties for flight duplication.
+**Flight:** departureInstant, arrivalInstant, departureDate, departureTimeUTC, arrivalDate, arrivalTimeUTC, originICAO, destinationICAO, nature, observations, contact. Relationships: aircraft, crew (→ [Person]), passengers (→ [Person]), responsiblePerson (→ Person), trip, legOrder, chosenDocNumbers (per-flight document choices, see Document Resolution). `copyCommon(to:)` copies shared properties for flight duplication.
 
 The schedule is read and written through `departureDateTime` / `arrivalDateTime`, which are settable: setting one writes the day and the UTC time of day together, so an edit that crosses midnight moves the day.
 
@@ -107,7 +107,7 @@ The schedule is read and written through `departureDateTime` / `arrivalDateTime`
 A person can have multiple travel documents (e.g., French + UK passport). `DocumentResolver` selects the best one at form generation time based on the target airport:
 
 0. **Active filter** — only active documents (`isActive == true`) are considered; inactive ones are skipped
-1. **User override** — if the user previously chose a specific document for this airport prefix, use it (stored in UserDefaults)
+1. **Flight choice** — if the pilot picked a document for this person on this flight, use it. Stored on `Flight.chosenDocNumbers` by document number (stable across launches and devices, syncs via CloudKit, unlike a model identifier), set from the document menu under the person's name in the Crew/Passengers rows, which appears for people with more than one active document. `copyCommon` carries it to duplicated legs.
 2. **Region match** — ICAO prefix → region (Schengen/UK/other), prefer document issued by a matching country
 3. **Tiebreak** — latest expiry date among matching documents
 4. **Fallback** — single document used directly; no documents → nil
@@ -322,7 +322,7 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - Contact import from device contacts with fuzzy merge: **complete**
 - Account deletion (App Store guideline 5.1.1(v)): **complete**
 - Web forms opened prefilled on the official site (EGTF book-out, PPR, out-of-hours): **prototype**
-- Document override UI (tap to switch per airport): **planned**
+- Per-flight document choice in the Crew/Passengers rows: **complete**
 
 ## References
 

@@ -451,6 +451,16 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertTrue(picker.waitForExistence(timeout: Self.uiTimeout), "the \(identifier) picker should be present")
         picker.tap()
         let option = app.buttons[value].firstMatch
+        // A long menu opens scrolled to the current value, and its rows off
+        // screen are absent from the accessibility tree: whether `value` is
+        // reachable depended on how much room the menu got. Scroll it back
+        // toward the top until the option exists. The menu is the collection
+        // view presented last.
+        var swipes = 0
+        while !option.waitForExistence(timeout: 2) && swipes < 4 {
+            app.collectionViews.allElementsBoundByIndex.last?.swipeDown()
+            swipes += 1
+        }
         XCTAssertTrue(option.waitForExistence(timeout: Self.uiTimeout), "\(value) should be offered by \(identifier)")
         option.tap()
     }

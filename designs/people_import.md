@@ -8,7 +8,7 @@ Import crew and passengers from a CSV file into FlyFun Forms.
 2. Tap **Import CSV**
 3. Select your `.csv` file
 
-Duplicates (same first name + last name + date of birth) are automatically skipped.
+A person is identified by first name + last name + date of birth. Several rows for the same person — in the file, or matching someone already in the app — become **one person with several documents** (e.g. one row per passport). A row whose document number that person already holds is skipped.
 
 ## CSV format
 

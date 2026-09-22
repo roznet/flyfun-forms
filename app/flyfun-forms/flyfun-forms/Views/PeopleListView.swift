@@ -237,9 +237,10 @@ struct PeopleListView: View {
             defer { url.stopAccessingSecurityScopedResource() }
             do {
                 let data = try Data(contentsOf: url)
-                let (imported, skipped) = try PeopleCSVImporter.importInto(modelContext, from: data)
+                let (imported, documentsAdded, skipped) = try PeopleCSVImporter.importInto(modelContext, from: data)
                 var parts: [String] = []
                 if imported > 0 { parts.append(String(localized: "\(imported) imported")) }
+                if documentsAdded > 0 { parts.append(String(localized: "\(documentsAdded) documents added")) }
                 if skipped > 0 { parts.append(String(localized: "\(skipped) already existed")) }
                 importResult = ImportResult(
                     title: String(localized: "Import Complete"),
