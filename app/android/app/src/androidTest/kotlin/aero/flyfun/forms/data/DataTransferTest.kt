@@ -87,7 +87,9 @@ class DataTransferTest {
     fun trip_extra_fields_survive_the_round_trip() = runTest {
         val trip = TripEntity(name = "Alps", extraFieldsJson = """{"reason_for_visit":"Maintenance"}""")
         source.tripDao().upsert(trip)
-        val password = "golf-hotel-india-juliet-kilo".toCharArray()
+        // Generated, as the real export does, rather than a literal a secret
+        // scanner reads as a hardcoded password.
+        val password = aero.flyfun.forms.logic.DataFileCrypto.generatePassphrase().toCharArray()
 
         val bytes = DataTransfer(source).exportEncrypted("test", password)
         val incoming = DataTransfer(target)
