@@ -26,7 +26,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -49,11 +54,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
@@ -64,13 +72,18 @@ private val HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZ
 @Composable
 fun FlightListScreen(
     flights: List<FlightEntity>,
+    aircraft: List<AircraftEntity>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onDelete: (FlightEntity) -> Unit,
 ) {
-    val now = Instant.now()
-    val upcoming = flights.filter { !it.departureInstant.isBefore(now) }.sortedBy { it.departureInstant }
-    val past = flights.filter { it.departureInstant.isBefore(now) }
+    // Split at the start of today, as iOS does: a flight earlier today is
+    // still one the pilot is working on.
+    val startOfToday = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant()
+    val upcoming = flights.filter { !it.departureInstant.isBefore(startOfToday) }.sortedBy { it.departureInstant }
+    val past = flights.filter { it.departureInstant.isBefore(startOfToday) }.sortedByDescending { it.departureInstant }
+    val registrations = aircraft.associate { it.id to it.registration }
+    var showPast by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Flights") }) },
@@ -94,13 +107,39 @@ fun FlightListScreen(
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                if (upcoming.isNotEmpty()) {
-                    item { SectionHeader("Upcoming") }
-                    items(upcoming, key = { "${it.id}:${it.updatedAt}" }) { FlightRow(it, onOpen, onDelete) }
+                item { SectionHeader("Upcoming") }
+                if (upcoming.isEmpty()) {
+                    item {
+                        Text(
+                            "No upcoming flights",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+                items(upcoming, key = { "${it.id}:${it.updatedAt}" }) {
+                    FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
                 }
                 if (past.isNotEmpty()) {
-                    item { SectionHeader("Past") }
-                    items(past, key = { "${it.id}:${it.updatedAt}" }) { FlightRow(it, onOpen, onDelete) }
+                    // Collapsed by default: the list is for what is coming up.
+                    item {
+                        ListItem(
+                            headlineContent = { Text("Past Flights (${past.size})") },
+                            trailingContent = {
+                                Icon(
+                                    if (showPast) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (showPast) "Hide past flights" else "Show past flights",
+                                )
+                            },
+                            modifier = Modifier.clickable { showPast = !showPast },
+                        )
+                    }
+                    if (showPast) {
+                        items(past, key = { "${it.id}:${it.updatedAt}" }) {
+                            FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
+                        }
+                    }
                 }
             }
         }
@@ -117,14 +156,25 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun FlightRow(flight: FlightEntity, onOpen: (String) -> Unit, onDelete: (FlightEntity) -> Unit) {
+private fun FlightRow(
+    flight: FlightEntity,
+    registration: String?,
+    onOpen: (String) -> Unit,
+    onDelete: (FlightEntity) -> Unit,
+) {
     SwipeToDelete(onDelete = { onDelete(flight) }) {
         ListItem(
             headlineContent = {
                 Text("${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}")
             },
             supportingContent = {
-                Text("${DAY.format(flight.departureInstant)} · ${HHMM.format(flight.departureInstant)}Z")
+                Text(
+                    listOfNotNull(
+                        DAY.format(flight.departureInstant),
+                        "${HHMM.format(flight.departureInstant)}Z",
+                        registration?.takeIf { it.isNotBlank() },
+                    ).joinToString(" · "),
+                )
             },
             modifier = Modifier.clickable { onOpen(flight.id) },
         )
@@ -142,6 +192,7 @@ fun FlightEditScreen(
     airportForms: List<AirportForms>,
     generateState: GenerateState,
     onEditFlight: ((FlightEntity) -> FlightEntity) -> Unit,
+    onSetDeparture: (java.time.Instant) -> Unit,
     onSetAircraft: (String?) -> Unit,
     onSetCrew: (List<PersonEntity>) -> Unit,
     onSetPassengers: (List<PersonEntity>) -> Unit,
@@ -157,6 +208,9 @@ fun FlightEditScreen(
     onDismissGenerate: () -> Unit,
     onBack: () -> Unit,
     onDelete: () -> Unit,
+    onCreateReturn: () -> Unit,
+    onCreateNextLeg: () -> Unit,
+    onDuplicate: () -> Unit,
 ) {
     if (detail == null) {
         Scaffold(topBar = { TopAppBar(title = { Text("Flight") }) }) { p ->
@@ -227,7 +281,7 @@ fun FlightEditScreen(
                 )
             }
 
-            ScheduleField("Departure", flight.departureInstant) { t -> onEditFlight { it.copy(departureInstant = t) } }
+            ScheduleField("Departure", flight.departureInstant, onSetDeparture)
             ScheduleField("Arrival", flight.arrivalInstant) { t -> onEditFlight { it.copy(arrivalInstant = t) } }
             if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
                 Text(
@@ -307,6 +361,12 @@ fun FlightEditScreen(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+
+            // Each stores this flight first, then opens the new leg.
+            Text("Actions", style = MaterialTheme.typography.titleMedium)
+            LegAction(Icons.AutoMirrored.Filled.Undo, "Create Return Flight", onCreateReturn)
+            LegAction(Icons.AutoMirrored.Filled.ArrowForward, "Create Next Leg", onCreateNextLeg)
+            LegAction(Icons.Default.ContentCopy, "Duplicate Flight", onDuplicate)
         }
     }
 
@@ -325,6 +385,14 @@ fun FlightEditScreen(
     }
 
     GenerateFeedback(generateState, onShare, onDismissGenerate)
+}
+
+@Composable
+private fun LegAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Icon(icon, contentDescription = null)
+        Text(label, Modifier.padding(start = 8.dp))
+    }
 }
 
 /** Same vocabulary as iOS `Flight.reasonForVisitOptions`; the server matches on these strings. */

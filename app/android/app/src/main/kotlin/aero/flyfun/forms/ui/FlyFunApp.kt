@@ -253,8 +253,10 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
     composable(Tab.FLIGHTS.route) {
         val vm: FlightsViewModel = viewModel(factory = factory)
         val flights by vm.allFlights.collectAsState()
+        val aircraft by vm.aircraft.collectAsState()
         FlightListScreen(
             flights = flights,
+            aircraft = aircraft,
             onOpen = { nav.navigate("flight/$it") },
             // A draft, not a row: backing out of it leaves nothing behind.
             onAdd = { nav.navigate("flight/${FlightsViewModel.NEW_FLIGHT}") },
@@ -294,6 +296,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             airportForms = forms,
             generateState = generate,
             onEditFlight = { vm.editFlight(it) },
+            onSetDeparture = { vm.setDeparture(it) },
             onSetAircraft = { vm.setAircraft(it) },
             onSetCrew = { vm.setCrew(it) },
             onSetPassengers = { vm.setPassengers(it) },
@@ -311,6 +314,9 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                 detail?.flight?.let { deletions.flight(it) }
                 nav.popBackStack()
             },
+            onCreateReturn = { vm.createReturnFlight() },
+            onCreateNextLeg = { vm.createNextLeg() },
+            onDuplicate = { vm.duplicateFlight() },
         )
     }
 }

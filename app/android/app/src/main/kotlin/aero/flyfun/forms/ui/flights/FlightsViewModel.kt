@@ -169,10 +169,15 @@ class FlightsViewModel(
         )
     }
 
-    /** Make [detail] the draft and what it is compared against. */
-    private fun show(detail: FlightDetail) {
+    /**
+     * Make [detail] the draft. It is compared against itself, so nothing is
+     * unsaved yet - unless [unsaved], for a leg the pilot just asked for,
+     * which Back should not drop without asking.
+     */
+    private fun show(detail: FlightDetail, unsaved: Boolean = false) {
         _detail.value = detail
-        baseline.value = detail
+        baseline.value = if (unsaved) null else detail
+        _extraValues.value = emptyMap()
         fetchForms(detail.flight)
     }
 
@@ -189,6 +194,14 @@ class FlightsViewModel(
     }
 
     fun editFlight(transform: (FlightEntity) -> FlightEntity) = edit { it.copy(flight = transform(it.flight)) }
+
+    /** Moving the departure carries an arrival on the same day along with it. */
+    fun setDeparture(departure: Instant) = editFlight {
+        it.copy(
+            departureInstant = departure,
+            arrivalInstant = FlightLegs.arrivalFollowing(it.departureInstant, departure, it.arrivalInstant),
+        )
+    }
 
     fun setAircraft(aircraftId: String?) = edit { detail ->
         detail.copy(
@@ -238,6 +251,62 @@ class FlightsViewModel(
     }
 
     fun delete(id: String) = viewModelScope.launch { flights.deleteFlight(id) }
+
+    /** The way back: the route reversed, leaving when this flight lands. */
+    fun createReturnFlight() = createLeg { from, leg ->
+        leg.copy(
+            originICAO = from.destinationICAO,
+            destinationICAO = from.originICAO,
+            departureInstant = from.arrivalInstant,
+            arrivalInstant = from.arrivalInstant,
+        )
+    }
+
+    /** On from where this flight lands, in the same trip; the destination is left to fill in. */
+    fun createNextLeg() = createLeg { from, leg ->
+        leg.copy(
+            originICAO = from.destinationICAO,
+            departureInstant = from.arrivalInstant,
+            arrivalInstant = from.arrivalInstant,
+            tripId = from.tripId,
+            legOrder = from.legOrder + 1,
+        )
+    }
+
+    fun duplicateFlight() = createLeg { from, leg ->
+        leg.copy(
+            originICAO = from.originICAO,
+            destinationICAO = from.destinationICAO,
+            departureInstant = from.departureInstant,
+            arrivalInstant = from.arrivalInstant,
+            observations = from.observations,
+        )
+    }
+
+    /**
+     * Store this flight, then open a new leg made from it. Port of iOS
+     * `createReturnFlight` / `createNextLeg` / `duplicateFlight`: the aircraft,
+     * people, nature, reason and responsible person carry over (`copyCommon`),
+     * and [shape] sets the route and schedule from the flight it came [from].
+     *
+     * The new leg is a draft like any other, shown as unsaved: iOS inserts it
+     * at once, and here Save stores it.
+     */
+    private fun createLeg(shape: (from: FlightEntity, leg: FlightEntity) -> FlightEntity) = viewModelScope.launch {
+        save().join()
+        val current = _detail.value ?: return@launch
+        val from = current.flight
+        val common = FlightEntity(
+            departureInstant = from.departureInstant,
+            arrivalInstant = from.arrivalInstant,
+            aircraftId = from.aircraftId,
+            nature = from.nature,
+            contact = from.contact,
+            reasonForVisit = from.reasonForVisit,
+            responsiblePersonId = from.responsiblePersonId,
+        )
+        show(current.copy(flight = shape(from, common), isNew = true), unsaved = true)
+    }
 
     /**
      * Forms for both ends of the route.

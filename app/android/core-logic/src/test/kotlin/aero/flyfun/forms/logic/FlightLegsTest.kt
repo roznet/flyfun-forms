@@ -76,4 +76,38 @@ class FlightLegsTest {
         val muchLater = leg("later", "LFAC", "EGTF", day = 30)
         assertNull(FlightLegs.returning(out, "EGTF", listOf(muchLater)))
     }
+
+    private fun at(s: String) = Instant.parse(s)
+
+    @Test
+    fun `an arrival on the departure day moves with it and keeps its time`() {
+        assertEquals(
+            at("2026-10-12T21:30:00Z"),
+            FlightLegs.arrivalFollowing(
+                oldDeparture = at("2026-10-10T20:00:00Z"),
+                newDeparture = at("2026-10-12T08:00:00Z"),
+                arrival = at("2026-10-10T21:30:00Z"),
+            ),
+        )
+    }
+
+    @Test
+    fun `an arrival the pilot put on another day stays put`() {
+        val overnight = at("2026-10-11T01:10:00Z")
+        assertEquals(
+            overnight,
+            FlightLegs.arrivalFollowing(at("2026-10-10T22:00:00Z"), at("2026-10-12T22:00:00Z"), overnight),
+        )
+    }
+
+    @Test
+    fun `days are compared in UTC`() {
+        // Half an hour after departure, but on the next UTC day - the day the
+        // forms file it under - so it counts as moved off the departure day.
+        val arrival = at("2026-10-11T00:30:00Z")
+        assertEquals(
+            arrival,
+            FlightLegs.arrivalFollowing(at("2026-10-10T23:30:00Z"), at("2026-10-13T23:30:00Z"), arrival),
+        )
+    }
 }

@@ -2,6 +2,8 @@ package aero.flyfun.forms.logic
 
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** A flight reduced to what leg matching needs; the app maps its entities onto this. */
 data class Leg(
@@ -62,6 +64,27 @@ object FlightLegs {
             }
             .minByOrNull { it.departure }
     }
+
+    /**
+     * Where the arrival goes when the departure moves from [oldDeparture] to
+     * [newDeparture]. Port of iOS `autoSyncArrivalDate`.
+     *
+     * The arrival day follows the departure day only while the pilot has not
+     * moved it off that day themselves, and only the day moves: a leg landing
+     * at 21:30 stays at 21:30. Compared in UTC, the day it is filed under.
+     */
+    fun arrivalFollowing(oldDeparture: Instant, newDeparture: Instant, arrival: Instant): Instant {
+        if (arrival.utcDay() != oldDeparture.utcDay()) return arrival
+        return alignUtcDay(arrival, newDeparture)
+    }
+
+    /** [instant]'s UTC time of day on [reference]'s UTC day. Port of `Flight.alignUTCDay`. */
+    fun alignUtcDay(instant: Instant, reference: Instant): Instant {
+        val time = instant.atOffset(ZoneOffset.UTC).toLocalTime().withSecond(0).withNano(0)
+        return reference.utcDay().atTime(time).toInstant(ZoneOffset.UTC)
+    }
+
+    private fun Instant.utcDay(): LocalDate = atOffset(ZoneOffset.UTC).toLocalDate()
 
     private fun String.icao() = trim().uppercase()
 }
