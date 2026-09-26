@@ -170,6 +170,7 @@ enum SpokenLanguageStorage {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var modelContext
     @AppStorage(SpokenLanguageStorage.key) private var spokenLanguageCodes: String = ""
     @AppStorage("useDevServer") private var useDevServer = false
 
@@ -187,6 +188,20 @@ struct SettingsView: View {
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
     @State private var errorMessage: String?
+    @State private var showDeleteAllDataConfirmation = false
+    @State private var deleteAllDataError: String?
+
+    /// What a pilot shows passengers about their details (GDPR Art. 14): the
+    /// passport data reaches the app from the pilot, not from the passenger.
+    private var passengerPrivacyNote: String {
+        String(localized: """
+            How I use your details for this flight
+
+            I keep your name and travel-document details in the FlightForms app on my own devices, synced through my private iCloud account. I use them only to fill in the customs, immigration and airport forms this flight requires, and I send those forms to the authorities that ask for them. The FlightForms server fills each form and keeps no copy. Ask me any time to see, correct or delete your details.
+
+            More: \(APIConfig.passengerPrivacyURL.absoluteString)
+            """, comment: "Text a pilot shares with passengers about how their details are used. The argument is the privacy policy URL.")
+    }
 
     private var authService: FlyFunAuthService {
         FlyFunAuthService(config: .init(
@@ -232,6 +247,19 @@ struct SettingsView: View {
             #endif
 
             Section {
+                Link(destination: APIConfig.privacyPolicyURL) {
+                    Label("Privacy Policy", systemImage: "hand.raised")
+                }
+                ShareLink(item: passengerPrivacyNote) {
+                    Label("Privacy Note for Passengers", systemImage: "person.2.badge.gearshape")
+                }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("Passengers' details come from you, not them — share this so they know how they're used.")
+            }
+
+            Section {
                 Button("Sign Out", role: .destructive) {
                     appState.logout()
                 }
@@ -255,7 +283,31 @@ struct SettingsView: View {
                     Text(errorMessage)
                         .foregroundStyle(.red)
                 } else {
-                    Text("Permanently deletes your account and all server data.")
+                    Text("Deletes your FlightForms account and its usage records on the server. People, aircraft, flights and trips stay on this device and in iCloud.")
+                }
+            }
+
+            Section {
+                Button("Delete All Data", role: .destructive) {
+                    showDeleteAllDataConfirmation = true
+                }
+                .confirmationDialog(
+                    "Delete All Data",
+                    isPresented: $showDeleteAllDataConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete All Data", role: .destructive) {
+                        deleteAllData()
+                    }
+                } message: {
+                    Text("Deletes all people, documents, aircraft, flights and trips from this device and from your iCloud, so from all your devices signed into this Apple ID. This cannot be undone. Your FlightForms account is not affected.")
+                }
+            } footer: {
+                if let deleteAllDataError {
+                    Text(deleteAllDataError)
+                        .foregroundStyle(.red)
+                } else {
+                    Text("Removes people, documents, aircraft, flights and trips from all your devices. You stay signed in.")
                 }
             }
         }
@@ -272,7 +324,17 @@ struct SettingsView: View {
                 Task { await deleteAccount() }
             }
         } message: {
-            Text("This will permanently delete your account. This action cannot be undone.")
+            Text("This permanently deletes your FlightForms account and its usage records on the server. It cannot be undone. People, aircraft, flights and trips stay on this device and in iCloud: use Delete All Data to remove them.")
+        }
+    }
+
+    private func deleteAllData() {
+        deleteAllDataError = nil
+        do {
+            try LocalDataEraser.eraseAll(in: modelContext)
+            appState.localDataErased()
+        } catch {
+            deleteAllDataError = error.localizedDescription
         }
     }
 
