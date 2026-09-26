@@ -106,9 +106,9 @@ Entity already has `nature`, `reasonForVisit`, `responsiblePersonId` — no migr
 
 ### 1d — Leg actions and schedule sync (S, Sonnet)
 
-- [ ] Return Flight / Next Leg / Duplicate (`FlightEditView.swift:361-376`, `:996-1034`)
-- [ ] Arrival date follows departure (`autoSyncArrivalDate`, `:408`)
-- [ ] Past flights collapsible, registration on the row (`FlightsListView.swift:49-117`)
+- [x] Return Flight / Next Leg / Duplicate (`FlightEditView.swift:361-376`, `:996-1034`)
+- [x] Arrival date follows departure (`autoSyncArrivalDate`, `:408`)
+- [x] Past flights collapsible, registration on the row (`FlightsListView.swift:49-117`)
 
 ### 1e — Email export and form grouping (M, Sonnet)
 
@@ -216,3 +216,5 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 1c — Connecting and return legs are found by `FlightLegs` in `:core-logic` over a plain `Leg`, matching the iOS rules: 14 days either side, by airport, no trip linkage; a local flight connects as an arrival and is its own return. Forms are built from the draft, and other legs as stored.
 - 2026-09-26 — 1c — An untouched choice extra field sends the option it shows. iOS shows the first option but sends nothing until it is changed, which the server rejects as missing when the field is required. Deliberate departure; the iOS side needs the same fix.
 - 2026-09-26 — 1c — Per-form extra values live in the flight screen's ViewModel only, keyed by airport + form as on iOS, and are not stored.
+- 2026-09-26 — 1d — Return / Next leg / Duplicate store the current flight, then open the new leg as a draft marked unsaved, so Back asks before dropping it. iOS inserts the new leg straight away. The leg actions sit in an Actions section at the foot of the editor, as on the iPhone; Delete stays in the overflow menu.
+- 2026-09-26 — 1d — Upcoming flights stay sorted soonest first (iOS sorts newest first); past flights are newest first, collapsed by default.
