@@ -47,6 +47,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -93,6 +94,8 @@ fun PeopleListScreen(
     add: AddPersonActions,
     onExportCsv: () -> Unit,
     onDelete: (PersonEntity) -> Unit,
+    /** The person open beside the list, on a screen wide enough for both. */
+    selectedId: String? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var sortByRecent by rememberSaveable { mutableStateOf(false) }
@@ -172,7 +175,7 @@ fun PeopleListScreen(
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(shown, key = { "${it.person.id}:${it.person.updatedAt}" }) { row ->
                         SwipeToDelete(onDelete = { onDelete(row.person) }) {
-                            PersonRow(row, lastFlight = lastFlights[row.person.id].takeIf { sortByRecent }) {
+                            PersonRow(row, lastFlight = lastFlights[row.person.id].takeIf { sortByRecent }, selected = row.person.id == selectedId) {
                                 onOpen(row.person.id)
                             }
                         }
@@ -216,7 +219,7 @@ fun AddPersonMenuItems(add: AddPersonActions, close: () -> Unit) {
 }
 
 @Composable
-private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, onClick: () -> Unit) {
+private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, selected: Boolean, onClick: () -> Unit) {
     val active = row.documents.filter { it.isActive && it.deletedAt == null }
     ListItem(
         headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
@@ -231,6 +234,7 @@ private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, onClick: (
             )
         },
         trailingContent = if (row.person.isUsualCrew) { { CrewPill() } } else null,
+        colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
         modifier = Modifier.clickable(onClick = onClick),
     )
 }

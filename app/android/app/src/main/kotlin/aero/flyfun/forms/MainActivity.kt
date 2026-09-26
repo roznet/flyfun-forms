@@ -11,7 +11,8 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
+import androidx.activity.enableEdgeToEdge
+import aero.flyfun.forms.ui.FlyFunTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -25,6 +26,9 @@ class MainActivity : ComponentActivity() {
     private var handledCallback: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Target 35+ draws edge to edge regardless; this also makes the system
+        // bar icons follow the theme, light or dark.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         tokens = TokenStore(this)
         api = ApiClient(tokens)
@@ -38,7 +42,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            FlyFunTheme {
                 FlyFunApp(auth = auth, tokens = tokens, api = api)
             }
         }

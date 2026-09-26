@@ -53,6 +53,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -87,6 +88,8 @@ fun FlightListScreen(
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onDelete: (FlightEntity) -> Unit,
+    /** The flight open beside the list, on a screen wide enough for both. */
+    selectedId: String? = null,
 ) {
     // Split at the start of today, as iOS does: a flight earlier today is
     // still one the pilot is working on.
@@ -130,7 +133,7 @@ fun FlightListScreen(
                     }
                 }
                 items(upcoming, key = { "${it.id}:${it.updatedAt}" }) {
-                    FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
+                    FlightRow(it, registrations[it.aircraftId], it.id == selectedId, onOpen, onDelete)
                 }
                 if (past.isNotEmpty()) {
                     // Collapsed by default: the list is for what is coming up.
@@ -148,7 +151,7 @@ fun FlightListScreen(
                     }
                     if (showPast) {
                         items(past, key = { "${it.id}:${it.updatedAt}" }) {
-                            FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
+                            FlightRow(it, registrations[it.aircraftId], it.id == selectedId, onOpen, onDelete)
                         }
                     }
                 }
@@ -170,6 +173,7 @@ private fun SectionHeader(text: String) {
 private fun FlightRow(
     flight: FlightEntity,
     registration: String?,
+    selected: Boolean,
     onOpen: (String) -> Unit,
     onDelete: (FlightEntity) -> Unit,
 ) {
@@ -187,6 +191,7 @@ private fun FlightRow(
                     ).joinToString(" · "),
                 )
             },
+            colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
             modifier = Modifier.clickable { onOpen(flight.id) },
         )
     }

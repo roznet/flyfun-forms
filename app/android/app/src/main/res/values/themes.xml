@@ -1,3 +1,10 @@
 <resources>
-    <style name="Theme.FlyFunForms" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      Only the window behind the first frame: Compose draws everything else
+      with FlyFunTheme. DayNight so a dark-mode launch does not flash white.
+    -->
+    <style name="Theme.FlyFunForms" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>

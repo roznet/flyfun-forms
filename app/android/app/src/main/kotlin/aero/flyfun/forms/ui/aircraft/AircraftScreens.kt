@@ -28,6 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -57,6 +58,8 @@ fun AircraftListScreen(
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onDelete: (AircraftEntity) -> Unit,
+    /** The aircraft open beside the list, on a screen wide enough for both. */
+    selectedId: String? = null,
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Aircraft") }) },
@@ -86,6 +89,11 @@ fun AircraftListScreen(
                             headlineContent = { Text(a.registration.ifBlank { "New Aircraft" }) },
                             supportingContent = {
                                 Text(listOfNotNull(a.type.ifBlank { null }, a.usualBase).joinToString(" · "))
+                            },
+                            colors = if (a.id == selectedId) {
+                                ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                            } else {
+                                ListItemDefaults.colors()
                             },
                             modifier = Modifier.clickable { onOpen(a.id) },
                         )
