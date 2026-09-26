@@ -31,6 +31,8 @@ struct FlightEditView: View {
     /// Shown once the errors sheet has gone: another sheet, or the mail
     /// composer, cannot be presented while it is still up.
     @State private var afterValidationSheet: (() -> Void)?
+    /// The generated form on its way out through the share sheet (or the
+    /// macOS share view). It owns the file: `endShare` deletes it.
     @State private var shareFileURL: URL?
     @State private var webFormPlan: FillPlan?
     @State private var formDetails: [String: [FormInfo]] = [:]
@@ -114,7 +116,7 @@ struct FlightEditView: View {
         #if os(iOS)
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
-            set: { if !$0 { shareFileURL = nil; stopGenerating() } }
+            set: { if !$0 { endShare() } }
         )) {
             if let url = shareFileURL {
                 ActivityView(activityItems: [url])
@@ -123,10 +125,10 @@ struct FlightEditView: View {
         #else
         .sheet(isPresented: Binding(
             get: { shareFileURL != nil },
-            set: { if !$0 { shareFileURL = nil; stopGenerating() } }
+            set: { if !$0 { endShare() } }
         )) {
             if let url = shareFileURL {
-                MacShareView(url: url, flight: flight) { shareFileURL = nil; stopGenerating() }
+                MacShareView(url: url, flight: flight) { handedOff in endShare(keepFile: handedOff) }
             }
         }
         #endif
@@ -873,9 +875,9 @@ struct FlightEditView: View {
         let request = buildRequest(airport: airport, form: form)
         do {
             let (data, filename) = try await formService.generate(request: request, flatten: true)
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-            try data.write(to: tempURL)
-            return tempURL
+            let files = GeneratedFormFiles.standard
+            files.sweep(olderThan: GeneratedFormFiles.handOffGrace)
+            return try files.write(data, filename: filename)
         } catch let FormService.FormError.validationErrors(errors) {
             showValidationErrors(errors, airport: airport, form: form)
         } catch {
@@ -890,6 +892,19 @@ struct FlightEditView: View {
     private func stopGenerating() {
         isGenerating = false
         generatingForm = nil
+    }
+
+    /// Closes the share sheet and deletes the form it was sharing. On iOS the
+    /// sheet only goes away once the chosen activity has taken its copy. On
+    /// macOS, Open, Reveal in Finder and the sharing services go on reading
+    /// the file after the sheet has closed, so they keep it (`keepFile`) and
+    /// leave it to the sweep before the next form, or at the next launch.
+    private func endShare(keepFile: Bool = false) {
+        if let url = shareFileURL, !keepFile {
+            GeneratedFormFiles.standard.remove(url)
+        }
+        shareFileURL = nil
+        stopGenerating()
     }
 
     // MARK: - Validation errors
@@ -1033,6 +1048,8 @@ struct FlightEditView: View {
         if let data = try? Data(contentsOf: url) {
             vc.addAttachmentData(data, mimeType: mimeType(for: url), fileName: url.lastPathComponent)
         }
+        // The composer holds the attachment in memory: the file is done with.
+        GeneratedFormFiles.standard.remove(url)
 
         // Present via UIKit directly — no SwiftUI sheet
         let delegate = MailDismissDelegate()
@@ -1056,6 +1073,8 @@ struct FlightEditView: View {
         }
         service.recipients = formInfo.email?.to ?? (formInfo.sendTo.map { [$0] } ?? [])
         service.subject = subject
+        // Mail reads the attachment after this returns, so the file is left
+        // for the sweep before the next form, or the next launch.
         service.perform(withItems: [
             body,
             url,
@@ -1360,7 +1379,9 @@ class MailDismissDelegate: NSObject, MFMailComposeViewControllerDelegate {
 struct MacShareView: View {
     let url: URL
     var flight: Flight?
-    let onDismiss: () -> Void
+    /// `true` when the file went to something that reads it after the sheet
+    /// closes (Open, Reveal in Finder, a sharing service), so it must be kept.
+    let onDismiss: (_ handedOff: Bool) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1368,7 +1389,7 @@ struct MacShareView: View {
                 Text(url.lastPathComponent)
                     .font(.headline)
                 Spacer()
-                Button("Done") { onDismiss() }
+                Button("Done") { onDismiss(false) }
                     .keyboardShortcut(.cancelAction)
             }
             .padding()
@@ -1392,7 +1413,7 @@ struct MacShareView: View {
 
                 Button {
                     NSWorkspace.shared.open(url)
-                    onDismiss()
+                    onDismiss(true)
                 } label: {
                     Label("Open", systemImage: "doc")
                 }
@@ -1402,7 +1423,7 @@ struct MacShareView: View {
                     ForEach(sharingServices, id: \.title) { service in
                         Button {
                             service.perform(withItems: [url])
-                            onDismiss()
+                            onDismiss(true)
                         } label: {
                             HStack {
                                 Image(nsImage: service.image)
@@ -1430,12 +1451,12 @@ struct MacShareView: View {
         if panel.runModal() == .OK, let dest = panel.url {
             try? FileManager.default.replaceItemAt(dest, withItemAt: url)
         }
-        onDismiss()
+        onDismiss(false)
     }
 
     private func revealInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([url])
-        onDismiss()
+        onDismiss(true)
     }
 }
 #endif
