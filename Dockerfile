@@ -14,6 +14,8 @@ RUN mkdir -p src/flightforms && \
 
 # Copy application source
 COPY src/ src/
+# Served at /privacy (api/privacy.py resolves it next to src/)
+COPY PRIVACY.md .
 
 # Create data directory
 RUN mkdir -p /app/data && chown app:app /app/data
