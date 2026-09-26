@@ -74,6 +74,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +91,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -319,6 +322,9 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         val scope = rememberCoroutineScope()
         var pickingPeople by rememberSaveable { mutableStateOf(false) }
         var pickingRoute by rememberSaveable { mutableStateOf(false) }
+        // The pickers below replace the flight screen, which drops its saveable
+        // state (a schedule's chosen zone, say); the holder keeps it for the return.
+        val screens = rememberSaveableStateHolder()
         val airportInfo by vm.airportInfo.collectAsState()
         // + opens the two-step flow; a leg made from another flight opens the editor.
         var newFlow by rememberSaveable { mutableStateOf(flightId == FlightsViewModel.NEW_FLIGHT) }
@@ -459,75 +465,79 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                     passengers = passengers,
                 )
             }
-            NewFlightScreen(
-                step = newStep,
-                detail = current,
-                aircraftOptions = aircraft,
-                airportInfo = airportInfo,
-                importSummary = importSummary,
-                hasPreviousFlights = allFlights.any { it.id != current.flight.id },
-                suggestion = suggestion,
-                hasCrewSources = others.any { it.everyone.isNotEmpty() },
-                onImportPrevious = { pickingPrevious = true },
-                onOpenRoutePicker = { pickingRoute = true },
-                onSetDeparture = { vm.setDeparture(it) },
-                onSetArrival = { t -> vm.editFlight { it.copy(arrivalInstant = t) } },
-                onSetAircraft = { vm.setAircraft(it) },
-                onApplySuggestion = { vm.setPeople(it.crew, it.passengers) },
-                onOpenCrewSources = { pickingCrewSource = true },
-                onOpenPeoplePicker = { pickingPeople = true },
-                onNext = { newStep = NewFlightStep.PEOPLE },
-                onBack = { newStep = NewFlightStep.ROUTE },
-                onCancel = { nav.popBackStack() },
-                onCreate = { scope.launch { vm.save().join(); newFlow = false } },
-            )
+            screens.SaveableStateProvider("new-flight") {
+                NewFlightScreen(
+                    step = newStep,
+                    detail = current,
+                    aircraftOptions = aircraft,
+                    airportInfo = airportInfo,
+                    importSummary = importSummary,
+                    hasPreviousFlights = allFlights.any { it.id != current.flight.id },
+                    suggestion = suggestion,
+                    hasCrewSources = others.any { it.everyone.isNotEmpty() },
+                    onImportPrevious = { pickingPrevious = true },
+                    onOpenRoutePicker = { pickingRoute = true },
+                    onSetDeparture = { vm.setDeparture(it) },
+                    onSetArrival = { t -> vm.editFlight { it.copy(arrivalInstant = t) } },
+                    onSetAircraft = { vm.setAircraft(it) },
+                    onApplySuggestion = { vm.setPeople(it.crew, it.passengers) },
+                    onOpenCrewSources = { pickingCrewSource = true },
+                    onOpenPeoplePicker = { pickingPeople = true },
+                    onNext = { newStep = NewFlightStep.PEOPLE },
+                    onBack = { newStep = NewFlightStep.ROUTE },
+                    onCancel = { nav.popBackStack() },
+                    onCreate = { scope.launch { vm.save().join(); newFlow = false } },
+                )
+            }
             return@composable
         }
 
-        FlightEditScreen(
-            detail = detail,
-            hasUnsavedChanges = unsaved,
-            aircraftOptions = aircraft,
-            people = people.map { it.person },
-            documents = people.associate { row ->
-                row.person.id to row.documents.filter { it.isActive && it.deletedAt == null }
-            },
-            onChooseDocument = { person, document ->
-                vm.chooseDocument(
-                    person,
-                    people.firstOrNull { it.person.id == person.id }?.documents.orEmpty().filter { it.deletedAt == null },
-                    document,
-                )
-            },
-            onOpenPeoplePicker = { pickingPeople = true },
-            airportInfo = airportInfo,
-            onOpenRoutePicker = { pickingRoute = true },
-            airportForms = forms,
-            generateState = generate,
-            onEditFlight = { vm.editFlight(it) },
-            onSetDeparture = { vm.setDeparture(it) },
-            onSetAircraft = { vm.setAircraft(it) },
-            onSetCrew = { vm.setCrew(it) },
-            onSetPassengers = { vm.setPassengers(it) },
-            onSetResponsiblePerson = { vm.setResponsiblePerson(it) },
-            extraValues = extraValues,
-            onSetExtra = { airport, formId, key, value -> vm.setExtra(airport, formId, key, value) },
-            onSave = { vm.save() },
-            onSaveAndBack = { scope.launch { vm.save().join(); nav.popBackStack() } },
-            onGenerate = { airport, form -> vm.generateForm(airport, form) },
-            onEmail = { airport, form -> vm.emailForm(airport, form) },
-            onOpenWebForm = { airport, form -> vm.prefillWebForm(airport, form) },
-            onShare = { shareFile(context, it) },
-            onDismissGenerate = { vm.clearGenerateState() },
-            onBack = { nav.popBackStack() },
-            onDelete = {
-                detail?.flight?.let { deletions.flight(it) }
-                nav.popBackStack()
-            },
-            onCreateReturn = { vm.createReturnFlight() },
-            onCreateNextLeg = { vm.createNextLeg() },
-            onDuplicate = { vm.duplicateFlight() },
-        )
+        screens.SaveableStateProvider("flight-edit") {
+            FlightEditScreen(
+                detail = detail,
+                hasUnsavedChanges = unsaved,
+                aircraftOptions = aircraft,
+                people = people.map { it.person },
+                documents = people.associate { row ->
+                    row.person.id to row.documents.filter { it.isActive && it.deletedAt == null }
+                },
+                onChooseDocument = { person, document ->
+                    vm.chooseDocument(
+                        person,
+                        people.firstOrNull { it.person.id == person.id }?.documents.orEmpty().filter { it.deletedAt == null },
+                        document,
+                    )
+                },
+                onOpenPeoplePicker = { pickingPeople = true },
+                airportInfo = airportInfo,
+                onOpenRoutePicker = { pickingRoute = true },
+                airportForms = forms,
+                generateState = generate,
+                onEditFlight = { vm.editFlight(it) },
+                onSetDeparture = { vm.setDeparture(it) },
+                onSetAircraft = { vm.setAircraft(it) },
+                onSetCrew = { vm.setCrew(it) },
+                onSetPassengers = { vm.setPassengers(it) },
+                onSetResponsiblePerson = { vm.setResponsiblePerson(it) },
+                extraValues = extraValues,
+                onSetExtra = { airport, formId, key, value -> vm.setExtra(airport, formId, key, value) },
+                onSave = { vm.save() },
+                onSaveAndBack = { scope.launch { vm.save().join(); nav.popBackStack() } },
+                onGenerate = { airport, form -> vm.generateForm(airport, form) },
+                onEmail = { airport, form -> vm.emailForm(airport, form) },
+                onOpenWebForm = { airport, form -> vm.prefillWebForm(airport, form) },
+                onShare = { shareFile(context, it) },
+                onDismissGenerate = { vm.clearGenerateState() },
+                onBack = { nav.popBackStack() },
+                onDelete = {
+                    detail?.flight?.let { deletions.flight(it) }
+                    nav.popBackStack()
+                },
+                onCreateReturn = { vm.createReturnFlight() },
+                onCreateNextLeg = { vm.createNextLeg() },
+                onDuplicate = { vm.duplicateFlight() },
+            )
+        }
     }
 }
 
@@ -550,9 +560,12 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
         ) { uri ->
             uri ?: return@rememberLauncherForActivityResult
             scope.launch {
-                val text = runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-                }.getOrNull()
+                // Off the main thread: a cloud provider may download the file here.
+                val text = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                    }.getOrNull()
+                }
                 if (text == null) vm.reportCsv("Import Failed", "Could not read that file.") else vm.importCsv(text)
             }
         }
@@ -563,8 +576,9 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             scope.launch {
                 runCatching {
                     val csv = vm.exportCsv()
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-                        ?: error("Could not write that file.")
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+                    } ?: error("Could not write that file.")
                 }.onSuccess {
                     android.widget.Toast.makeText(context, "People exported", android.widget.Toast.LENGTH_SHORT).show()
                 }.onFailure {
@@ -959,7 +973,9 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
         ) { uri ->
             uri ?: return@rememberLauncherForActivityResult
             scope.launch {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }
                 if (bytes != null) vm.previewImport(bytes)
             }
         }

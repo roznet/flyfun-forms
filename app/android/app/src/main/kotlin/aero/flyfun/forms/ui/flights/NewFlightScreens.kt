@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ fun NewFlightScreen(
     onCreate: () -> Unit,
 ) {
     val flight = detail.flight
+    val steps = rememberSaveableStateHolder()
     BackHandler { if (step == NewFlightStep.PEOPLE) onBack() else onCancel() }
     Scaffold(
         topBar = {
@@ -111,77 +113,80 @@ fun NewFlightScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            when (step) {
-                NewFlightStep.ROUTE -> {
-                    Text("Import", style = MaterialTheme.typography.titleMedium)
-                    OutlinedButton(onClick = onImportPrevious, enabled = hasPreviousFlights) {
-                        Icon(Icons.Default.History, contentDescription = null)
-                        Text("Previous Flight", Modifier.padding(start = 8.dp))
-                    }
-                    Text(
-                        if (hasPreviousFlights) "Repeat a flight with the same crew, rescheduled" else "No earlier flights yet",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    importSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-
-                    Text("Route", style = MaterialTheme.typography.titleMedium)
-                    ListItem(
-                        headlineContent = { Text("Route") },
-                        trailingContent = {
-                            Text(
-                                if (flight.originICAO.isBlank() && flight.destinationICAO.isBlank()) "Tap to select"
-                                else "${flight.originICAO.ifBlank { "----" }} → ${flight.destinationICAO.ifBlank { "----" }}",
-                            )
-                        },
-                        modifier = Modifier.clickable(onClick = onOpenRoutePicker),
-                    )
-
-                    Text("Schedule", style = MaterialTheme.typography.titleMedium)
-                    val zones = listOfNotNull(
-                        airportInfo[flight.originICAO]?.timeZone,
-                        airportInfo[flight.destinationICAO]?.timeZone,
-                    ).distinct()
-                    ScheduleField("Departure", flight.departureInstant, onSetDeparture, zones, airportInfo[flight.originICAO]?.timeZone)
-                    ScheduleField("Arrival", flight.arrivalInstant, onSetArrival, zones, airportInfo[flight.destinationICAO]?.timeZone)
-
-                    Text("Aircraft", style = MaterialTheme.typography.titleMedium)
-                    ChoiceField(
-                        label = "Aircraft",
-                        selected = detail.aircraft,
-                        options = listOf<AircraftEntity?>(null) + aircraftOptions,
-                        display = { a -> a?.let { "${it.registration} (${it.type.ifBlank { "?" }})" } ?: "None" },
-                        onSelect = { onSetAircraft(it?.id) },
-                    )
-                }
-
-                NewFlightStep.PEOPLE -> {
-                    // Only while nobody is chosen: an import that brought people hides it.
-                    if (suggestion != null && detail.crew.isEmpty() && detail.passengers.isEmpty()) {
-                        Text("Suggestion", style = MaterialTheme.typography.titleMedium)
-                        Card(Modifier.fillMaxWidth().clickable { onApplySuggestion(suggestion) }) {
-                            ListItem(
-                                leadingContent = { Icon(Icons.Default.GroupAdd, contentDescription = null) },
-                                headlineContent = { Text(suggestion.label) },
-                                supportingContent = { Text(suggestion.summary) },
-                            )
+            // Per step: going back to the route keeps a schedule's chosen zone.
+            steps.SaveableStateProvider(step) {
+                when (step) {
+                    NewFlightStep.ROUTE -> {
+                        Text("Import", style = MaterialTheme.typography.titleMedium)
+                        OutlinedButton(onClick = onImportPrevious, enabled = hasPreviousFlights) {
+                            Icon(Icons.Default.History, contentDescription = null)
+                            Text("Previous Flight", Modifier.padding(start = 8.dp))
                         }
+                        Text(
+                            if (hasPreviousFlights) "Repeat a flight with the same crew, rescheduled" else "No earlier flights yet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        importSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+
+                        Text("Route", style = MaterialTheme.typography.titleMedium)
+                        ListItem(
+                            headlineContent = { Text("Route") },
+                            trailingContent = {
+                                Text(
+                                    if (flight.originICAO.isBlank() && flight.destinationICAO.isBlank()) "Tap to select"
+                                    else "${flight.originICAO.ifBlank { "----" }} → ${flight.destinationICAO.ifBlank { "----" }}",
+                                )
+                            },
+                            modifier = Modifier.clickable(onClick = onOpenRoutePicker),
+                        )
+
+                        Text("Schedule", style = MaterialTheme.typography.titleMedium)
+                        val zones = listOfNotNull(
+                            airportInfo[flight.originICAO]?.timeZone,
+                            airportInfo[flight.destinationICAO]?.timeZone,
+                        ).distinct()
+                        ScheduleField("Departure", flight.departureInstant, onSetDeparture, zones, airportInfo[flight.originICAO]?.timeZone)
+                        ScheduleField("Arrival", flight.arrivalInstant, onSetArrival, zones, airportInfo[flight.destinationICAO]?.timeZone)
+
+                        Text("Aircraft", style = MaterialTheme.typography.titleMedium)
+                        ChoiceField(
+                            label = "Aircraft",
+                            selected = detail.aircraft,
+                            options = listOf<AircraftEntity?>(null) + aircraftOptions,
+                            display = { a -> a?.let { "${it.registration} (${it.type.ifBlank { "?" }})" } ?: "None" },
+                            onSelect = { onSetAircraft(it?.id) },
+                        )
                     }
-                    if (hasCrewSources) {
-                        TextButton(onClick = onOpenCrewSources) {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
-                            Text("Choose another flight…", Modifier.padding(start = 8.dp))
+
+                    NewFlightStep.PEOPLE -> {
+                        // Only while nobody is chosen: an import that brought people hides it.
+                        if (suggestion != null && detail.crew.isEmpty() && detail.passengers.isEmpty()) {
+                            Text("Suggestion", style = MaterialTheme.typography.titleMedium)
+                            Card(Modifier.fillMaxWidth().clickable { onApplySuggestion(suggestion) }) {
+                                ListItem(
+                                    leadingContent = { Icon(Icons.Default.GroupAdd, contentDescription = null) },
+                                    headlineContent = { Text(suggestion.label) },
+                                    supportingContent = { Text(suggestion.summary) },
+                                )
+                            }
                         }
-                    }
-                    Text("Crew", style = MaterialTheme.typography.titleMedium)
-                    if (detail.crew.isEmpty()) Hint("No crew selected")
-                    detail.crew.forEach { Text(it.displayName) }
-                    Text("Passengers", style = MaterialTheme.typography.titleMedium)
-                    if (detail.passengers.isEmpty()) Hint("No passengers selected")
-                    detail.passengers.forEach { Text(it.displayName) }
-                    OutlinedButton(onClick = onOpenPeoplePicker) {
-                        Icon(Icons.Default.GroupAdd, contentDescription = null)
-                        Text("Select People", Modifier.padding(start = 8.dp))
+                        if (hasCrewSources) {
+                            TextButton(onClick = onOpenCrewSources) {
+                                Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                                Text("Choose another flight…", Modifier.padding(start = 8.dp))
+                            }
+                        }
+                        Text("Crew", style = MaterialTheme.typography.titleMedium)
+                        if (detail.crew.isEmpty()) Hint("No crew selected")
+                        detail.crew.forEach { Text(it.displayName) }
+                        Text("Passengers", style = MaterialTheme.typography.titleMedium)
+                        if (detail.passengers.isEmpty()) Hint("No passengers selected")
+                        detail.passengers.forEach { Text(it.displayName) }
+                        OutlinedButton(onClick = onOpenPeoplePicker) {
+                            Icon(Icons.Default.GroupAdd, contentDescription = null)
+                            Text("Select People", Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }

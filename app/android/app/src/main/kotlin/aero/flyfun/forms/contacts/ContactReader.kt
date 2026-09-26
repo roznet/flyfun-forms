@@ -4,6 +4,7 @@ import aero.flyfun.forms.logic.ContactImport
 import aero.flyfun.forms.logic.ImportedContact
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Event
@@ -71,6 +72,10 @@ object ContactReader {
                     }
                 }
             }
+        }.onFailure {
+            // Only the name comes through when the picker's grant does not reach
+            // the contact's data rows; say so rather than lose them silently.
+            Log.w("ContactReader", "Contact details unreadable, importing the name only", it)
         }
 
         if (first == null && last == null) {

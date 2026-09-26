@@ -34,6 +34,11 @@ android {
         compose = true
     }
 
+    // MigrationTestHelper reads the exported schemas as test assets.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21

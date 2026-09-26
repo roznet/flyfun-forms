@@ -43,9 +43,10 @@ def main() -> int:
     lines = []
     missing = []
     for icao, lat, lon in rows:
-        # timezone_at covers land; the nearest zone covers an airfield on a
-        # coast or an island that the land polygons just miss.
-        zone = finder.timezone_at(lng=lon, lat=lat) or finder.timezone_at_land(lng=lon, lat=lat)
+        # Land polygons first: timezone_at also answers at sea with a fixed
+        # Etc/GMT±N zone (no DST), so it is only the fallback for an airfield
+        # the land polygons just miss.
+        zone = finder.timezone_at_land(lng=lon, lat=lat) or finder.timezone_at(lng=lon, lat=lat)
         if zone is None:
             missing.append(icao)
             continue
