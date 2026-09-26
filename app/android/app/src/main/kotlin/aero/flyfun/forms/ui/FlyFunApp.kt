@@ -12,9 +12,11 @@ import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.Preferences
 import aero.flyfun.forms.data.RoomFlightRepository
 import aero.flyfun.forms.data.DataTransfer
+import aero.flyfun.forms.data.LocalDataEraser
 import aero.flyfun.forms.data.RoomPeopleRepository
 import aero.flyfun.forms.data.TravelDocumentEntity
 import aero.flyfun.forms.net.ApiClient
+import aero.flyfun.forms.net.ApiConfig
 import aero.flyfun.forms.ui.aircraft.AircraftEditScreen
 import aero.flyfun.forms.ui.aircraft.AircraftListScreen
 import aero.flyfun.forms.ui.aircraft.AircraftViewModel
@@ -40,9 +42,11 @@ import aero.flyfun.forms.logic.ScanContext
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
 import aero.flyfun.forms.ui.webform.WebFormScreen
+import aero.flyfun.forms.ui.webform.clearWebFormStorage
 import aero.flyfun.forms.ui.people.DocumentEditScreen
 import aero.flyfun.forms.ui.people.PersonEditScreen
 import aero.flyfun.forms.ui.settings.DataTransferViewModel
+import aero.flyfun.forms.ui.settings.PASSENGER_PRIVACY_NOTE
 import aero.flyfun.forms.ui.settings.SettingsScreen
 import android.content.Context
 import android.content.Intent
@@ -107,6 +111,7 @@ private class Factory(
     private val api: ApiClient,
     private val cacheDir: File,
     private val transfer: DataTransfer,
+    private val eraser: LocalDataEraser,
     private val appVersion: String,
     private val preferences: Preferences,
     private val airports: AirportDatabase,
@@ -118,7 +123,7 @@ private class Factory(
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
             FlightsViewModel(flights, people, api, cacheDir, { preferences.spokenLanguages.value }, airports) as T
         modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
-            DataTransferViewModel(transfer, cacheDir, appVersion) as T
+            DataTransferViewModel(transfer, eraser, cacheDir, appVersion) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
     }
 }
@@ -204,6 +209,11 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             api = api,
             cacheDir = context.cacheDir,
             transfer = DataTransfer(repositories.third),
+            // The application context: the ViewModel holding this outlives
+            // the activity across a rotation.
+            eraser = LocalDataEraser(repositories.third, context.cacheDir) {
+                clearWebFormStorage(context.applicationContext)
+            },
             appVersion = runCatching {
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
             }.getOrDefault(""),
@@ -1013,6 +1023,31 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
                     deletingAccount = false
                 }
             },
+            onOpenPrivacyPolicy = { openInBrowser(context, ApiConfig.PRIVACY_URL) },
+            onSharePassengerNote = { sharePassengerNote(context) },
+            onEraseAll = { vm.eraseAll() },
         )
     }
+}
+
+/**
+ * The system browser rather than a Custom Tab: a page to read, not a flow to
+ * come back from.
+ */
+private fun openInBrowser(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+    } catch (_: android.content.ActivityNotFoundException) {
+        android.widget.Toast.makeText(context, url, android.widget.Toast.LENGTH_LONG).show()
+    }
+}
+
+/** Plain text, so it can go by message, mail or be read aloud off the screen. */
+private fun sharePassengerNote(context: Context) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "How I use your details for this flight")
+        putExtra(Intent.EXTRA_TEXT, PASSENGER_PRIVACY_NOTE)
+    }
+    context.startActivity(Intent.createChooser(intent, "Privacy note for passengers"))
 }

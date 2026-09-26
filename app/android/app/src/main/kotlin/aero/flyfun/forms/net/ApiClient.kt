@@ -20,6 +20,9 @@ object ApiConfig {
     /** Airport notices; see [NotificationsApi]. */
     const val MAPS_URL = "https://maps.flyfun.aero/"
 
+    /** The public privacy notice, served by the same backend. Linked from Settings. */
+    const val PRIVACY_URL = "${BASE_URL}privacy"
+
     /** Reused from iOS: the allowlist already contains it, and the two platforms cannot collide on one device. */
     const val CALLBACK_SCHEME = "flyfunforms"
     const val CALLBACK_URL = "$CALLBACK_SCHEME://auth/callback"

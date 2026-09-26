@@ -2,6 +2,7 @@ package aero.flyfun.forms.ui.webform
 
 import aero.flyfun.forms.net.FillPlan
 import android.annotation.SuppressLint
+import android.content.Context
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
@@ -66,11 +67,7 @@ fun WebFormScreen(plan: FillPlan, onBack: () -> Unit) {
                 clearHistory()
                 clearCache(true)
             }
-            CookieManager.getInstance().apply {
-                removeAllCookies(null)
-                flush()
-            }
-            WebStorage.getInstance().deleteAllData()
+            clearCookiesAndStorage()
         }
     }
 
@@ -133,6 +130,30 @@ fun WebFormScreen(plan: FillPlan, onBack: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+private fun clearCookiesAndStorage() {
+    CookieManager.getInstance().apply {
+        removeAllCookies(null)
+        flush()
+    }
+    WebStorage.getInstance().deleteAllData()
+}
+
+/**
+ * Everything a web form can have left on disk, for "Delete all data". Normally
+ * already empty - leaving a form clears it - but a crash or process death
+ * while one is open skips that.
+ *
+ * The HTTP cache is app-wide, but clearing it needs a WebView instance, so a
+ * throwaway one is made. Main thread only.
+ */
+fun clearWebFormStorage(context: Context) {
+    clearCookiesAndStorage()
+    WebView(context).apply {
+        clearCache(true)
+        destroy()
     }
 }
 

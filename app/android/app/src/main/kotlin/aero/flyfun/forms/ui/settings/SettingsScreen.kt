@@ -1,6 +1,7 @@
 package aero.flyfun.forms.ui.settings
 
 import aero.flyfun.forms.logic.SpokenLanguages
+import aero.flyfun.forms.net.ApiConfig
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +35,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.io.File
 
+/**
+ * What a pilot can hand a passenger (GDPR Art. 14): their details reach the app
+ * from the pilot, not from them, so the duty to tell them sits with the pilot.
+ * See legal/GDPR.md §1. "Not backed up or synced" holds because
+ * data_extraction_rules excludes everything from cloud backup and device
+ * transfer; keep the two in step.
+ */
+const val PASSENGER_PRIVACY_NOTE = """How I use your details for this flight
+
+I keep your name and travel-document details in the FlightForms app on my phone. They are not backed up or synced anywhere. I use them only to fill in the customs, immigration and airport forms this flight requires, and I send those forms to the authorities that ask for them. The FlightForms server fills each form and keeps no copy. Ask me any time to see, correct or delete your details.
+
+More: ${ApiConfig.PRIVACY_URL}#passengers"""
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -53,8 +67,12 @@ fun SettingsScreen(
     deletingAccount: Boolean,
     deleteAccountError: String?,
     onDeleteAccount: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
+    onSharePassengerNote: () -> Unit,
+    onEraseAll: () -> Unit,
 ) {
     var confirmDeleteAccount by remember { mutableStateOf(false) }
+    var confirmEraseAll by remember { mutableStateOf(false) }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         Column(
@@ -115,6 +133,37 @@ fun SettingsScreen(
                 }
             }
 
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+                    Text("Privacy", style = MaterialTheme.typography.titleMedium)
+                    OutlinedButton(onClick = onOpenPrivacyPolicy) { Text("Privacy policy") }
+                    OutlinedButton(onClick = onSharePassengerNote) { Text("Privacy note for passengers") }
+                    Text(
+                        "Your passengers' details come from you, not from them. Share this note " +
+                            "so they know how their details are used.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+                    Text("Delete all data", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Removes every person, document, aircraft, flight and trip from this phone, " +
+                            "with any generated forms and exports. You stay signed in.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(
+                        onClick = { confirmEraseAll = true },
+                        enabled = state !is TransferState.Working,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) { Text("Delete all data") }
+                }
+            }
+
             if (signedIn) {
                 OutlinedButton(onClick = onSignOut) { Text("Sign out") }
 
@@ -123,8 +172,9 @@ fun SettingsScreen(
                         Text("Delete account", style = MaterialTheme.typography.titleMedium)
                         Text(
                             deleteAccountError
-                                ?: "Permanently deletes your account and all server data. " +
-                                "People, aircraft and flights on this device are kept.",
+                                ?: "Permanently deletes your FlightForms account and its usage records " +
+                                "on the server. People, aircraft, flights and trips stay on this phone - " +
+                                "use Delete all data to remove them.",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (deleteAccountError != null) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -165,7 +215,13 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmDeleteAccount = false },
             title = { Text("Delete account") },
-            text = { Text("This will permanently delete your account. This action cannot be undone.") },
+            text = {
+                Text(
+                    "Deletes your FlightForms account and its usage records on the server. " +
+                        "This cannot be undone.\n\nPeople, aircraft, flights and trips stay on this " +
+                        "phone. To remove them too, use Delete all data.",
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = { confirmDeleteAccount = false; onDeleteAccount() },
@@ -176,7 +232,34 @@ fun SettingsScreen(
         )
     }
 
+    if (confirmEraseAll) {
+        AlertDialog(
+            onDismissRequest = { confirmEraseAll = false },
+            title = { Text("Delete all data?") },
+            text = {
+                Text(
+                    "Deletes all people, documents, aircraft, flights and trips from this phone. " +
+                        "This cannot be undone. Your FlightForms account is not affected.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmEraseAll = false; onEraseAll() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete all data") }
+            },
+            dismissButton = { TextButton(onClick = { confirmEraseAll = false }) { Text("Cancel") } },
+        )
+    }
+
     when (state) {
+        TransferState.Erased -> AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Data deleted") },
+            text = { Text("All people, documents, aircraft, flights and trips have been removed from this phone.") },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        )
+
         is TransferState.Exported -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(if (state.passphrase != null) "Passphrase" else "Export ready") },
