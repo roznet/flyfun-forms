@@ -2,20 +2,30 @@ import SwiftUI
 import SwiftData
 
 /// Multi-select people picker with search, last-used sorting, and co-traveler group suggestions.
-/// Shows crew/passenger toggle for each selected person.
+/// Shows crew/passenger toggle for each selected person. Someone not in the
+/// app yet can be added from here (blank, scanned or from a contact) and goes
+/// straight into the selection.
 struct PeoplePickerView: View {
     @Binding var selectedCrew: [Person]
     @Binding var selectedPassengers: [Person]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Person.lastName) private var allPeople: [Person]
 
     @State private var searchText = ""
+    @State private var addRequest: AddPersonMethod?
+    /// The person open in the editor pushed over the picker.
+    @State private var editingPerson: Person?
+    /// A person this picker created empty: taken away again if the editor
+    /// closes with nothing entered.
+    @State private var createdPersonID: PersistentIdentifier?
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 TextField("Search people...", text: $searchText)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("peopleSearchField")
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                     #if os(iOS)
@@ -25,6 +35,7 @@ struct PeoplePickerView: View {
                 List {
                     selectedSection
                     matchingPeopleSection
+                    addSearchedPersonSection
                     groupSuggestionsSection
                 }
                 #if os(iOS)
@@ -38,10 +49,33 @@ struct PeoplePickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        AddPersonMenuItems(request: $addRequest, addPersonIdentifier: "pickerAddPersonButton")
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("pickerAddPersonMenu")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
+            .addPersonFlows(request: $addRequest) { person, method in
+                addNewPerson(person, method: method)
+            }
+            .navigationDestination(item: $editingPerson) { person in
+                PersonEditView(person: person)
+            }
+            .onChange(of: editingPerson) { left, _ in
+                discardIfBlank(left)
+            }
+        }
+        // On the stack, not its root: the root also disappears when the editor
+        // is pushed over it, while the person is still empty.
+        .onDisappear {
+            // Swiped away with the editor still open.
+            discardIfBlank(editingPerson)
         }
         #if os(macOS)
         .frame(minWidth: 500, minHeight: 500)
@@ -83,6 +117,7 @@ struct PeoplePickerView: View {
                 Button(role) {
                     onToggle()
                 }
+                .accessibilityIdentifier("selectedRole-\(person.lastName)")
                 .font(.caption)
                 .buttonStyle(.bordered)
                 .controlSize(.mini)
@@ -143,6 +178,34 @@ struct PeoplePickerView: View {
         }
     }
 
+    // MARK: - Add Searched Person
+
+    /// The search found nobody: offer to create them under the name typed.
+    @ViewBuilder
+    private var addSearchedPersonSection: some View {
+        let name = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty && filteredPeople.isEmpty {
+            Section {
+                Button {
+                    let person = Person()
+                    (person.firstName, person.lastName) = Self.splitName(name)
+                    modelContext.insert(person)
+                    addNewPerson(person, method: .blank)
+                } label: {
+                    Label("Add “\(name)” as new person", systemImage: "person.badge.plus")
+                }
+                .accessibilityIdentifier("addSearchedPersonButton")
+            }
+        }
+    }
+
+    /// "Smith" is a last name; "Jane van Dijk" is Jane + van Dijk.
+    static func splitName(_ name: String) -> (first: String, last: String) {
+        let words = name.split(whereSeparator: \.isWhitespace)
+        guard words.count > 1 else { return ("", name) }
+        return (String(words[0]), words.dropFirst().joined(separator: " "))
+    }
+
     // MARK: - Group Suggestions
 
     @ViewBuilder
@@ -188,6 +251,45 @@ struct PeoplePickerView: View {
         } else {
             selectedPassengers.append(person)
         }
+    }
+
+    /// Select a person the add flows ended with. A scan has already filled in
+    /// the name and document; a blank or contact person still needs them, so
+    /// the editor opens over the picker.
+    private func addNewPerson(_ person: Person, method: AddPersonMethod) {
+        addPerson(person)
+        searchText = ""
+        switch method {
+        case .blank:
+            createdPersonID = person.persistentModelID
+            editingPerson = person
+        case .contact:
+            editingPerson = person
+        case .scan:
+            break
+        }
+    }
+
+    private func discardIfBlank(_ person: Person?) {
+        guard let person, person.persistentModelID == createdPersonID else { return }
+        createdPersonID = nil
+        Self.discardIfBlank(person, crew: &selectedCrew, passengers: &selectedPassengers, in: modelContext)
+    }
+
+    /// Take a person this picker created off the selection and out of the
+    /// store if nothing was entered for them. Only for a person the picker
+    /// created: one picked through a scan match or contact merge was already
+    /// there, and stays whatever it holds.
+    @discardableResult
+    static func discardIfBlank(
+        _ person: Person, crew: inout [Person], passengers: inout [Person], in context: ModelContext
+    ) -> Bool {
+        guard person.isBlank else { return false }
+        let id = person.persistentModelID
+        crew.removeAll { $0.persistentModelID == id }
+        passengers.removeAll { $0.persistentModelID == id }
+        context.delete(person)
+        return true
     }
 
     private var filteredPeople: [Person] {

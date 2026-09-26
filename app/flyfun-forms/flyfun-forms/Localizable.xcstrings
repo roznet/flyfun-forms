@@ -385,6 +385,29 @@
         }
       }
     },
+    "Add “%@” as new person" : {
+      "comment" : "People picker: create a person under the name typed in the search field when nobody matches.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "„%@“ als neue Person hinzufügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Añadir «%@» como nueva persona"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ajouter « %@ » comme nouvelle personne"
+          }
+        }
+      }
+    },
     "Add Person" : {
       "localizations" : {
         "de" : {
