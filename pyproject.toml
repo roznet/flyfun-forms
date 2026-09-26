@@ -18,6 +18,7 @@ dependencies = [
     "openpyxl>=3.1,<4.0",
     "euro-aip>=0.18.0,<1.0",  # 0.18: customs contacts, for scripts/sync_aip_emails.py
     "pytz>=2024.1",
+    "markdown>=3.5,<4.0",  # /privacy renders PRIVACY.md
 ]
 
 [project.optional-dependencies]

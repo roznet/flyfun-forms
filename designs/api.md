@@ -19,6 +19,8 @@ src/flightforms/
 │   ├── validate.py     # POST /validate — dry-run validation
 │   ├── airports.py     # GET /airports, GET /airports/{icao}
 │   ├── email_text.py   # POST /email-text — localized email subject/body
+│   ├── privacy.py      # GET /privacy — PRIVACY.md rendered as the public notice
+│   ├── rate_limit.py   # Per-user fill limit for /generate + /prefill
 │   └── models.py       # Pydantic request/response schemas (with date/time/ICAO validation)
 ├── db/
 │   ├── models.py       # Usage table (app-specific)
@@ -66,6 +68,7 @@ Accepts `GenerateRequest`, returns binary file (PDF/DOCX/XLSX).
 - **Connecting flight:** optional, for forms at intermediate stops that reference both arrival and departure
 - **Return flight:** optional `return_flight` (connecting-flight fields + `people_on_board`) — the flight coming back to the airport, for forms with `has_return_flight` (book-outs). Dropped, like the connecting flight, when its times are empty
 - Web forms return 400 (use `/prefill`)
+- **Rate limited:** 100 fills per user per rolling hour, shared with `/prefill`, counted over `usage` rows; 429 + `Retry-After` when over (skipped in dev mode)
 
 ### `POST /prefill`
 Same body as `/generate`, for `web_form` mappings (book-out, PPR, out-of-hours). Returns a `FillPlan` — `{form, label, url, scope, note, fields: [{name, value, type}]}` — which the app applies to the airport's official page. Validates like `/generate`, plus the form's `direction`. Documents return 400. See [Form system — Web Forms](./form-system.md#web-forms-web_form).
@@ -78,6 +81,9 @@ Same body as `/generate`, returns validation errors without generating. Each `Va
 
 ### `DELETE /auth/account`
 Deletes the authenticated user's account and all associated data (usage records, API tokens, user record). Returns 204 No Content on success. Used by the iOS app's Settings screen for Apple App Store guideline 5.1.1(v) compliance.
+
+### `GET /privacy`
+Public (no auth) HTML privacy notice rendered from the repo's `PRIVACY.md`, which the Dockerfile copies into the image. The apps' Settings link here, and the passenger note links `/privacy#passengers` — renaming the `## Passengers` heading breaks that anchor (a test guards it). Repo-relative links are rewritten to GitHub.
 
 ### `GET /health`
 Returns `{"status": "ok"}`.
@@ -129,6 +135,7 @@ AppBase.metadata.create_all(get_engine())
 ## Gotchas
 
 - `SessionMiddleware` required for OAuth state (added in `app.py`)
+- `/privacy` is rendered once per process (`lru_cache`) — a `PRIVACY.md` change needs a redeploy, which it gets anyway since the file is baked into the image
 - Airport names resolved via `rzflight` euro-aip library — requires airport DB
 - PDF flattening uses pypdf and removes form field editability
 - XLSX formulas (crew/pax counts) are preserved — openpyxl doesn't recalculate them but Excel does on open

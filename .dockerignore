@@ -1,4 +1,4 @@
-# The Dockerfile copies only pyproject.toml and src/. Everything listed here is
+# The Dockerfile copies only pyproject.toml, src/ and PRIVACY.md. Everything here is
 # context uploaded to the Docker daemon on every build for nothing.
 #
 # app/ is the reason this file exists: it holds the Xcode project and, since the

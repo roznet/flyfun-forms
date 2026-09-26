@@ -19,7 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..airport_resolver import AirportResolver
 from ..db.models import AppBase, Usage
 from ..registry import MappingRegistry
-from . import airports, email_text, generate, prefill, validate
+from . import airports, email_text, generate, prefill, privacy, validate
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +114,7 @@ def create_app() -> FastAPI:
     app.include_router(generate.router, tags=["generate"])
     app.include_router(prefill.router, tags=["prefill"])
     app.include_router(validate.router, tags=["validate"])
+    app.include_router(privacy.router)
 
     # "Import from Autorouter" in the app: read-only access to the pilot's
     # recent routes. Deliberately *not* the account-linking router — the flyfun

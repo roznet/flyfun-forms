@@ -360,3 +360,29 @@ class TestEmailText:
         data = resp.json()
         # gendec_form uses %d/%m/%Y format
         assert "21/03/2026" in data["subject_en"]
+
+
+# ── Privacy notice ────────────────────────────────────────────────────────────
+
+class TestPrivacyPage:
+    """The apps link to /privacy and the passenger note to /privacy#passengers."""
+
+    def test_served_without_auth(self):
+        os.environ.setdefault("ENVIRONMENT", "development")
+        os.environ.setdefault("DATABASE_URL", "sqlite:///")
+        os.environ.setdefault("JWT_SECRET", "test-secret-key-for-pytest")
+        from fastapi.testclient import TestClient
+        from flightforms.api.app import create_app
+
+        # No dependency overrides: the page must not need a signed-in user
+        resp = TestClient(create_app()).get("/privacy")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/html")
+
+    def test_passenger_anchor_exists(self, client):
+        assert 'id="passengers"' in client.get("/privacy").text
+
+    def test_repo_links_point_at_github(self, client):
+        html = client.get("/privacy").text
+        assert 'href="https://github.com/roznet/flyfun-forms/blob/main/SECURITY.md"' in html
+        assert 'href="SECURITY.md"' not in html
