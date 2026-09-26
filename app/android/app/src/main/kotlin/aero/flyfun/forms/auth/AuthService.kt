@@ -1,5 +1,6 @@
 package aero.flyfun.forms.auth
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.ApiConfig
 import aero.flyfun.forms.net.ExchangeRequest
@@ -119,11 +120,11 @@ class AuthService(
             // no `state`. We always send one, so seeing this means something
             // else produced the redirect - refuse it rather than trusting a
             // token that arrived over a scheme any app can claim.
-            return Result.failure(IllegalStateException("Sign-in did not return an auth code"))
+            return Result.failure(IllegalStateException(context.getString(R.string.app_sign_in_no_code)))
         }
         val expected = pendingState
         if (expected == null || state != expected) {
-            return Result.failure(IllegalStateException("Sign-in state did not match"))
+            return Result.failure(IllegalStateException(context.getString(R.string.app_sign_in_state_mismatch)))
         }
         pendingState = null
 
@@ -151,9 +152,9 @@ class AuthService(
         if (response.code() == 401) {
             // ApiClient has already dropped the token, so the sign-in screen
             // replaces Settings before its error could show. Say it there.
-            _signInNotice.value = "Your session had expired, so your account was not deleted. Sign in again to delete it."
+            _signInNotice.value = context.getString(R.string.app_delete_account_expired)
         }
-        if (!response.isSuccessful) error("The server returned ${response.code()}. Your account was not deleted.")
+        if (!response.isSuccessful) error(context.getString(R.string.app_delete_account_server_error, response.code()))
         tokens.clear()
     }
 

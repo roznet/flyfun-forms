@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
                 .onFailure {
                     Toast.makeText(
                         this@MainActivity,
-                        it.message ?: "Sign-in failed",
+                        it.message ?: getString(R.string.app_sign_in_failed),
                         Toast.LENGTH_LONG,
                     ).show()
                 }

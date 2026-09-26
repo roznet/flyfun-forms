@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="people_back">Back</string>
+    <string name="people_save">Save</string>
+    <string name="people_cancel">Cancel</string>
+    <string name="people_ok">OK</string>
+    <string name="people_close">Close</string>
+    <string name="people_done">Done</string>
+    <string name="people_remove">Remove</string>
+    <string name="people_new_person">New Person</string>
+    <string name="people_crew">Crew</string>
+    <string name="people_flew">Flew %1$s</string>
+    <string name="people_add_person_description">Add person</string>
+    <string name="people_name">Name</string>
+    <string name="people_email">Email</string>
+    <string name="people_phone">Phone</string>
+    <string name="people_address">Address</string>
+    <string name="people_date_of_birth_title">Date of Birth</string>
+
+    <!-- People list -->
+    <string name="people_title">People</string>
+    <string name="people_sort_az">Sort A-Z</string>
+    <string name="people_sort_by_recent">Sort by Recent</string>
+    <string name="people_more">More</string>
+    <string name="people_export_csv">Export to CSV</string>
+    <string name="people_search_by_name">Search by name</string>
+    <string name="people_empty_title">No crew or passengers yet</string>
+    <string name="people_empty_message">Add the people you fly with, and their passports, so forms fill themselves.</string>
+    <string name="people_no_match">No one matches “%1$s”.</string>
+    <string name="people_add_person">Add Person</string>
+    <string name="people_scan_document">Scan Document</string>
+    <string name="people_import_from_contact">Import from Contact</string>
+    <string name="people_import_from_csv">Import from CSV</string>
+    <string name="people_no_documents">No documents</string>
+    <plurals name="people_documents_count">
+        <item quantity="one">%1$d document</item>
+        <item quantity="other">%1$d documents</item>
+    </plurals>
+    <string name="people_clear_search">Clear search</string>
+
+    <!-- Person editor -->
+    <string name="people_edit_person">Edit Person</string>
+    <string name="people_first_name">First name</string>
+    <string name="people_last_name">Last name</string>
+    <string name="people_details">Details</string>
+    <string name="people_date_of_birth">Date of birth</string>
+    <string name="people_place_of_birth">Place of birth</string>
+    <string name="people_sex">Sex</string>
+    <string name="people_sex_male">Male</string>
+    <string name="people_sex_female">Female</string>
+    <string name="people_usual_crew">Usual crew</string>
+    <string name="people_travel_documents">Travel documents</string>
+    <string name="people_no_number">No number</string>
+    <string name="people_expires">expires %1$s</string>
+    <string name="people_inactive">inactive</string>
+    <string name="people_remove_document">Remove document</string>
+    <string name="people_add_document">Add document</string>
+    <string name="people_scan_passport">Scan passport</string>
+
+    <!-- Document editor -->
+    <string name="people_new_document">New Document</string>
+    <string name="people_edit_document">Edit Document</string>
+    <string name="people_document_type">Document type</string>
+    <string name="people_doc_type_passport">Passport</string>
+    <string name="people_doc_type_identity_card">Identity card</string>
+    <string name="people_doc_type_other">Other</string>
+    <string name="people_document_number">Document number</string>
+    <string name="people_issuing_country_hint">Issuing country (e.g. FRA)</string>
+    <string name="people_expiry_date">Expiry date</string>
+    <string name="people_active">Active</string>
+
+    <!-- People picker -->
+    <string name="people_crew_and_passengers">Crew &amp; Passengers</string>
+    <string name="people_usual_crew_group">Usual Crew</string>
+    <string name="people_frequent_with">Frequent with %1$s</string>
+    <string name="people_search_people">Search people</string>
+    <string name="people_selected">Selected</string>
+    <string name="people_groups">Groups</string>
+    <string name="people_add_all">Add all</string>
+    <string name="people_on_this_flight">On this flight</string>
+    <string name="people_add_named">Add “%1$s” as new person</string>
+    <string name="people_passenger">Passenger</string>
+    <string name="people_pilot_in_command">Pilot in command</string>
+    <string name="people_move_up">Move up</string>
+    <string name="people_move_down">Move down</string>
+
+    <!-- Scan result sheet -->
+    <string name="people_scan_result">Scan Result</string>
+    <string name="people_scanned_document">Scanned Document</string>
+    <string name="people_document">Document</string>
+    <string name="people_id_card">ID Card</string>
+    <string name="people_nationality">Nationality</string>
+    <string name="people_expiry">Expiry</string>
+    <string name="people_document_already_exists">Document already exists</string>
+    <string name="people_assigned_to">Assigned to %1$s</string>
+    <string name="people_this_person">this person</string>
+    <string name="people_actions_document_exists">Actions (document already exists)</string>
+    <string name="people_actions">Actions</string>
+    <string name="people_add_document_to">Add document to %1$s</string>
+    <string name="people_update_document_on">Update the document on %1$s</string>
+    <string name="people_add_document_update_name">Add document and update name to %1$s</string>
+    <string name="people_create_new_person_instead">Create new person instead</string>
+    <string name="people_nothing_to_add">Nothing to add: open %1$s to edit it.</string>
+    <string name="people_its_owner">its owner</string>
+    <string name="people_matching_people">Matching People</string>
+    <string name="people_born">Born %1$s</string>
+    <string name="people_use">Use</string>
+    <string name="people_or">Or</string>
+    <string name="people_create_new_person">Create new person</string>
+
+    <!-- Contact import -->
+    <string name="people_import_contact">Import Contact</string>
+    <string name="people_contact">Contact</string>
+    <string name="people_create_as_new_person">Create as New Person</string>
+    <string name="people_update_existing">Update Existing</string>
+    <string name="people_fill_missing_only">Fill Missing Only</string>
+    <string name="people_override_all">Override All</string>
+    <string name="people_update">Update</string>
+
+    <!-- Optional date field -->
+    <string name="people_set">Set</string>
+    <string name="people_clear_label">Clear %1$s</string>
+
+    <!-- CSV import -->
+    <string name="people_import_complete">Import Complete</string>
+    <string name="people_import_failed">Import Failed</string>
+    <string name="people_file_could_not_be_read">The file could not be read.</string>
+
+    <!-- Scanner -->
+    <string name="scan_title">Scan document</string>
+    <string name="scan_from_photo_or_pdf">Scan from a photo or PDF</string>
+    <string name="scan_choose_photo">Choose Photo</string>
+    <string name="scan_choose_pdf">Choose PDF</string>
+    <string name="scan_camera_access">Camera access</string>
+    <string name="scan_camera_rationale">Used only to read the two lines at the bottom of a passport. No image is saved.</string>
+    <string name="scan_allow_camera">Allow camera</string>
+    <string name="scan_line_up">Line up the two lines at the bottom of the passport or ID card</string>
+    <string name="scan_no_document_found">No Document Found</string>
+    <string name="scan_no_mrz_found">No machine-readable zone (MRZ) was found in the file. Try a clearer image or PDF of the passport page.</string>
+</resources>

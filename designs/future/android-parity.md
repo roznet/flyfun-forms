@@ -23,8 +23,8 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
 | 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
-| 2 | #30 | Getting data in fast | §5 (2a–2e) | Code done; `:core-logic` tests pass, app compiled against stubs, emulator drive owed (§8) |
-| 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
+| 2 | #30 | Getting data in fast | §5 (2a–2e) | Merged |
+| 3 | #31 | Platform and integrations | §6 (3a–3d) | Code done except Autorouter (skipped, §7); built in a cloud session, compile and emulator drive owed (§8) |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
 
 Already done before this tracker: person details (DOB, place of birth, sex,
@@ -187,8 +187,8 @@ the other FlyFun services.
 
 ### 3d — Localisation infrastructure (M, Sonnet)
 
-- [ ] Extract every literal to `strings.xml`; reuse the existing translated `Localizable.xcstrings` entries
-- [ ] `locales_config.xml` for the system per-app language picker
+- [x] Extract every literal to `strings.xml`; reuse the existing translated `Localizable.xcstrings` entries
+- [x] `locales_config.xml` for the system per-app language picker
 
 ---
 
@@ -260,3 +260,7 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 3c — Autorouter import is skipped (decided with the owner): its rows carry the plan as raw ICAO text, and the only route to it without a third parser is the summary fields, which lose the arrival time. It waits on G4 (§7).
 - 2026-09-26 — 3c — FlyFun Weather import reads `weather.flyfun.aero` with the forms account's token, as iOS does: the flyfun services share accounts and JWTs. The weather client keeps renewed tokens but a 401 from it does not sign the pilot out of forms; it says to sign in to the same account instead. The `FlightExchange` format, its lenient times (no offset is UTC) and the mapping onto the draft are in `:core-logic` with tests; a newer `schema_version` is refused.
 - 2026-09-26 — 3c — A weather import applies as iOS's `apply(_:)`: route and times (an arrival-less departure moves the arrival onto its day), the aircraft matched by registration without dashes, or staged as a new aircraft that is stored only with the flight. People an earlier import brought are cleared, a hand-picked crew stays; the settings with no editor in the flow go back to a new flight's. The picker's calls run in its own scope, so leaving it mid-import cancels the import. The import list shows Weather greyed with "Sign in to import" when signed out.
+- 2026-09-26 — 3d — Strings live in `res/values/strings*.xml`, one file per area (`strings.xml` for the app shell, `strings_flights.xml`, `strings_people.xml`, `strings_settings.xml`), names prefixed by area. ViewModels get the application's `Resources` for the messages they hold in state; composables use `stringResource`. English wording was kept as it was, which is mostly iOS's.
+- 2026-09-26 — 3d — `scripts/android_strings.py` writes `values-fr/de/es` from iOS `Localizable.xcstrings`: a string whose English equals an iOS key (placeholders compared by position) takes its translations, `needs_review` ones included, as iOS ships them. The rest fall back to English. Generated, never edited by hand; re-run after adding strings. The remaining translations stay blocked on a translator (§7).
+- 2026-09-26 — 3d — `locales_config.xml` offers en/fr/de/es in the system's per-app language setting, as iOS offers the same four, even though fr/de/es are partial: Android falls back to English per string.
+- 2026-09-26 — 3d — Left in English: text built in `:core-logic`, which has no Android resources (`MergeSummary.describe`, `PeopleSuggestion.summary`, exception messages from the MRZ, CSV and data-file code), and the few messages thrown from classes with no `Context`. Moving them means returning structured values from `:core-logic` for the UI to word; not worth it before a translator is lined up.

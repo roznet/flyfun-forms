@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.people
 
+import aero.flyfun.forms.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -63,11 +65,11 @@ fun OptionalDateField(
         Text(label, style = MaterialTheme.typography.bodyLarge)
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { showPicker = true }) {
-                Text(value?.format(displayFormat) ?: "Set")
+                Text(value?.format(displayFormat) ?: stringResource(R.string.people_set))
             }
             if (value != null) {
                 IconButton(onClick = { onChange(null) }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear $label")
+                    Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.people_clear_label, label))
                 }
             }
         }
@@ -90,9 +92,9 @@ fun OptionalDateField(
                 TextButton(onClick = {
                     state.selectedDateMillis?.let { onChange(LocalDate.ofEpochDay(Math.floorDiv(it, MILLIS_PER_DAY))) }
                     showPicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.people_ok)) }
             },
-            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.people_cancel)) } },
         ) { DatePicker(state = state, title = { Text(label, modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 16.dp)) }) }
     }
 }

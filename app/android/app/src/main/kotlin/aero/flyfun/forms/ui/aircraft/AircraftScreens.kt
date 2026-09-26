@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.aircraft
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.ui.common.ChoiceField
@@ -48,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 
@@ -62,10 +64,10 @@ fun AircraftListScreen(
     selectedId: String? = null,
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Aircraft") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.aircraft_title)) }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAdd) {
-                Icon(Icons.Default.Add, contentDescription = "Add aircraft")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.aircraft_add))
             }
         },
     ) { padding ->
@@ -75,18 +77,19 @@ fun AircraftListScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No aircraft yet", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.aircraft_empty_title), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Add the aircraft you fly so forms can carry its registration and type.",
+                    stringResource(R.string.aircraft_empty_message),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
         } else {
+            val newAircraft = stringResource(R.string.aircraft_new_aircraft)
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
                 items(aircraft, key = { "${it.id}:${it.updatedAt}" }) { a ->
                     SwipeToDelete(onDelete = { onDelete(a) }) {
                         ListItem(
-                            headlineContent = { Text(a.registration.ifBlank { "New Aircraft" }) },
+                            headlineContent = { Text(a.registration.ifBlank { newAircraft }) },
                             supportingContent = {
                                 Text(listOfNotNull(a.type.ifBlank { null }, a.usualBase).joinToString(" · "))
                             },
@@ -139,7 +142,7 @@ fun AircraftEditScreen(
 
     if (pickingBase) {
         AirportPickerScreen(
-            title = "Usual Base",
+            title = stringResource(R.string.aircraft_usual_base),
             selected = usualBase,
             lookup = airports,
             onPick = { usualBase = it },
@@ -170,14 +173,14 @@ fun AircraftEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (initial == null) "New Aircraft" else "Edit Aircraft") },
+                title = { Text(if (initial == null) stringResource(R.string.aircraft_new_aircraft) else stringResource(R.string.aircraft_edit_aircraft)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
-                    TextButton(enabled = registration.isNotBlank(), onClick = { onSave(edited()) }) { Text("Save") }
+                    TextButton(enabled = registration.isNotBlank(), onClick = { onSave(edited()) }) { Text(stringResource(R.string.common_save)) }
                     onDelete?.let { DeleteOverflowMenu(onDelete = it) }
                 },
             )
@@ -187,19 +190,19 @@ fun AircraftEditScreen(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Aircraft", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.aircraft_title), style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
-                registration, { registration = it }, label = { Text("Registration") },
+                registration, { registration = it }, label = { Text(stringResource(R.string.aircraft_registration)) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
             )
             OutlinedTextField(
-                type, { type = it }, label = { Text("Type (e.g. SR22)") },
+                type, { type = it }, label = { Text(stringResource(R.string.aircraft_type_hint)) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
             )
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf(true to "Airplane", false to "Helicopter").forEachIndexed { index, (value, label) ->
+                listOf(true to stringResource(R.string.aircraft_airplane), false to stringResource(R.string.aircraft_helicopter)).forEachIndexed { index, (value, label) ->
                     SegmentedButton(
                         selected = isAirplane == value,
                         onClick = { isAirplane = value },
@@ -208,47 +211,50 @@ fun AircraftEditScreen(
                 }
             }
 
-            Text("Operator", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.aircraft_operator), style = MaterialTheme.typography.titleMedium)
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Company operator", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.aircraft_company_operator), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = useCompanyOperator, onCheckedChange = { useCompanyOperator = it })
             }
             if (useCompanyOperator) {
                 OutlinedTextField(
-                    operatorName, { operatorName = it }, label = { Text("Company name & address") },
+                    operatorName, { operatorName = it }, label = { Text(stringResource(R.string.aircraft_company_name_address)) },
                     minLines = 2, maxLines = 4, modifier = Modifier.fillMaxWidth(),
                 )
             } else {
+                val unnamed = stringResource(R.string.aircraft_unnamed)
+                val select = stringResource(R.string.common_select)
                 ChoiceField(
-                    label = "Owner",
+                    label = stringResource(R.string.aircraft_owner),
                     selected = ownerPerson,
                     options = listOf<PersonEntity?>(null) + people,
-                    display = { it?.displayName?.ifBlank { "Unnamed" } ?: "Select…" },
+                    display = { it?.displayName?.ifBlank { unnamed } ?: select },
                     onSelect = { ownerPersonId = it?.id },
                 )
                 if (ownerPerson == null && initial?.ownerPersonId == null && !initial?.owner.isNullOrBlank()) {
                     // Typed before owners were picked from People; kept until one is picked.
-                    DetailLine("On file", initial?.owner.orEmpty())
+                    DetailLine(stringResource(R.string.aircraft_on_file), initial?.owner.orEmpty())
                 }
                 ownerPerson?.let { person ->
-                    person.email?.takeIf { it.isNotBlank() }?.let { DetailLine("Email", it) }
-                    person.phone?.takeIf { it.isNotBlank() }?.let { DetailLine("Phone", it) }
-                    person.address?.takeIf { it.isNotBlank() }?.let { DetailLine("Address", it) }
+                    person.email?.takeIf { it.isNotBlank() }?.let { DetailLine(stringResource(R.string.aircraft_email), it) }
+                    person.phone?.takeIf { it.isNotBlank() }?.let { DetailLine(stringResource(R.string.aircraft_phone), it) }
+                    person.address?.takeIf { it.isNotBlank() }?.let { DetailLine(stringResource(R.string.aircraft_address), it) }
                 }
                 if (people.isEmpty()) {
-                    Text("Add the owner in People to pick them here.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.aircraft_add_owner_in_people), style = MaterialTheme.typography.bodySmall)
                 }
             }
 
-            Text("Base", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.aircraft_base), style = MaterialTheme.typography.titleMedium)
+            val selectBase = stringResource(R.string.common_select)
             ListItem(
-                headlineContent = { Text("Usual Base") },
+                headlineContent = { Text(stringResource(R.string.aircraft_usual_base)) },
                 supportingContent = baseName?.let { { Text(it) } },
-                trailingContent = { Text(usualBase.ifBlank { "Select…" }, style = MaterialTheme.typography.titleMedium) },
+                trailingContent = { Text(usualBase.ifBlank { selectBase }, style = MaterialTheme.typography.titleMedium) },
                 modifier = Modifier.clickable { pickingBase = true },
             )
         }
