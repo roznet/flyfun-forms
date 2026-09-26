@@ -3,10 +3,13 @@ package aero.flyfun.forms.ui.people
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.TravelDocumentEntity
+import aero.flyfun.forms.logic.PeopleRanking
+import aero.flyfun.forms.logic.RankedPerson
 import aero.flyfun.forms.ui.common.DeleteOverflowMenu
 import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,13 +20,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContactPage
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -34,6 +50,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,71 +59,227 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
+/**
+ * What the People tab's + menu offers. Port of iOS `AddPersonMenuItems` plus
+ * the CSV import; each entry is shown only when the caller handles it.
+ */
+class AddPersonActions(
+    val onAdd: () -> Unit,
+    val onScan: (() -> Unit)? = null,
+    val onFromContact: (() -> Unit)? = null,
+    val onImportCsv: (() -> Unit)? = null,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeopleListScreen(
     people: List<PersonWithDocuments>,
+    /** When each person last flew, by id; see "Sort by Recent". */
+    lastFlights: Map<String, Instant>,
     onOpen: (String) -> Unit,
-    onAdd: () -> Unit,
+    add: AddPersonActions,
+    onExportCsv: () -> Unit,
     onDelete: (PersonEntity) -> Unit,
 ) {
+    var query by rememberSaveable { mutableStateOf("") }
+    var sortByRecent by rememberSaveable { mutableStateOf(false) }
+    var addMenu by remember { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
+
+    val shown = remember(people, lastFlights, query, sortByRecent) {
+        val matching = people.filter { PeopleRanking.matches(query, it.person.firstName, it.person.lastName) }
+        if (!sortByRecent) {
+            matching
+        } else {
+            val byId = matching.associateBy { it.person.id }
+            PeopleRanking.byRecent(matching.map { it.person.ranked(lastFlights) }).map { byId.getValue(it.id) }
+        }
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("People") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("People") },
+                actions = {
+                    IconButton(onClick = { sortByRecent = !sortByRecent }) {
+                        Icon(
+                            if (sortByRecent) Icons.Default.SortByAlpha else Icons.Default.Schedule,
+                            contentDescription = if (sortByRecent) "Sort A-Z" else "Sort by Recent",
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { overflow = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Export to CSV") },
+                                leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
+                                enabled = people.isNotEmpty(),
+                                onClick = { overflow = false; onExportCsv() },
+                            )
+                        }
+                    }
+                },
+            )
+        },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAdd) {
-                Icon(Icons.Default.Add, contentDescription = "Add person")
+            Box {
+                FloatingActionButton(onClick = { addMenu = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add person")
+                }
+                DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
+                    AddPersonMenuItems(add) { addMenu = false }
+                }
             }
         },
     ) { padding ->
-        if (people.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("No crew or passengers yet", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Add the people you fly with, and their passports, so forms fill themselves.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            if (people.isNotEmpty()) {
+                SearchField(query, { query = it }, "Search by name")
             }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                items(people, key = { "${it.person.id}:${it.person.updatedAt}" }) { row ->
-                    SwipeToDelete(onDelete = { onDelete(row.person) }) {
-                        ListItem(
-                            headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
-                            supportingContent = {
-                                val active = row.documents.count { it.isActive && it.deletedAt == null }
-                                Text(
-                                    buildString {
-                                        if (row.person.isUsualCrew) append("Usual crew")
-                                        if (row.person.isUsualCrew && active > 0) append(" · ")
-                                        if (active > 0) append("$active document${if (active == 1) "" else "s"}")
-                                        if (isEmpty()) append("No documents")
-                                    },
-                                )
-                            },
-                            modifier = Modifier.clickable { onOpen(row.person.id) },
-                        )
+            when {
+                people.isEmpty() -> Column(
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("No crew or passengers yet", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Add the people you fly with, and their passports, so forms fill themselves.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                shown.isEmpty() -> Text(
+                    "No one matches “${query.trim()}”.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp),
+                )
+                else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(shown, key = { "${it.person.id}:${it.person.updatedAt}" }) { row ->
+                        SwipeToDelete(onDelete = { onDelete(row.person) }) {
+                            PersonRow(row, lastFlight = lastFlights[row.person.id].takeIf { sortByRecent }) {
+                                onOpen(row.person.id)
+                            }
+                        }
+                        HorizontalDivider()
                     }
-                    HorizontalDivider()
                 }
             }
         }
     }
 }
+
+/** The menu entries behind a + button, shared by the People tab and the picker. */
+@Composable
+fun AddPersonMenuItems(add: AddPersonActions, close: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text("Add Person") },
+        leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+        onClick = { close(); add.onAdd() },
+    )
+    add.onScan?.let { scan ->
+        DropdownMenuItem(
+            text = { Text("Scan Document") },
+            leadingIcon = { Icon(Icons.Default.DocumentScanner, contentDescription = null) },
+            onClick = { close(); scan() },
+        )
+    }
+    add.onFromContact?.let { contact ->
+        DropdownMenuItem(
+            text = { Text("Import from Contact") },
+            leadingIcon = { Icon(Icons.Default.ContactPage, contentDescription = null) },
+            onClick = { close(); contact() },
+        )
+    }
+    add.onImportCsv?.let { csv ->
+        DropdownMenuItem(
+            text = { Text("Import from CSV") },
+            leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) },
+            onClick = { close(); csv() },
+        )
+    }
+}
+
+@Composable
+private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, onClick: () -> Unit) {
+    val active = row.documents.filter { it.isActive && it.deletedAt == null }
+    ListItem(
+        headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
+        supportingContent = {
+            Text(
+                listOfNotNull(
+                    // Nationality derives from the documents, never the person.
+                    active.mapNotNull { it.issuingCountry }.distinct().joinToString("/").ifBlank { null },
+                    if (active.isEmpty()) "No documents" else "${active.size} document${if (active.size == 1) "" else "s"}",
+                    lastFlight?.let { "Flew ${lastFlightFormat.format(it)}" },
+                ).joinToString(" · "),
+            )
+        },
+        trailingContent = if (row.person.isUsualCrew) { { CrewPill() } } else null,
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+/** The small "Crew" tag iOS puts on usual crew. */
+@Composable
+fun CrewPill(text: String = "Crew") {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        )
+    }
+}
+
+/**
+ * A search box above a list. A plain text field rather than M3 `SearchBar`,
+ * whose expanding, full-screen behaviour is for app-wide search, not for
+ * filtering the list below it.
+ */
+@Composable
+fun SearchField(query: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onChange,
+        placeholder = { Text(placeholder) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = if (query.isNotEmpty()) {
+            { IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear search") } }
+        } else {
+            null
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+fun PersonEntity.ranked(lastFlights: Map<String, Instant>) = RankedPerson(
+    id = id,
+    firstName = firstName,
+    lastName = lastName,
+    isUsualCrew = isUsualCrew,
+    lastFlight = lastFlights[id],
+)
+
+private val lastFlightFormat: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy").withZone(ZoneId.systemDefault())
 
 private val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
 

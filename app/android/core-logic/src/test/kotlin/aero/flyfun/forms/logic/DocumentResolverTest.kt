@@ -142,25 +142,40 @@ class DocumentResolverTest {
     }
 
     @Test
-    fun `override wins over region match`() {
-        val gbr = doc("PP-GBR-001", "GBR", date(2031, 1, 1))
-        val fra = doc("PP-FRA-001", "FRA", date(2029, 1, 1))
-        // LFAC is Schengen so FRA would normally win; the override must beat it.
-        assertEquals(
-            "PP-GBR-001",
-            DocumentResolver.resolve(listOf(gbr, fra), "LFAC", overrideDocumentId = gbr.id)?.docNumber,
+    fun `document chosen for the flight wins over region match`() {
+        val docs = listOf(
+            doc("FR-1", "FRA", date(2030, 1, 1)),
+            doc("GB-1", "GBR", date(2031, 1, 1)),
         )
+        assertEquals("GB-1", DocumentResolver.resolve(docs, "LFPB", chosenDocNumbers = listOf("GB-1"))?.docNumber)
     }
 
     @Test
-    fun `stale override id is ignored`() {
+    fun `chosen document that is inactive falls back to automatic`() {
+        val docs = listOf(
+            doc("FR-1", "FRA", date(2030, 1, 1)),
+            doc("GB-1", "GBR", date(2031, 1, 1), isActive = false),
+        )
+        assertEquals("FR-1", DocumentResolver.resolve(docs, "EGTF", chosenDocNumbers = listOf("GB-1"))?.docNumber)
+    }
+
+    @Test
+    fun `choosing replaces this person's choice and keeps others'`() {
+        val docs = listOf(doc("FR-1", "FRA", null), doc("GB-1", "GBR", null))
+        val switched = DocumentResolver.choosing(docs[1], docs, listOf("FR-1", "OTHER-9"))
+        assertEquals(setOf("GB-1", "OTHER-9"), switched.toSet())
+        assertEquals(listOf("OTHER-9"), DocumentResolver.choosing(null, docs, switched))
+    }
+
+    @Test
+    fun `a choice for someone else's document is ignored`() {
         val docs = listOf(
             doc("PP-GBR-001", "GBR", date(2031, 1, 1)),
             doc("PP-FRA-001", "FRA", date(2029, 1, 1)),
         )
         assertEquals(
             "PP-FRA-001",
-            DocumentResolver.resolve(docs, "LFAC", overrideDocumentId = "no-such-doc")?.docNumber,
+            DocumentResolver.resolve(docs, "LFAC", chosenDocNumbers = listOf("NOT-HERS"))?.docNumber,
         )
     }
 }

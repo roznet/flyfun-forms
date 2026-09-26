@@ -1,6 +1,7 @@
 package aero.flyfun.forms.data
 
 import androidx.room.TypeConverter
+import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
 
@@ -27,4 +28,11 @@ class Converters {
 
     @TypeConverter
     fun instantToEpochMillis(value: Instant?): Long? = value?.toEpochMilli()
+
+    /** A JSON array: document numbers are free text, so no separator is safe. */
+    @TypeConverter
+    fun stringListFromJson(value: String?): List<String>? = value?.let { Json.decodeFromString<List<String>>(it) }
+
+    @TypeConverter
+    fun stringListToJson(value: List<String>?): String? = value?.let { Json.encodeToString(it) }
 }

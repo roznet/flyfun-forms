@@ -161,6 +161,12 @@ data class FlightEntity(
     val responsiblePersonId: String? = null,
     val tripId: String? = null,
     val legOrder: Int = 0,
+    /**
+     * Travel documents picked by hand for this flight, by document number, for
+     * people who carry more than one. Null is "automatic" for everyone, as on
+     * iOS (`Flight.chosenDocNumbers`). Added in schema version 2.
+     */
+    val chosenDocNumbers: List<String>? = null,
     val updatedAt: Instant = Instant.now(),
     val deletedAt: Instant? = null,
 )

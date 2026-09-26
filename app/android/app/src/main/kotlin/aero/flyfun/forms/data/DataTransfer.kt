@@ -175,7 +175,7 @@ private fun FlightEntity.toRecord() = FlightRecord(
     departureInstant = departureInstant.toString(), arrivalInstant = arrivalInstant.toString(),
     nature = nature, observations = observations, contact = contact, reasonForVisit = reasonForVisit,
     aircraftId = aircraftId, responsiblePersonId = responsiblePersonId, tripId = tripId,
-    legOrder = legOrder,
+    legOrder = legOrder, chosenDocNumbers = chosenDocNumbers,
     updatedAt = updatedAt.toString(), deletedAt = deletedAt?.toString(),
 )
 
@@ -184,6 +184,6 @@ private fun FlightRecord.toEntity() = FlightEntity(
     departureInstant = Instant.parse(departureInstant), arrivalInstant = Instant.parse(arrivalInstant),
     nature = nature, observations = observations, contact = contact, reasonForVisit = reasonForVisit,
     aircraftId = aircraftId, responsiblePersonId = responsiblePersonId, tripId = tripId,
-    legOrder = legOrder,
+    legOrder = legOrder, chosenDocNumbers = chosenDocNumbers,
     updatedAt = Instant.parse(updatedAt), deletedAt = deletedAt?.let(Instant::parse),
 )

@@ -12,6 +12,9 @@ import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
+/** When a person last flew; see [FlightDao.observeLastFlights]. */
+data class PersonLastFlight(val personId: String, val lastFlight: Instant)
+
 /** A person with their travel documents. */
 data class PersonWithDocuments(
     @Embedded val person: PersonEntity,
@@ -50,6 +53,16 @@ interface PersonDao {
 
     @Upsert
     suspend fun upsertAll(people: List<PersonEntity>)
+
+    @Upsert
+    suspend fun upsertDocuments(documents: List<TravelDocumentEntity>)
+
+    /** A CSV import: everyone and their documents land together or not at all. */
+    @Transaction
+    suspend fun importPeople(people: List<PersonEntity>, documents: List<TravelDocumentEntity>) {
+        upsertAll(people)
+        upsertDocuments(documents)
+    }
 
     /** Tombstone rather than a hard delete, so the deletion can propagate on export. */
     @Query("UPDATE person SET deletedAt = :at, updatedAt = :at WHERE id = :id")
@@ -186,6 +199,21 @@ interface FlightDao {
 
     @Query("SELECT * FROM flight_person")
     suspend fun allMemberships(): List<FlightPersonCrossRef>
+
+    /** Who is on each live flight, for suggestions and co-traveller groups. */
+    @Query("SELECT fp.* FROM flight_person fp JOIN flight f ON f.id = fp.flightId WHERE f.deletedAt IS NULL")
+    fun observeMemberships(): Flow<List<FlightPersonCrossRef>>
+
+    /** Each person's most recent live flight, crew or passenger: "Sort by Recent". */
+    @Query(
+        """
+        SELECT fp.personId AS personId, MAX(f.departureInstant) AS lastFlight
+        FROM flight_person fp JOIN flight f ON f.id = fp.flightId
+        WHERE f.deletedAt IS NULL
+        GROUP BY fp.personId
+        """,
+    )
+    fun observeLastFlights(): Flow<List<PersonLastFlight>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addPerson(ref: FlightPersonCrossRef)
