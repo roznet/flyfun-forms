@@ -1,5 +1,7 @@
 package aero.flyfun.forms.data
 
+import aero.flyfun.forms.net.ExtraFieldInfo
+import aero.flyfun.forms.net.ExtraFieldValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -98,5 +100,89 @@ class FormRequestBuilderTest {
         val p = FormRequestBuilder.aircraftPayload(bare)
         assertNull(p.owner)
         assertNull(p.usualBase)
+    }
+
+    private val anna = PersonEntity(
+        firstName = "Anna", lastName = "Eriksson",
+        phone = "+33 6 00 00 00 00", email = "anna@example.test", address = "1 Rue de Test",
+    )
+
+    @Test
+    fun `the responsible person names the contact and fills phone and e-mail`() {
+        val extras = FormRequestBuilder.extraFields(
+            entered = emptyMap(),
+            reasonForVisit = "Maintenance",
+            responsiblePerson = anna,
+        )
+        assertEquals(ExtraFieldValue.Text("Maintenance"), extras["reason_for_visit"])
+        assertEquals(
+            ExtraFieldValue.Person(mapOf("name" to "Anna Eriksson", "address" to "1 Rue de Test")),
+            extras["responsible_person"],
+        )
+        assertEquals(ExtraFieldValue.Text("+33 6 00 00 00 00"), extras["telephone"])
+        assertEquals(ExtraFieldValue.Text("anna@example.test"), extras["email"])
+
+        val req = FormRequestBuilder.build(
+            airport = "LFRM", formId = "customs", flight = flight, aircraft = aircraft,
+            crew = emptyList(), passengers = emptyList(), documentFor = { null },
+            responsiblePerson = anna, extraFields = extras,
+        )
+        assertEquals("Anna Eriksson", req.flight.contact)
+    }
+
+    @Test
+    fun `a telephone typed for the form wins over the responsible person's`() {
+        val extras = FormRequestBuilder.extraFields(
+            entered = mapOf("telephone" to ExtraFieldValue.Text("+44 20 0000 0000")),
+            reasonForVisit = null,
+            responsiblePerson = anna,
+        )
+        assertEquals(ExtraFieldValue.Text("+44 20 0000 0000"), extras["telephone"])
+        assertNull(extras["reason_for_visit"])
+    }
+
+    @Test
+    fun `without a responsible person the stored contact is sent`() {
+        val req = FormRequestBuilder.build(
+            airport = "LFRM", formId = "customs", flight = flight, aircraft = aircraft,
+            crew = emptyList(), passengers = emptyList(), documentFor = { null },
+        )
+        assertEquals("Anna", req.flight.contact)
+        assertNull(req.extraFields)
+    }
+
+    @Test
+    fun `an untouched choice sends the option it shows`() {
+        val fields = listOf(
+            ExtraFieldInfo(key = "purpose", label = "Purpose", type = "choice", options = listOf("Tourism", "Business")),
+            ExtraFieldInfo(key = "landing", label = "Landing", type = "choice", options = listOf("A", "B")),
+            ExtraFieldInfo(key = "reason_for_visit", label = "Reason", type = "choice", options = listOf("Based")),
+            ExtraFieldInfo(key = "notes", label = "Notes", type = "text"),
+        )
+        val extras = FormRequestBuilder.withChoiceDefaults(fields, mapOf("landing" to ExtraFieldValue.Text("B")))
+        assertEquals(
+            mapOf("landing" to ExtraFieldValue.Text("B"), "purpose" to ExtraFieldValue.Text("Tourism")),
+            extras,
+        )
+    }
+
+    @Test
+    fun `connecting and return legs go on the wire`() {
+        val onward = flight.copy(
+            id = "onward", originICAO = "LFRM", destinationICAO = "LSGS",
+            departureInstant = Instant.parse("2026-09-22T09:00:00Z"),
+            arrivalInstant = Instant.parse("2026-09-22T10:30:00Z"),
+        )
+        val req = FormRequestBuilder.build(
+            airport = "LFRM", formId = "customs", flight = flight, aircraft = aircraft,
+            crew = emptyList(), passengers = emptyList(), documentFor = { null },
+            connectingFlight = onward to "Bo Lindqvist",
+            returnFlight = FormRequestBuilder.returnFlightPayload(onward, peopleOnBoard = 3),
+        )
+        assertEquals("LSGS", req.connectingFlight?.destination)
+        assertEquals("09:00", req.connectingFlight?.departureTimeUtc)
+        assertEquals("Bo Lindqvist", req.connectingFlight?.contact)
+        assertEquals(3, req.returnFlight?.peopleOnBoard)
+        assertEquals("2026-09-22", req.returnFlight?.arrivalDate)
     }
 }

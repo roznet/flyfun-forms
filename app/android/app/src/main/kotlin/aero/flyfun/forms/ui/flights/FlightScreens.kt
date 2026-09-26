@@ -5,6 +5,9 @@ import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.displayField
+import aero.flyfun.forms.data.FormRequestBuilder
+import aero.flyfun.forms.net.ExtraFieldValue
+import aero.flyfun.forms.ui.common.ChoiceField
 import aero.flyfun.forms.ui.common.DeleteOverflowMenu
 import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.activity.compose.BackHandler
@@ -142,6 +145,9 @@ fun FlightEditScreen(
     onSetAircraft: (String?) -> Unit,
     onSetCrew: (List<PersonEntity>) -> Unit,
     onSetPassengers: (List<PersonEntity>) -> Unit,
+    onSetResponsiblePerson: (PersonEntity?) -> Unit,
+    extraValues: Map<String, Map<String, ExtraFieldValue>>,
+    onSetExtra: (airport: String, formId: String, key: String, value: ExtraFieldValue?) -> Unit,
     onSave: () -> Unit,
     /** Save, and leave once it is stored: leaving first would cancel the write. */
     onSaveAndBack: () -> Unit,
@@ -246,6 +252,32 @@ fun FlightEditScreen(
                 Text("Add an aircraft first.", style = MaterialTheme.typography.bodySmall)
             }
 
+            ChoiceField(
+                label = "Nature",
+                selected = flight.nature,
+                options = listOf("private", "commercial"),
+                display = { if (it == "commercial") "Commercial" else "Private" },
+                onSelect = { value -> onEditFlight { it.copy(nature = value) } },
+            )
+            ChoiceField(
+                label = "Reason for Visit",
+                selected = flight.reasonForVisit.orEmpty(),
+                options = listOf("") + REASONS_FOR_VISIT,
+                display = { it.ifBlank { "—" } },
+                onSelect = { value -> onEditFlight { it.copy(reasonForVisit = value.ifBlank { null }) } },
+            )
+            ChoiceField(
+                label = "Responsible Person",
+                selected = detail.responsiblePerson,
+                options = listOf<PersonEntity?>(null) + people,
+                display = { it?.displayName?.ifBlank { "Unnamed" } ?: "—" },
+                onSelect = onSetResponsiblePerson,
+            )
+            detail.responsiblePerson?.let { person ->
+                person.phone?.takeIf { it.isNotBlank() }?.let { DetailLine("Phone", it) }
+                person.address?.takeIf { it.isNotBlank() }?.let { DetailLine("Address", it) }
+            }
+
             PeoplePicker("Crew", people, detail.crew, onSetCrew)
             PeoplePicker("Passengers", people, detail.passengers, onSetPassengers)
 
@@ -259,9 +291,16 @@ fun FlightEditScreen(
             )
 
             Text("Forms", style = MaterialTheme.typography.titleMedium)
-            airportForms.forEach { airport ->
-                AirportFormsCard(airport, generateState, onGenerate, onOpenWebForm)
-            }
+            val rowContext = FormRowContext(
+                state = generateState,
+                flightPeople = detail.crew + detail.passengers,
+                responsiblePerson = detail.responsiblePerson,
+                extraValues = extraValues,
+                onSetExtra = onSetExtra,
+                onGenerate = onGenerate,
+                onOpenWebForm = onOpenWebForm,
+            )
+            airportForms.forEach { airport -> AirportFormsCard(airport, rowContext) }
             if (airportForms.isEmpty()) {
                 Text(
                     "Enter the route to see which forms these airports need.",
@@ -286,6 +325,17 @@ fun FlightEditScreen(
     }
 
     GenerateFeedback(generateState, onShare, onDismissGenerate)
+}
+
+/** Same vocabulary as iOS `Flight.reasonForVisitOptions`; the server matches on these strings. */
+private val REASONS_FOR_VISIT = listOf("Based", "Short Term Visit", "Maintenance", "Permanent Import", "Repair")
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /**
@@ -320,13 +370,23 @@ private fun PeoplePicker(
     }
 }
 
+/**
+ * What a form row needs from the flight screen, bundled so each row does not
+ * take a dozen parameters.
+ */
+class FormRowContext(
+    val state: GenerateState,
+    /** Crew and passengers: the people a "person" extra field can name. */
+    val flightPeople: List<PersonEntity>,
+    val responsiblePerson: PersonEntity?,
+    val extraValues: Map<String, Map<String, ExtraFieldValue>>,
+    val onSetExtra: (airport: String, formId: String, key: String, value: ExtraFieldValue?) -> Unit,
+    val onGenerate: (String, FormInfo) -> Unit,
+    val onOpenWebForm: (String, FormInfo) -> Unit,
+)
+
 @Composable
-private fun AirportFormsCard(
-    airport: AirportForms,
-    state: GenerateState,
-    onGenerate: (String, FormInfo) -> Unit,
-    onOpenWebForm: (String, FormInfo) -> Unit,
-) {
+private fun AirportFormsCard(airport: AirportForms, ctx: FormRowContext) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -344,35 +404,159 @@ private fun AirportFormsCard(
                 airport.forms.isEmpty() ->
                     Text("No forms needed here.", style = MaterialTheme.typography.bodySmall)
                 else -> airport.forms.forEach { form ->
-                    val working = state is GenerateState.Working && state.formId == form.id
-                    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(form.label)
-                            if (form.isWebForm) {
-                                Text("Official web form", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        if (form.isWebForm) {
-                            // The airport's own page: prefilled via /prefill and
-                            // submitted by the pilot, never by the app.
-                            OutlinedButton(
-                                enabled = state !is GenerateState.Working,
-                                onClick = { onOpenWebForm(airport.icao, form) },
-                            ) { Text("Open") }
-                        } else {
-                            OutlinedButton(
-                                enabled = state !is GenerateState.Working,
-                                onClick = { onGenerate(airport.icao, form) },
-                            ) {
-                                if (working) CircularProgressIndicator(Modifier.padding(2.dp))
-                                else Text("Generate")
-                            }
-                        }
-                    }
+                    if (form.isWebForm) WebFormRow(airport.icao, form, ctx) else FormRow(airport.icao, form, ctx)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun FormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
+    val working = ctx.state is GenerateState.Working && ctx.state.formId == form.id
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(form.label, style = MaterialTheme.typography.titleSmall)
+        ExtraFields(airport, form, ctx)
+        Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
+            OutlinedButton(
+                enabled = ctx.state !is GenerateState.Working,
+                onClick = { ctx.onGenerate(airport, form) },
+            ) {
+                if (working) CircularProgressIndicator(Modifier.padding(2.dp))
+                else Text("Generate")
+            }
+        }
+    }
+}
+
+@Composable
+private fun WebFormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
+    val working = ctx.state is GenerateState.Working && ctx.state.formId == form.id
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(form.label, style = MaterialTheme.typography.titleSmall)
+                Text("Official web form", style = MaterialTheme.typography.bodySmall)
+            }
+            // The airport's own page: prefilled via /prefill and submitted by
+            // the pilot, never by the app.
+            OutlinedButton(
+                enabled = ctx.state !is GenerateState.Working,
+                onClick = { ctx.onOpenWebForm(airport, form) },
+            ) {
+                if (working) CircularProgressIndicator(Modifier.padding(2.dp))
+                else Text("Open prefilled")
+            }
+        }
+        if (ctx.responsiblePerson == null &&
+            form.extraFields.any { it.key in FormRequestBuilder.PERSON_SUPPLIED_EXTRAS }
+        ) {
+            Hint("Pick a responsible person to fill in phone and email")
+        }
+    }
+}
+
+/**
+ * The form's own questions, from `FormInfo.extraFields`. Port of iOS
+ * `extraFieldsView`: reason for visit and the responsible person come from the
+ * flight, and phone and e-mail from the responsible person, so those are shown
+ * rather than asked.
+ */
+@Composable
+private fun ExtraFields(airport: String, form: FormInfo, ctx: FormRowContext) {
+    val values = ctx.extraValues[FlightsViewModel.formKey(airport, form.id)].orEmpty()
+    val set = { key: String, value: ExtraFieldValue? -> ctx.onSetExtra(airport, form.id, key, value) }
+
+    form.extraFields
+        .filter { it.key !in FormRequestBuilder.FLIGHT_SUPPLIED_EXTRAS }
+        .forEach { field ->
+            when {
+                field.type == "choice" -> {
+                    val options = field.options.orEmpty()
+                    ChoiceField(
+                        label = field.label,
+                        selected = (values[field.key] as? ExtraFieldValue.Text)?.value ?: options.firstOrNull().orEmpty(),
+                        options = options,
+                        display = { it },
+                        onSelect = { set(field.key, ExtraFieldValue.Text(it)) },
+                    )
+                }
+
+                field.type == "person" -> {
+                    val chosen = (values[field.key] as? ExtraFieldValue.Person)?.value.orEmpty()
+                    ChoiceField(
+                        label = field.label,
+                        selected = ctx.flightPeople.firstOrNull { it.displayName == chosen["name"] },
+                        options = listOf<PersonEntity?>(null) + ctx.flightPeople,
+                        display = { it?.displayName?.ifBlank { "Unnamed" } ?: "—" },
+                        onSelect = { person ->
+                            set(
+                                field.key,
+                                person?.let {
+                                    ExtraFieldValue.Person(mapOf("name" to it.displayName, "address" to it.address.orEmpty()))
+                                },
+                            )
+                        },
+                    )
+                    if (chosen.isNotEmpty()) {
+                        var address by remember(airport, form.id, field.key, chosen["name"]) {
+                            mutableStateOf(chosen["address"].orEmpty())
+                        }
+                        OutlinedTextField(
+                            address,
+                            { value ->
+                                address = value
+                                set(field.key, ExtraFieldValue.Person(chosen + ("address" to value)))
+                            },
+                            label = { Text("Address") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                field.key in FormRequestBuilder.PERSON_SUPPLIED_EXTRAS ->
+                    ResponsiblePersonValue(field.label, field.key, ctx.responsiblePerson)
+
+                else -> {
+                    var text by remember(airport, form.id, field.key) {
+                        mutableStateOf((values[field.key] as? ExtraFieldValue.Text)?.value.orEmpty())
+                    }
+                    OutlinedTextField(
+                        text,
+                        { value ->
+                            text = value
+                            set(field.key, value.takeIf { it.isNotBlank() }?.let { ExtraFieldValue.Text(it) })
+                        },
+                        label = { Text(field.label) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+}
+
+/** A phone or e-mail field, read from the responsible person. */
+@Composable
+private fun ResponsiblePersonValue(label: String, key: String, person: PersonEntity?) {
+    val value = when (key) {
+        FormRequestBuilder.TELEPHONE -> person?.phone
+        FormRequestBuilder.EMAIL -> person?.email
+        else -> null
+    }
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        when {
+            person == null -> Hint("Pick a responsible person")
+            value.isNullOrBlank() -> Hint("Set ${label.lowercase()} on ${person.displayName}")
+            else -> Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Something the pilot has to fix elsewhere before the form fills completely. */
+@Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 
 @Composable
