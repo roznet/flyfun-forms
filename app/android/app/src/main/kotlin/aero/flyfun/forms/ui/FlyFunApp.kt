@@ -275,6 +275,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         val people by peopleVm.people.collectAsState()
         val forms by vm.airportForms.collectAsState()
         val generate by vm.generate.collectAsState()
+        val extraValues by vm.extraValues.collectAsState()
         val scope = rememberCoroutineScope()
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
@@ -296,6 +297,9 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             onSetAircraft = { vm.setAircraft(it) },
             onSetCrew = { vm.setCrew(it) },
             onSetPassengers = { vm.setPassengers(it) },
+            onSetResponsiblePerson = { vm.setResponsiblePerson(it) },
+            extraValues = extraValues,
+            onSetExtra = { airport, formId, key, value -> vm.setExtra(airport, formId, key, value) },
             onSave = { vm.save() },
             onSaveAndBack = { scope.launch { vm.save().join(); nav.popBackStack() } },
             onGenerate = { airport, form -> vm.generateForm(airport, form) },

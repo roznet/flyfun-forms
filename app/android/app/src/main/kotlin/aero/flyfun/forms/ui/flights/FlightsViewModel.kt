@@ -7,7 +7,11 @@ import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.data.FormRequestBuilder
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonEntity
+import aero.flyfun.forms.logic.FlightLegs
 import aero.flyfun.forms.logic.FormSides
+import aero.flyfun.forms.logic.Leg
+import aero.flyfun.forms.net.ExtraFieldValue
+import aero.flyfun.forms.net.GenerateRequest
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.FillPlan
 import aero.flyfun.forms.net.FormInfo
@@ -20,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -39,6 +44,8 @@ data class FlightDetail(
     val aircraft: AircraftEntity? = null,
     val crew: List<PersonEntity> = emptyList(),
     val passengers: List<PersonEntity> = emptyList(),
+    /** Named as the contact on forms; their phone and e-mail fill form fields. */
+    val responsiblePerson: PersonEntity? = null,
     /** Not stored yet: + opens a draft, and only Save creates the row. */
     val isNew: Boolean = false,
 )
@@ -142,6 +149,7 @@ class FlightsViewModel(
             aircraft = flight.aircraftId?.let { flights.aircraft(it) },
             crew = flights.crew(flightId),
             passengers = flights.passengers(flightId),
+            responsiblePerson = flight.responsiblePersonId?.let { people.person(it)?.person },
         )
     }
 
@@ -193,6 +201,30 @@ class FlightsViewModel(
 
     fun setPassengers(passengers: List<PersonEntity>) = edit { it.copy(passengers = passengers) }
 
+    /** Also keeps `contact` in step, as iOS `setResponsiblePerson` does for older builds reading it. */
+    fun setResponsiblePerson(person: PersonEntity?) = edit {
+        it.copy(
+            flight = it.flight.copy(responsiblePersonId = person?.id, contact = person?.phone),
+            responsiblePerson = person,
+        )
+    }
+
+    private val _extraValues = MutableStateFlow<Map<String, Map<String, ExtraFieldValue>>>(emptyMap())
+
+    /**
+     * What was entered in each form's own extra fields, by [formKey]. Held for
+     * the screen only, as on iOS: they are per form and rarely reused.
+     */
+    val extraValues: StateFlow<Map<String, Map<String, ExtraFieldValue>>> = _extraValues.asStateFlow()
+
+    fun setExtra(airport: String, formId: String, key: String, value: ExtraFieldValue?) {
+        val formKey = formKey(airport, formId)
+        _extraValues.update { all ->
+            val current = all[formKey].orEmpty()
+            all + (formKey to if (value == null) current - key else current + (key to value))
+        }
+    }
+
     /** Store the draft: the flight row, then who is on it. */
     fun save(): Job = viewModelScope.launch {
         val draft = _detail.value ?: return@launch
@@ -236,12 +268,17 @@ class FlightsViewModel(
             }
     }
 
-    fun generateForm(airport: String, form: FormInfo) = viewModelScope.launch {
-        val current = _detail.value ?: return@launch
+    /**
+     * Everything a form is generated from, built from the draft - so what is
+     * on screen is what gets filled, saved or not. Null, with the state set to
+     * say why, when the form cannot be asked for yet.
+     */
+    private suspend fun buildRequest(airport: String, form: FormInfo): GenerateRequest? {
+        val current = _detail.value ?: return null
         val aircraft = current.aircraft
         if (aircraft == null) {
             _generate.value = GenerateState.Failed("Pick an aircraft for this flight first.")
-            return@launch
+            return null
         }
         _generate.value = GenerateState.Working(form.id)
 
@@ -250,7 +287,43 @@ class FlightsViewModel(
             person.id to people.resolveDocument(person.id, airport)
         }
 
-        val request = FormRequestBuilder.build(
+        val entered = _extraValues.value[formKey(airport, form.id)].orEmpty()
+        val extras = FormRequestBuilder.extraFields(
+            entered = FormRequestBuilder.withChoiceDefaults(form.extraFields, entered),
+            reasonForVisit = current.flight.reasonForVisit,
+            responsiblePerson = current.responsiblePerson,
+        )
+
+        // Other legs as stored; this one as drafted.
+        val stored = flights.observeFlights().first().filter { it.id != current.flight.id }
+        val legs = stored.map { it.toLeg() }
+        val thisLeg = current.flight.toLeg()
+
+        val connecting = if (form.hasConnectingFlight) {
+            FlightLegs.connecting(thisLeg, airport, legs)
+                ?.let { leg -> stored.first { it.id == leg.id } }
+                ?.let { leg -> leg to leg.responsiblePersonId?.let { people.person(it)?.person?.displayName } }
+        } else {
+            null
+        }
+
+        val returning = if (form.hasReturnFlight == true) {
+            FlightLegs.returning(thisLeg, airport, legs)?.let { leg ->
+                if (leg.id == current.flight.id) {
+                    FormRequestBuilder.returnFlightPayload(current.flight, current.crew.size + current.passengers.size)
+                } else {
+                    val back = stored.first { it.id == leg.id }
+                    FormRequestBuilder.returnFlightPayload(
+                        back,
+                        flights.crew(back.id).size + flights.passengers(back.id).size,
+                    )
+                }
+            }
+        } else {
+            null
+        }
+
+        return FormRequestBuilder.build(
             airport = airport,
             formId = form.id,
             flight = current.flight,
@@ -258,8 +331,15 @@ class FlightsViewModel(
             crew = current.crew,
             passengers = current.passengers,
             documentFor = { documents[it.id] },
+            responsiblePerson = current.responsiblePerson,
+            extraFields = extras,
+            connectingFlight = connecting,
+            returnFlight = returning,
         )
+    }
 
+    fun generateForm(airport: String, form: FormInfo) = viewModelScope.launch {
+        val request = buildRequest(airport, form) ?: return@launch
         _generate.value = runCatching { api.forms.generate(request) }.fold(
             onSuccess = { response ->
                 when {
@@ -291,26 +371,7 @@ class FlightsViewModel(
      * /generate - only the endpoint and what comes back differ.
      */
     fun prefillWebForm(airport: String, form: FormInfo) = viewModelScope.launch {
-        val current = _detail.value ?: return@launch
-        val aircraft = current.aircraft
-        if (aircraft == null) {
-            _generate.value = GenerateState.Failed("Pick an aircraft for this flight first.")
-            return@launch
-        }
-        _generate.value = GenerateState.Working(form.id)
-
-        val documents = (current.crew + current.passengers).associate { person ->
-            person.id to people.resolveDocument(person.id, airport)
-        }
-        val request = FormRequestBuilder.build(
-            airport = airport,
-            formId = form.id,
-            flight = current.flight,
-            aircraft = aircraft,
-            crew = current.crew,
-            passengers = current.passengers,
-            documentFor = { documents[it.id] },
-        )
+        val request = buildRequest(airport, form) ?: return@launch
         _generate.value = runCatching { api.forms.prefill(request) }.fold(
             onSuccess = { GenerateState.WebPlan(it) },
             onFailure = { GenerateState.Failed(it.friendlyMessage()) },
@@ -322,6 +383,9 @@ class FlightsViewModel(
     companion object {
         /** Route argument for a flight that does not exist yet. */
         const val NEW_FLIGHT = "new"
+
+        /** One form at one airport; a local flight's two sides share it, as on iOS. */
+        fun formKey(airport: String, formId: String) = "${airport.uppercase()}_$formId"
     }
 }
 
@@ -364,3 +428,11 @@ private fun retrofit2.Response<okhttp3.ResponseBody>.suggestedFileName(
     }
     return "$airport-$formId.$extension"
 }
+
+private fun FlightEntity.toLeg() = Leg(
+    id = id,
+    origin = originICAO,
+    destination = destinationICAO,
+    departure = departureInstant,
+    arrival = arrivalInstant,
+)

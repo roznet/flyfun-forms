@@ -99,10 +99,10 @@ and Settings, which is why it is one PR.
 
 Entity already has `nature`, `reasonForVisit`, `responsiblePersonId` — no migration.
 
-- [ ] Nature (private/commercial) and Reason for Visit picker (`FlightEditView.swift:264-272`)
-- [ ] Responsible person picker; sets `contact`, auto-fills telephone/email extras (`:273-294`, `:815-829`)
-- [ ] Connecting flight (nearest leg ≤14 days through this airport) and return flight (`has_return_flight`) (`:856-921`) — pure functions in `FormRequestBuilder`, unit-tested
-- [ ] Per-form extra fields UI (choice / person / text) from `FormInfo.extraFields` (`:512-570`); `FormRequestBuilder.build` must send them. Needed for LSGS and book-out forms to fill fully
+- [x] Nature (private/commercial) and Reason for Visit picker (`FlightEditView.swift:264-272`)
+- [x] Responsible person picker; sets `contact`, auto-fills telephone/email extras (`:273-294`, `:815-829`)
+- [x] Connecting flight (nearest leg ≤14 days through this airport) and return flight (`has_return_flight`) (`:856-921`) — pure functions in `FormRequestBuilder`, unit-tested
+- [x] Per-form extra fields UI (choice / person / text) from `FormInfo.extraFields` (`:512-570`); `FormRequestBuilder.build` must send them. Needed for LSGS and book-out forms to fill fully
 
 ### 1d — Leg actions and schedule sync (S, Sonnet)
 
@@ -213,3 +213,6 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 1b — Deletes run on the app's scope against the repositories, with one app-level Snackbar for Undo. A delete from an edit screen pops the screen, and a ViewModel-scoped Undo would be cancelled with it. Restore clears the tombstone and bumps `updatedAt`, so the restore wins a later merge.
 - 2026-09-26 — 1b — List rows are keyed on id + `updatedAt`, so a restored row gets fresh swipe state instead of coming back already swiped away.
 - 2026-09-26 — 1b — Delete account keeps people, aircraft and flights on the device: they were never on the server.
+- 2026-09-26 — 1c — Connecting and return legs are found by `FlightLegs` in `:core-logic` over a plain `Leg`, matching the iOS rules: 14 days either side, by airport, no trip linkage; a local flight connects as an arrival and is its own return. Forms are built from the draft, and other legs as stored.
+- 2026-09-26 — 1c — An untouched choice extra field sends the option it shows. iOS shows the first option but sends nothing until it is changed, which the server rejects as missing when the field is required. Deliberate departure; the iOS side needs the same fix.
+- 2026-09-26 — 1c — Per-form extra values live in the flight screen's ViewModel only, keyed by airport + form as on iOS, and are not stored.
