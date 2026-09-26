@@ -27,6 +27,7 @@ import aero.flyfun.forms.net.NotificationInfo
 import aero.flyfun.forms.logic.AirportSummary
 import aero.flyfun.forms.logic.RecentRoute
 import aero.flyfun.forms.logic.RecentRoutes
+import aero.flyfun.forms.logic.NextOccurrence
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -352,6 +353,48 @@ class FlightsViewModel(
             val current = all[formKey].orEmpty()
             all + (formKey to if (value == null) current - key else current + (key to value))
         }
+    }
+
+    private val _importSummary = MutableStateFlow<String?>(null)
+
+    /** What the last import into a new flight brought in, shown under the import button. */
+    val importSummary: StateFlow<String?> = _importSummary.asStateFlow()
+
+    /**
+     * Copy an earlier flight into the new one: its route, aircraft, people
+     * and settings, rescheduled to the next time its time of day comes round,
+     * read in the origin's zone. Port of iOS `FlightDraft(repeating:)`.
+     *
+     * People and settings are replaced, not merged, so a second import does
+     * not leave the first one's crew on a customs form.
+     */
+    fun importPreviousFlight(flightId: String) = viewModelScope.launch {
+        val source = loadStored(flightId) ?: return@launch
+        val from = source.flight
+        val zone = airports?.timeZone(from.originICAO)
+        val (departure, arrival) = NextOccurrence.of(from.departureInstant, from.arrivalInstant, Instant.now(), zone)
+        edit { draft ->
+            draft.copy(
+                flight = draft.flight.copy(
+                    originICAO = from.originICAO,
+                    destinationICAO = from.destinationICAO,
+                    departureInstant = departure,
+                    arrivalInstant = arrival,
+                    aircraftId = from.aircraftId,
+                    nature = from.nature,
+                    contact = from.contact,
+                    observations = from.observations,
+                    reasonForVisit = from.reasonForVisit,
+                    responsiblePersonId = from.responsiblePersonId,
+                    chosenDocNumbers = from.chosenDocNumbers,
+                ),
+                aircraft = source.aircraft,
+                crew = source.crew,
+                passengers = source.passengers,
+                responsiblePerson = source.responsiblePerson,
+            )
+        }
+        _importSummary.value = "Copied from ${from.originICAO.ifBlank { "????" }} → ${from.destinationICAO.ifBlank { "????" }}"
     }
 
     /** Store the draft: the flight row, then who is on it. */
