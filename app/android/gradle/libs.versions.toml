@@ -16,7 +16,6 @@ androidxTestJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
 coroutines = "1.10.2"
 browser = "1.10.0"
-securityCrypto = "1.1.0"
 okhttp = "5.5.0"
 camerax = "1.6.2"
 mlkitText = "16.0.1"
@@ -43,7 +42,6 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
-androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
