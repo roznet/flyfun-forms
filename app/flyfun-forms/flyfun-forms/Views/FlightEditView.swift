@@ -534,11 +534,16 @@ struct FlightEditView: View {
                 } label: {
                     Label(chosen?.displayLabel ?? String(localized: "Document: Automatic"),
                           systemImage: "person.text.rectangle")
+                        .labelStyle(.titleAndIcon)
                         .font(.caption)
                 }
-                .menuStyle(.button)
                 .buttonStyle(.borderless)
+                #if os(macOS)
+                // On iOS 26 a button-style, fixed-size menu inside a Form row
+                // drops its title and claims several hundred points of height.
+                .menuStyle(.button)
                 .fixedSize()
+                #endif
             }
         } else {
             Text(person.displayName)
