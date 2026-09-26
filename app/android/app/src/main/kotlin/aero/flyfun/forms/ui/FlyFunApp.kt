@@ -7,10 +7,12 @@ import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.FlightRepository
 import aero.flyfun.forms.data.FlyFunDatabase
 import aero.flyfun.forms.data.PeopleRepository
+import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.RoomFlightRepository
 import aero.flyfun.forms.data.DataTransfer
 import aero.flyfun.forms.data.RoomPeopleRepository
+import aero.flyfun.forms.data.TravelDocumentEntity
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.ui.aircraft.AircraftEditScreen
 import aero.flyfun.forms.ui.aircraft.AircraftListScreen
@@ -22,6 +24,7 @@ import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
 import aero.flyfun.forms.ui.webform.WebFormScreen
+import aero.flyfun.forms.ui.people.DocumentEditScreen
 import aero.flyfun.forms.ui.people.PersonEditScreen
 import aero.flyfun.forms.ui.settings.DataTransferViewModel
 import aero.flyfun.forms.ui.settings.SettingsScreen
@@ -261,12 +264,21 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
     }
     composable("person/new") {
         val vm: PeopleViewModel = viewModel(factory = factory)
+        val scope = rememberCoroutineScope()
+        // A document needs its person to exist, so opening one saves the new
+        // person and swaps this screen for the stored person's before going on.
+        fun persistThen(person: PersonEntity, next: String) = scope.launch {
+            vm.save(person).join()
+            nav.navigate("person/${person.id}") { popUpTo("person/new") { inclusive = true } }
+            nav.navigate(next)
+        }
         PersonEditScreen(
             initial = null,
-            onSave = { vm.save(it); nav.popBackStack() },
-            onAddDocument = { _, _, _, _ -> },
+            onSave = { person -> scope.launch { vm.save(person).join(); nav.popBackStack() } },
+            onOpenDocument = { person, _ -> persistThen(person, "person/${person.id}/document/new") },
             onDeleteDocument = {},
             onBack = { nav.popBackStack() },
+            onScan = { person -> persistThen(person, "person/${person.id}/scan") },
         )
     }
     composable(
@@ -275,22 +287,46 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
     ) { entry ->
         val personId = entry.arguments?.getString("personId").orEmpty()
         val vm: PeopleViewModel = viewModel(factory = factory)
+        val scope = rememberCoroutineScope()
         ScanScreen(
             onScanned = { result ->
-                // The scan fills the document; the person's own name is left
-                // alone, because the pilot may have spelled it deliberately and
-                // an MRZ is transliterated and upper-cased.
-                vm.addDocument(
-                    personId = personId,
-                    docType = if (result.format == aero.flyfun.forms.logic.MRZFormat.TD1) "Identity card" else "Passport",
-                    docNumber = result.passportNumber,
-                    issuingCountry = result.issuingCountry,
-                    expiry = result.expiryDate,
-                )
-                nav.popBackStack()
+                scope.launch {
+                    vm.applyScan(personId, result).join()
+                    nav.popBackStack()
+                }
             },
             onBack = { nav.popBackStack() },
         )
+    }
+    composable(
+        "person/{personId}/document/{documentId}",
+        arguments = listOf(
+            navArgument("personId") { type = NavType.StringType },
+            navArgument("documentId") { type = NavType.StringType },
+        ),
+    ) { entry ->
+        val personId = entry.arguments?.getString("personId").orEmpty()
+        val documentId = entry.arguments?.getString("documentId").orEmpty()
+        val vm: PeopleViewModel = viewModel(factory = factory)
+        val scope = rememberCoroutineScope()
+        val people by vm.people.collectAsState()
+        val isNew = documentId == "new"
+        val newDocument = remember { TravelDocumentEntity(personId = personId) }
+        val document = if (isNew) {
+            newDocument
+        } else {
+            people.firstOrNull { it.person.id == personId }
+                ?.documents?.firstOrNull { it.id == documentId }
+        }
+        document?.let { doc ->
+            DocumentEditScreen(
+                initial = doc,
+                isNew = isNew,
+                onSave = { updated -> scope.launch { vm.saveDocument(updated).join(); nav.popBackStack() } },
+                onDelete = { vm.deleteDocument(doc.id); nav.popBackStack() },
+                onBack = { nav.popBackStack() },
+            )
+        }
     }
 
     composable(
@@ -299,18 +335,25 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
     ) { entry ->
         val personId = entry.arguments?.getString("personId").orEmpty()
         val vm: PeopleViewModel = viewModel(factory = factory)
+        val scope = rememberCoroutineScope()
         val people by vm.people.collectAsState()
         val row: PersonWithDocuments? = people.firstOrNull { it.person.id == personId }
+        // Unsaved edits are stored before leaving for a document or the
+        // scanner; see PersonEditScreen.
+        fun persistThen(person: PersonEntity, next: String) = scope.launch {
+            vm.save(person).join()
+            nav.navigate(next)
+        }
         row?.let {
             PersonEditScreen(
                 initial = it,
-                onSave = { updated -> vm.save(updated); nav.popBackStack() },
-                onAddDocument = { type, number, country, expiry ->
-                    vm.addDocument(personId, type, number, country, expiry)
+                onSave = { updated -> scope.launch { vm.save(updated).join(); nav.popBackStack() } },
+                onOpenDocument = { person, docId ->
+                    persistThen(person, "person/$personId/document/${docId ?: "new"}")
                 },
                 onDeleteDocument = { id -> vm.deleteDocument(id) },
                 onBack = { nav.popBackStack() },
-                onScan = { nav.navigate("person/$personId/scan") },
+                onScan = { person -> persistThen(person, "person/$personId/scan") },
             )
         }
     }
