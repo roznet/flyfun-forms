@@ -52,4 +52,20 @@ class FormSidesTest {
         assertEquals(listOf("bookout", "either"), applicable(forms, DEPARTURE))
         assertEquals(listOf("ppr", "either"), applicable(forms, ARRIVAL))
     }
+
+    @Test
+    fun `the first document form is primary, then web forms, then the rest`() {
+        val forms = listOf(Form("customs"), Form("bookout", web = true), Form("gendec"), Form("handling"))
+        val grouped = FormSides.group(forms) { it.web }
+        assertEquals("customs", grouped.primary?.id)
+        assertEquals(listOf("bookout"), grouped.web.map { it.id })
+        assertEquals(listOf("gendec", "handling"), grouped.others.map { it.id })
+    }
+
+    @Test
+    fun `web forms alone have no primary`() {
+        val grouped = FormSides.group(listOf(Form("ppr", web = true))) { it.web }
+        assertEquals(null, grouped.primary)
+        assertEquals(emptyList<Form>(), grouped.others)
+    }
 }

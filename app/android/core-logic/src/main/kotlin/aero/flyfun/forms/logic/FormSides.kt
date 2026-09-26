@@ -36,5 +36,19 @@ object FormSides {
         directionOf: (T) -> String?,
     ): List<T> = forms.filter { !isWeb(it) || (directionOf(it) ?: direction) == direction }
 
+    /** One side's forms in the order they are offered. */
+    data class Grouped<T>(val primary: T?, val web: List<T>, val others: List<T>)
+
+    /**
+     * The primary form - the server lists the one to file first, e.g. the
+     * customs notice the AIP names - then the airport's web forms, then any
+     * other document forms, which the screen folds away. Port of iOS
+     * `formSection`.
+     */
+    fun <T> group(forms: List<T>, isWeb: (T) -> Boolean): Grouped<T> {
+        val documents = forms.filterNot(isWeb)
+        return Grouped(primary = documents.firstOrNull(), web = forms.filter(isWeb), others = documents.drop(1))
+    }
+
     private fun String.normalisedIcao(): String? = trim().uppercase().takeIf { it.length == 4 }
 }

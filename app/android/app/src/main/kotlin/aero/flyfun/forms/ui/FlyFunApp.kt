@@ -9,6 +9,7 @@ import aero.flyfun.forms.data.FlyFunDatabase
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
+import aero.flyfun.forms.data.Preferences
 import aero.flyfun.forms.data.RoomFlightRepository
 import aero.flyfun.forms.data.DataTransfer
 import aero.flyfun.forms.data.RoomPeopleRepository
@@ -89,13 +90,14 @@ private class Factory(
     private val cacheDir: File,
     private val transfer: DataTransfer,
     private val appVersion: String,
+    private val preferences: Preferences,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
         modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people) as T
         modelClass.isAssignableFrom(AircraftViewModel::class.java) -> AircraftViewModel(flights) as T
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
-            FlightsViewModel(flights, people, api, cacheDir) as T
+            FlightsViewModel(flights, people, api, cacheDir) { preferences.spokenLanguages.value } as T
         modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
             DataTransferViewModel(transfer, cacheDir, appVersion) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
@@ -163,6 +165,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             db,
         )
     }
+    val preferences = remember { Preferences(context) }
     val factory = remember {
         Factory(
             people = repositories.first,
@@ -173,6 +176,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             appVersion = runCatching {
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
             }.getOrDefault(""),
+            preferences = preferences,
         )
     }
     val signedIn by tokens.signedIn.collectAsState()
@@ -239,7 +243,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             flightRoutes(navController, factory, context, deletions)
             peopleRoutes(navController, factory, deletions)
             aircraftRoutes(navController, factory, deletions)
-            settingsRoute(factory, context, tokens, auth)
+            settingsRoute(factory, context, tokens, auth, preferences)
         }
     }
 }
@@ -282,6 +286,14 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
 
+        // Sent once: the state is cleared as soon as the mail app is asked.
+        (generate as? aero.flyfun.forms.ui.flights.GenerateState.EmailReady)?.let { email ->
+            androidx.compose.runtime.LaunchedEffect(email) {
+                emailFile(context, email)
+                vm.clearGenerateState()
+            }
+        }
+
         // A fetched fill plan takes over the screen until it is dismissed.
         (generate as? aero.flyfun.forms.ui.flights.GenerateState.WebPlan)?.let { web ->
             WebFormScreen(plan = web.plan, onBack = { vm.clearGenerateState() })
@@ -306,6 +318,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             onSave = { vm.save() },
             onSaveAndBack = { scope.launch { vm.save().join(); nav.popBackStack() } },
             onGenerate = { airport, form -> vm.generateForm(airport, form) },
+            onEmail = { airport, form -> vm.emailForm(airport, form) },
             onOpenWebForm = { airport, form -> vm.prefillWebForm(airport, form) },
             onShare = { shareFile(context, it) },
             onDismissGenerate = { vm.clearGenerateState() },
@@ -506,12 +519,7 @@ private fun shareFile(context: Context, file: File) {
     }
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
-        type = when (file.extension.lowercase()) {
-            "pdf" -> "application/pdf"
-            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            else -> "application/octet-stream"
-        }
+        type = mimeType(file)
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
@@ -519,16 +527,54 @@ private fun shareFile(context: Context, file: File) {
 }
 
 
+/**
+ * Opens a mail app with the form attached, addressed and written.
+ *
+ * ACTION_SEND so the attachment goes with it, and a `mailto:` selector so only
+ * mail apps answer rather than every app that takes a PDF. With no mail app,
+ * falls back to the share sheet, as iOS does without a mail account.
+ */
+private fun emailFile(context: Context, email: aero.flyfun.forms.ui.flights.GenerateState.EmailReady) {
+    val file = email.file
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = mimeType(file)
+        putExtra(Intent.EXTRA_EMAIL, email.to.toTypedArray())
+        putExtra(Intent.EXTRA_CC, email.cc.toTypedArray())
+        putExtra(Intent.EXTRA_SUBJECT, email.subject)
+        putExtra(Intent.EXTRA_TEXT, email.body)
+        putExtra(Intent.EXTRA_STREAM, uri)
+        // ClipData carries the read grant through the selector to the mail app.
+        clipData = android.content.ClipData.newRawUri(file.name, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        selector = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: android.content.ActivityNotFoundException) {
+        shareFile(context, file)
+    }
+}
+
+private fun mimeType(file: File): String = when (file.extension.lowercase()) {
+    "pdf" -> "application/pdf"
+    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else -> "application/octet-stream"
+}
+
 private fun androidx.navigation.NavGraphBuilder.settingsRoute(
     factory: ViewModelProvider.Factory,
     context: Context,
     tokens: TokenStore,
     auth: AuthService,
+    preferences: Preferences,
 ) {
     composable(Tab.SETTINGS.route) {
         val vm: DataTransferViewModel = viewModel(factory = factory)
         val state by vm.state.collectAsState()
         val signedIn by tokens.signedIn.collectAsState()
+        val spokenLanguages by preferences.spokenLanguages.collectAsState()
         var deletingAccount by remember { mutableStateOf(false) }
         var deleteAccountError by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
@@ -563,6 +609,8 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             // The sign-in screen follows from the token going; see FlyFunApp.
             onSignOut = { scope.launch { auth.signOut() } },
             onDismiss = { vm.reset() },
+            spokenLanguages = spokenLanguages,
+            onSetSpeaks = { code, speaks -> preferences.setSpeaks(code, speaks) },
             deletingAccount = deletingAccount,
             deleteAccountError = deleteAccountError,
             onDeleteAccount = {

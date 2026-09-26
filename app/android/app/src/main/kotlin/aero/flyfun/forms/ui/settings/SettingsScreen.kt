@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.settings
 
+import aero.flyfun.forms.logic.SpokenLanguages
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,6 +48,8 @@ fun SettingsScreen(
     onShare: (File) -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit,
+    spokenLanguages: Set<String>,
+    onSetSpeaks: (code: String, speaks: Boolean) -> Unit,
     deletingAccount: Boolean,
     deleteAccountError: String?,
     onDeleteAccount: () -> Unit,
@@ -57,6 +61,27 @@ fun SettingsScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Languages you speak", style = MaterialTheme.typography.titleMedium)
+                    SpokenLanguages.ALL.forEach { (code, name) ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(name, style = MaterialTheme.typography.bodyLarge)
+                            Switch(checked = code in spokenLanguages, onCheckedChange = { onSetSpeaks(code, it) })
+                        }
+                    }
+                    Text(
+                        "When an airport's local language matches one you speak, emails are written " +
+                            "in that language. Otherwise English is used.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
                     Text("Move my data", style = MaterialTheme.typography.titleMedium)
