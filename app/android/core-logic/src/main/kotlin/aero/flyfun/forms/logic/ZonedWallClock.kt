@@ -27,6 +27,9 @@ import java.time.format.DateTimeFormatter
  * a fixed offset and a bare HH:mm cannot express that, which is the class of
  * bug this type exists to remove.
  */
+/** A zone a picker offers, and how it reads. */
+data class ZoneOption(val identifier: String, val label: String)
+
 data class ZonedWallClock(
     val instant: Instant,
     val zoneId: String = UTC,
@@ -49,6 +52,35 @@ data class ZonedWallClock(
          */
         fun nearestMinuteOption(minute: Int, step: Int): Int =
             minuteOptions(step).minByOrNull { kotlin.math.abs(it - minute) } ?: 0
+
+        /**
+         * The zones a schedule field offers: UTC, then each airport's zone in
+         * route order, once each, labelled with its offset on the flight's
+         * own date so DST reads right.
+         */
+        fun timeZoneOptions(available: List<String>, at: Instant): List<ZoneOption> =
+            (listOf(UTC) + available).distinct().map { id ->
+                if (id == UTC) {
+                    ZoneOption(UTC, "UTC")
+                } else {
+                    val offset = runCatching { ZoneId.of(id).rules.getOffset(at) }.getOrNull()
+                    val city = id.substringAfterLast('/').replace('_', ' ')
+                    ZoneOption(id, if (offset == null) city else "$city (UTC${offset.id.replace("Z", "")})")
+                }
+            }
+
+        /**
+         * The zone to show: the pilot's own choice while it is still on
+         * offer; otherwise the [preferred] airport's zone once it is known;
+         * otherwise UTC. [chosen] is false until the pilot picks one, so a
+         * zone arriving later takes over from the default but never from a
+         * choice.
+         */
+        fun resolvedTimeZoneId(current: String, available: List<String>, preferred: String?, chosen: Boolean): String {
+            val offered = listOf(UTC) + available
+            if (chosen && current in offered) return current
+            return preferred?.takeIf { it in available } ?: current.takeIf { it in offered } ?: UTC
+        }
     }
 
     /** An unknown identifier degrades to UTC rather than throwing, so a stale stored zone stays readable. */

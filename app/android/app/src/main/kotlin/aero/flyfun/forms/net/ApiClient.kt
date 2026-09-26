@@ -17,6 +17,9 @@ object ApiConfig {
      */
     const val BASE_URL = "https://forms.flyfun.aero/"
 
+    /** Airport notices; see [NotificationsApi]. */
+    const val MAPS_URL = "https://maps.flyfun.aero/"
+
     /** Reused from iOS: the allowlist already contains it, and the two platforms cannot collide on one device. */
     const val CALLBACK_SCHEME = "flyfunforms"
     const val CALLBACK_URL = "$CALLBACK_SCHEME://auth/callback"
@@ -67,6 +70,14 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
 
     val forms: FormsApi = retrofit.create(FormsApi::class.java)
     val auth: AuthApi = retrofit.create(AuthApi::class.java)
+
+    /** Another service, so its own client: the forms token must not travel there. */
+    val notifications: NotificationsApi = Retrofit.Builder()
+        .baseUrl(ApiConfig.MAPS_URL)
+        .client(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build())
+        .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+        .build()
+        .create(NotificationsApi::class.java)
 
     /** Parses a 422 body into the structured errors the UI shows. */
     fun parseValidationErrors(body: String): List<ServerValidationError> = runCatching {

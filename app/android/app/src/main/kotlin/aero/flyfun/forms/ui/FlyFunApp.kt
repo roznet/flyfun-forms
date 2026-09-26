@@ -18,7 +18,10 @@ import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.ui.aircraft.AircraftEditScreen
 import aero.flyfun.forms.ui.aircraft.AircraftListScreen
 import aero.flyfun.forms.ui.aircraft.AircraftViewModel
+import aero.flyfun.forms.data.AirportDatabase
+import aero.flyfun.forms.ui.flights.AirportLookup
 import aero.flyfun.forms.ui.flights.FlightEditScreen
+import aero.flyfun.forms.ui.flights.RoutePickerScreen
 import aero.flyfun.forms.ui.flights.FlightListScreen
 import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.AddPersonActions
@@ -95,13 +98,14 @@ private class Factory(
     private val transfer: DataTransfer,
     private val appVersion: String,
     private val preferences: Preferences,
+    private val airports: AirportDatabase,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
         modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people, flights) as T
         modelClass.isAssignableFrom(AircraftViewModel::class.java) -> AircraftViewModel(flights) as T
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
-            FlightsViewModel(flights, people, api, cacheDir) { preferences.spokenLanguages.value } as T
+            FlightsViewModel(flights, people, api, cacheDir, { preferences.spokenLanguages.value }, airports) as T
         modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
             DataTransferViewModel(transfer, cacheDir, appVersion) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
@@ -190,6 +194,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
             }.getOrDefault(""),
             preferences = preferences,
+            airports = AirportDatabase.get(context),
         )
     }
     val signedIn by tokens.signedIn.collectAsState()
@@ -302,6 +307,8 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         val flightPeople by peopleVm.flightPeople.collectAsState()
         val scope = rememberCoroutineScope()
         var pickingPeople by rememberSaveable { mutableStateOf(false) }
+        var pickingRoute by rememberSaveable { mutableStateOf(false) }
+        val airportInfo by vm.airportInfo.collectAsState()
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
 
@@ -332,6 +339,22 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         (generate as? aero.flyfun.forms.ui.flights.GenerateState.WebPlan)?.let { web ->
             WebFormScreen(plan = web.plan, onBack = { vm.clearGenerateState() })
             return@composable
+        }
+
+        if (pickingRoute) {
+            detail?.let { current ->
+                RoutePickerScreen(
+                    origin = current.flight.originICAO,
+                    destination = current.flight.destinationICAO,
+                    lookup = AirportLookup(vm::searchAirports, vm::airport),
+                    recentRoutes = vm::recentRoutes,
+                    onChange = { origin, destination ->
+                        vm.editFlight { it.copy(originICAO = origin, destinationICAO = destination) }
+                    },
+                    onDone = { pickingRoute = false },
+                )
+                return@composable
+            }
         }
 
         if (pickingPeople) {
@@ -376,6 +399,8 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                 )
             },
             onOpenPeoplePicker = { pickingPeople = true },
+            airportInfo = airportInfo,
+            onOpenRoutePicker = { pickingRoute = true },
             airportForms = forms,
             generateState = generate,
             onEditFlight = { vm.editFlight(it) },
@@ -641,6 +666,7 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
         AircraftEditScreen(
             null,
             people = people.map { it.person },
+            airports = airportLookup(nav.context),
             onSave = { vm.save(it); nav.popBackStack() },
             onBack = { nav.popBackStack() },
         )
@@ -659,12 +685,18 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
             AircraftEditScreen(
                 it,
                 people = people.map { row -> row.person },
+                airports = airportLookup(nav.context),
                 onSave = { u -> vm.save(u); nav.popBackStack() },
                 onBack = { nav.popBackStack() },
                 onDelete = { deletions.aircraft(it); nav.popBackStack() },
             )
         }
     }
+}
+
+private fun airportLookup(context: Context): AirportLookup {
+    val db = AirportDatabase.get(context)
+    return AirportLookup(db::search, db::airport)
 }
 
 @Composable

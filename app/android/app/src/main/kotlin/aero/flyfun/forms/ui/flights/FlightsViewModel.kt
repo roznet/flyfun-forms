@@ -1,6 +1,7 @@
 package aero.flyfun.forms.ui.flights
 
 import aero.flyfun.forms.data.AircraftEntity
+import aero.flyfun.forms.data.Airports
 import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.FlightRepository
 import aero.flyfun.forms.data.FormFiles
@@ -22,6 +23,10 @@ import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.FillPlan
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.ServerValidationError
+import aero.flyfun.forms.net.NotificationInfo
+import aero.flyfun.forms.logic.AirportSummary
+import aero.flyfun.forms.logic.RecentRoute
+import aero.flyfun.forms.logic.RecentRoutes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -55,6 +60,13 @@ data class FlightDetail(
     val responsiblePerson: PersonEntity? = null,
     /** Not stored yet: + opens a draft, and only Save creates the row. */
     val isNew: Boolean = false,
+)
+
+/** An airport on the route, as far as it is known yet. */
+data class AirportDetails(
+    val summary: AirportSummary? = null,
+    val timeZone: String? = null,
+    val notice: NotificationInfo? = null,
 )
 
 /** Forms for one side of the flight. A local flight has two, for the one airport. */
@@ -101,6 +113,8 @@ class FlightsViewModel(
     private val cacheDir: File,
     /** Read when an e-mail is written, so a change in Settings applies at once. */
     private val spokenLanguages: () -> Set<String> = { emptySet() },
+    /** The bundled airport database; null where there is none (tests). */
+    private val airports: Airports? = null,
 ) : ViewModel() {
 
     val allFlights: StateFlow<List<FlightEntity>> =
@@ -139,6 +153,43 @@ class FlightsViewModel(
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _airportInfo = MutableStateFlow<Map<String, AirportDetails>>(emptyMap())
+
+    /**
+     * What is known about each airport on the route, by ICAO: its name and
+     * zone from the bundled database, and the notice the maps service has
+     * for it. Filled in as each lookup lands.
+     */
+    val airportInfo: StateFlow<Map<String, AirportDetails>> = _airportInfo.asStateFlow()
+
+    /** Routes flown before, newest first, for the route picker. */
+    fun recentRoutes(needle: String): List<RecentRoute> = RecentRoutes.from(allFlights.value.map { it.toLeg() }, needle)
+
+    suspend fun searchAirports(needle: String): List<AirportSummary> = airports?.search(needle).orEmpty()
+
+    suspend fun airport(icao: String): AirportSummary? = airports?.airport(icao)
+
+    private fun lookUpAirports(flight: FlightEntity) {
+        listOf(flight.originICAO, flight.destinationICAO)
+            .map { it.trim().uppercase() }
+            .filter { it.length >= 3 && it !in _airportInfo.value }
+            .distinct()
+            .forEach { icao ->
+                _airportInfo.update { it + (icao to AirportDetails()) }
+                viewModelScope.launch {
+                    val summary = airports?.airport(icao)
+                    val zone = airports?.timeZone(icao)
+                    _airportInfo.update { it + (icao to (it[icao] ?: AirportDetails()).copy(summary = summary, timeZone = zone)) }
+                }
+                viewModelScope.launch {
+                    // Advice only: a notice that fails to load is left out, not reported.
+                    val notice = runCatching { api.notifications.notification(icao) }.getOrNull()
+                        ?.takeIf { it.found && !it.summary.isNullOrBlank() }
+                    _airportInfo.update { it + (icao to (it[icao] ?: AirportDetails()).copy(notice = notice)) }
+                }
+            }
+    }
 
     private val _generate = MutableStateFlow<GenerateState>(GenerateState.Idle)
     val generate: StateFlow<GenerateState> = _generate.asStateFlow()
@@ -197,6 +248,7 @@ class FlightsViewModel(
         baseline.value = if (unsaved) null else detail
         _extraValues.value = emptyMap()
         fetchForms(detail.flight)
+        lookUpAirports(detail.flight)
     }
 
     /** Apply an edit to the draft. Nothing is stored until [save]. */
@@ -208,6 +260,7 @@ class FlightsViewModel(
             after.flight.destinationICAO != before.flight.destinationICAO
         ) {
             fetchForms(after.flight)
+            lookUpAirports(after.flight)
         }
     }
 

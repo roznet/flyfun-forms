@@ -3,6 +3,8 @@ package aero.flyfun.forms.ui.aircraft
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.ui.common.ChoiceField
+import aero.flyfun.forms.ui.flights.AirportLookup
+import aero.flyfun.forms.ui.flights.AirportPickerScreen
 import aero.flyfun.forms.ui.common.DeleteOverflowMenu
 import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.compose.foundation.clickable
@@ -37,6 +39,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,6 +111,7 @@ fun AircraftListScreen(
 fun AircraftEditScreen(
     initial: AircraftEntity?,
     people: List<PersonEntity>,
+    airports: AirportLookup,
     onSave: (AircraftEntity) -> Unit,
     onBack: () -> Unit,
     /** Null for an aircraft not stored yet. */
@@ -120,6 +125,20 @@ fun AircraftEditScreen(
     var operatorName by remember { mutableStateOf(initial?.operatorName.orEmpty()) }
     var ownerPersonId by remember { mutableStateOf(initial?.ownerPersonId) }
     val ownerPerson = people.firstOrNull { it.id == ownerPersonId }
+    var pickingBase by rememberSaveable { mutableStateOf(false) }
+    var baseName by remember(usualBase) { mutableStateOf<String?>(null) }
+    LaunchedEffect(usualBase) { baseName = airports.airport(usualBase)?.name }
+
+    if (pickingBase) {
+        AirportPickerScreen(
+            title = "Usual Base",
+            selected = usualBase,
+            lookup = airports,
+            onPick = { usualBase = it },
+            onDone = { pickingBase = false },
+        )
+        return
+    }
 
     fun edited(): AircraftEntity {
         val base = (initial ?: AircraftEntity()).copy(
@@ -218,10 +237,11 @@ fun AircraftEditScreen(
             }
 
             Text("Base", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                usualBase, { if (it.length <= 4) usualBase = it.uppercase() }, label = { Text("Usual base (ICAO)") },
-                singleLine = true, modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+            ListItem(
+                headlineContent = { Text("Usual Base") },
+                supportingContent = baseName?.let { { Text(it) } },
+                trailingContent = { Text(usualBase.ifBlank { "Select…" }, style = MaterialTheme.typography.titleMedium) },
+                modifier = Modifier.clickable { pickingBase = true },
             )
         }
     }
