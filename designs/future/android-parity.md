@@ -23,7 +23,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
 | 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
-| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a done |
+| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a, 2b done |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
 
@@ -140,10 +140,10 @@ from the errors sheet) are a new gap, outside "getting data in", listed in §7.
 
 ### 2b — Scan decisions and sources (M, Opus)
 
-- [ ] Port `Services/MRZResultProcessor.swift` (`findDuplicateDocument` across **all** people, `namesMatch`, `findMatchingPeople`) to `:core-logic` with its Swift tests. Replace the silent upsert in `ui/people/PeopleViewModel.applyScan`
-- [ ] Result bottom sheet: duplicate warning, name-mismatch choices (update name / document only / new person) (`Views/MRZResultActionView.swift`)
-- [ ] Standalone "Scan document" from the People list (FAB menu: Add / Scan / Contact / CSV)
-- [ ] Scan from photo or PDF (Photo Picker, `PdfRenderer`); evaluate `GmsDocumentScanning`
+- [x] Port `Services/MRZResultProcessor.swift` (`findDuplicateDocument` across **all** people, `namesMatch`, `findMatchingPeople`) to `:core-logic` with its Swift tests. Replace the silent upsert in `ui/people/PeopleViewModel.applyScan`
+- [x] Result bottom sheet: duplicate warning, name-mismatch choices (update name / document only / new person) (`Views/MRZResultActionView.swift`)
+- [x] Standalone "Scan document" from the People list (FAB menu: Add / Scan / Contact / CSV)
+- [x] Scan from photo or PDF (Photo Picker, `PdfRenderer`); evaluate `GmsDocumentScanning`
 
 ### 2c — Airports and local time (M, Opus)
 
@@ -237,3 +237,5 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 2a — Search is a text field over the list, not M3 `SearchBar`: the expanding search bar is for app-wide search, not for filtering the list under it.
 - 2026-09-26 — 2a — The draft's people are refreshed from storage whenever the people list changes, so a person edited from the picker is generated with their new details; the baseline is refreshed too, so that is not an unsaved change.
 - 2026-09-26 — 2a — Aircraft owner is picked from People and `owner`/`ownerAddress` are kept in step with the choice (company or person), as iOS's `onChange` handlers do. An owner typed before this, with no person, is kept until one is picked.
+- 2026-09-26 — 2b — `MRZResultProcessor` is ported to `:core-logic` over plain values; duplicates are searched across everyone's live documents. The result is a bottom sheet over the camera. Android adds one action iOS lacks: a scan of a document the person already holds offers "Update the document", which the pre-work upsert did silently. The document-editor scan context is ported but not offered: Android scans from the person.
+- 2026-09-26 — 2b — Photo and PDF scans use the Photo Picker and SAF `OpenDocument` with `PdfRenderer` (about 300 dpi, first five pages), no permission and no new dependency. ML Kit `GmsDocumentScanning` was not adopted: it is a Play Services module this build cannot fetch or check here, and the two pickers already cover the case. Worth revisiting once the flow has been used.
