@@ -16,6 +16,7 @@ from ..fillers.xlsx_filler import fill_xlsx
 from ..registry import FormMapping, MappingRegistry
 from ..validation import validate_request
 from .models import GenerateRequest
+from .rate_limit import enforce_fill_rate
 
 router = APIRouter()
 
@@ -68,6 +69,8 @@ def generate_form(
     user_id: str = Depends(current_user_id),
     db: Session = Depends(get_db),
 ):
+    enforce_fill_rate(db, user_id)
+
     # Look up mapping
     mapping = _registry.get_form(request.airport, request.form)
     if not mapping:
