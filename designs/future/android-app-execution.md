@@ -12,6 +12,7 @@
 ## Related docs
 
 - [Android app](./android-app.md) — feasibility, sizing, the sync gate, portability audit
+- [Parity with iOS](./android-parity.md) — **the tracker for remaining gaps after S0–S15**, one brief per batch
 - [Move my data](./move-my-data.md) — interchange format; S14 implements the importer
 - [iOS app](../ios-app.md) — the reference implementation
 - [API](../api.md) — endpoint contract
