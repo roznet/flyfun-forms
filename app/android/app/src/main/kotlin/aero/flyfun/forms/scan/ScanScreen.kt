@@ -202,7 +202,7 @@ private fun CameraPreview(onScanned: (MRZScanResult) -> Unit) {
                     // scanner feel laggy and change nothing about the result.
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
-                    .also { it.setAnalyzer(executor, MrzScanner { result -> latestCallback(result) }) }
+                    .also { it.setAnalyzer(executor, MrzScanner(ctx) { result -> latestCallback(result) }) }
 
                 provider.unbindAll()
                 provider.bindToLifecycle(

@@ -268,15 +268,20 @@ iOS — manifest data on the device, the server for filling only — with two di
   **But ML Kit sends Google usage metrics** — device model and OS, app version, a
   per-installation identifier, latency, image format/size, error codes
   ([data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)) — through
-  the bundled `datatransport` components, and `MlKitInitProvider` starts it at app launch,
-  not only when scanning. Google documents **no opt-out** (open request
+  the bundled `datatransport` components. Google documents **no opt-out** (open request
   googlesamples/mlkit#593 since 2022). Its terms put disclosure on us: *"You are responsible
   for informing users of your app about Google's processing of ML Kit metrics data."* Done
   in `PRIVACY.md` (Passport Scanning). This is **pilot device data, not passenger data** —
   the passenger note stays accurate. The iOS path (Vision) has no equivalent.
-- **Worth revisiting:** if the metrics are unwelcome, the alternatives are a non-Google OCR
-  or lazy initialisation so ML Kit only starts when the pilot scans. Neither is needed for
-  compliance; both would shrink the disclosure.
+- **Started only on first scan (2026-09-26).** ML Kit's own `MlKitInitProvider` would start it
+  at app launch; the manifest removes it (`tools:node="remove"`) and both scan paths — the
+  camera (`MrzScanner`) and photo/PDF (`ImageMrzReader`) — call `startMlKit()` (once-only: `MlKit.initialize` throws if called twice)
+  first. A pilot who never scans never runs ML Kit, so sends nothing. `MlKitLazyInitTest`
+  (instrumented) asserts ML Kit is uninitialised after app start and started by a scan — and
+  was checked to fail with the provider restored, so a dependency bump that re-adds it is
+  caught. Any new ML Kit caller must call `startMlKit()` or it fails at runtime.
+- **Worth revisiting:** a non-Google OCR would remove the disclosure entirely — not needed for
+  compliance.
 
 ### 7. Right to erasure (Art. 17) — ✅ server-side, 🟡 wording
 
@@ -536,8 +541,8 @@ Ordered by ratio of obligation to effort.
     APNs payload passes through Apple, so "accepted for LFMD" is fine and "accepted for
     John Smith" is not. Weather's `device_tokens` handling is the pattern to copy. Separately,
     `flyfun_forms.entitlements` (underscore) is referenced by no build configuration and can go.
-13. 🟡 **Confirm Google's role for ML Kit metrics** (independent controller is our reading),
-    and decide whether to shrink the disclosure by initialising ML Kit lazily. *(§6a, §13)*
+13. 🟡 **Confirm Google's role for ML Kit metrics** (independent controller is our reading).
+    Lazy initialisation is done, so only pilots who scan are affected. *(§6a, §13)*
 
 ---
 
@@ -549,7 +554,7 @@ Ordered by ratio of obligation to effort.
 > takes to fill a form field. Nothing is stored, nothing is logged, no analytics or AI
 > provider is anywhere in the path (the one caveat: on Android, Google's ML Kit, which reads
 > the passport's machine-readable zone on the phone, sends Google performance metrics about
-> itself — never the image or the text), and you send the finished form to the airport yourself,
+> itself once you use the scanner — never the image or the text), and you send the finished form to the airport yourself,
 > from your own mail app. We have not undergone a formal legal review, but we have written
 > down everything we understand GDPR to require — including the awkward question of whether
 > a flight school using FlightForms is entitled to a processor agreement from us — and we
