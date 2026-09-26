@@ -2,8 +2,9 @@ import FlyFunCommon
 import SwiftUI
 import SwiftData
 
+/// In display order: Flights first, as the most used.
 enum AppSection: String, CaseIterable, Identifiable {
-    case people, aircraft, flights, settings
+    case flights, people, aircraft, settings
     var id: String { rawValue }
 
     var title: LocalizedStringResource {
@@ -42,6 +43,11 @@ struct ContentView: View {
 struct CompactContentView: View {
     var body: some View {
         TabView {
+            Tab("Flights", systemImage: "arrow.triangle.swap") {
+                NavigationStack {
+                    FlightsListView()
+                }
+            }
             Tab("People", systemImage: "person.2") {
                 NavigationStack {
                     PeopleListView()
@@ -50,11 +56,6 @@ struct CompactContentView: View {
             Tab("Aircraft", systemImage: "airplane") {
                 NavigationStack {
                     AircraftListView()
-                }
-            }
-            Tab("Flights", systemImage: "arrow.triangle.swap") {
-                NavigationStack {
-                    FlightsListView()
                 }
             }
             Tab("Settings", systemImage: "gear") {
@@ -69,7 +70,7 @@ struct CompactContentView: View {
 // MARK: - iPad / Mac layout (sidebar + list + detail)
 
 struct WideContentView: View {
-    @State private var selectedSection: AppSection? = .people
+    @State private var selectedSection: AppSection? = .flights
 
     private var emptyDetailTitle: LocalizedStringResource {
         switch selectedSection {

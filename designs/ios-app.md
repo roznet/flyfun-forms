@@ -11,7 +11,7 @@ Native iOS/iPadOS/macOS app that lets pilots manage their people database (crew,
 ```
 app/flyfun-forms/flyfun-forms/
 ├── flyfun_formsApp.swift      # App entry, SwiftData container, migration
-├── ContentView.swift          # Tab navigation (People, Aircraft, Flights)
+├── ContentView.swift          # Tab navigation (Flights, People, Aircraft, Settings)
 ├── Models/
 │   ├── Person.swift              # @Model: crew/passenger data
 │   ├── TravelDocument.swift      # @Model: passport/ID card (many per Person)
