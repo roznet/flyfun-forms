@@ -25,6 +25,12 @@ struct FlightEditView: View {
     @State private var showingError = false
     @State private var validationErrors: [ServerValidationError] = []
     @State private var showingValidationErrors = false
+    @State private var validationContext: ValidationFixContext?
+    /// The form action the errors sheet's Try Again repeats.
+    @State private var lastFormAction: FormAction?
+    /// Shown once the errors sheet has gone: another sheet, or the mail
+    /// composer, cannot be presented while it is still up.
+    @State private var afterValidationSheet: (() -> Void)?
     @State private var shareFileURL: URL?
     @State private var webFormPlan: FillPlan?
     @State private var formDetails: [String: [FormInfo]] = [:]
@@ -64,14 +70,6 @@ struct FlightEditView: View {
         return f
     }()
 
-    private static let reasonOptions = [
-        "Based",
-        "Short Term Visit",
-        "Maintenance",
-        "Permanent Import",
-        "Repair",
-    ]
-
     var body: some View {
         Group {
             if isWide {
@@ -100,8 +98,18 @@ struct FlightEditView: View {
         } message: {
             Text(errorMessage ?? "Unknown error")
         }
-        .sheet(isPresented: $showingValidationErrors) {
-            ValidationErrorsView(errors: validationErrors)
+        .sheet(isPresented: $showingValidationErrors, onDismiss: {
+            let show = afterValidationSheet
+            afterValidationSheet = nil
+            show?()
+        }) {
+            ValidationErrorsView(
+                errors: validationErrors,
+                context: validationContext,
+                extraFieldValues: $extraFieldValues,
+                isRetrying: isGenerating,
+                onRetry: lastFormAction == nil ? nil : { Task { await retryFormAction() } }
+            )
         }
         #if os(iOS)
         .sheet(isPresented: Binding(
@@ -408,7 +416,7 @@ struct FlightEditView: View {
                 }
                 Picker("Reason for Visit", selection: reasonForVisitBinding) {
                     Text("—").tag("")
-                    ForEach(Self.reasonOptions, id: \.self) { reason in
+                    ForEach(Flight.reasonForVisitOptions, id: \.self) { reason in
                         Text(LocalizedStringKey(reason)).tag(reason)
                     }
                 }
@@ -587,11 +595,7 @@ struct FlightEditView: View {
     private var responsiblePersonObjectBinding: Binding<Person?> {
         Binding(
             get: { flight.responsiblePerson },
-            set: { newValue in
-                flight.responsiblePerson = newValue
-                // Also sync contact field for backward compat
-                flight.contact = newValue?.phone
-            }
+            set: { flight.setResponsiblePerson($0) }
         )
     }
 
@@ -867,8 +871,7 @@ struct FlightEditView: View {
             try data.write(to: tempURL)
             return tempURL
         } catch let FormService.FormError.validationErrors(errors) {
-            validationErrors = errors
-            showingValidationErrors = true
+            showValidationErrors(errors, airport: airport, form: form)
         } catch {
             errorMessage = error.localizedDescription
             showingError = true
@@ -884,17 +887,57 @@ struct FlightEditView: View {
         generatingForm = nil
     }
 
+    // MARK: - Validation errors
+
+    enum FormAction {
+        case share(airport: String, form: String)
+        case email(airport: String, formInfo: FormInfo)
+        case webForm(airport: String, form: String)
+    }
+
+    private func showValidationErrors(_ errors: [ServerValidationError], airport: String, form: String) {
+        validationErrors = errors
+        validationContext = ValidationFixContext(
+            flight: flight,
+            airport: airport,
+            formInfo: formDetails[airport]?.first { $0.id == form },
+            crew: flight.crewList,
+            passengers: flight.passengerList
+        )
+        // Already up when Try Again was rejected again: the rows just update.
+        showingValidationErrors = true
+    }
+
+    /// Repeats the rejected action from the errors sheet. The sheet stays up
+    /// while it runs, shows the new errors if there are still some, and goes
+    /// away before the result is presented.
+    private func retryFormAction() async {
+        switch lastFormAction {
+        case .share(let airport, let form): await generateAndShare(airport: airport, form: form)
+        case .email(let airport, let formInfo): await generateAndEmail(airport: airport, formInfo: formInfo)
+        case .webForm(let airport, let form): await openWebForm(airport: airport, form: form)
+        case nil: break
+        }
+    }
+
+    private func presentAfterValidationSheet(_ show: @escaping () -> Void) {
+        guard showingValidationErrors else { show(); return }
+        afterValidationSheet = show
+        showingValidationErrors = false
+    }
+
     private func openWebForm(airport: String, form: String) async {
+        lastFormAction = .webForm(airport: airport, form: form)
         isGenerating = true
         generatingForm = "\(airport)_\(form)"
         defer { stopGenerating() }
 
         let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
         do {
-            webFormPlan = try await formService.prefill(request: buildRequest(airport: airport, form: form))
+            let plan = try await formService.prefill(request: buildRequest(airport: airport, form: form))
+            presentAfterValidationSheet { webFormPlan = plan }
         } catch let FormService.FormError.validationErrors(errors) {
-            validationErrors = errors
-            showingValidationErrors = true
+            showValidationErrors(errors, airport: airport, form: form)
         } catch {
             errorMessage = error.localizedDescription
             showingError = true
@@ -902,13 +945,15 @@ struct FlightEditView: View {
     }
 
     private func generateAndShare(airport: String, form: String) async {
+        lastFormAction = .share(airport: airport, form: form)
         if let url = await generateForm(airport: airport, form: form) {
-            shareFileURL = url
+            presentAfterValidationSheet { shareFileURL = url }
             // Spinner keeps spinning until share sheet dismisses (cleared via onChange)
         }
     }
 
     private func generateAndEmail(airport: String, formInfo: FormInfo) async {
+        lastFormAction = .email(airport: airport, formInfo: formInfo)
         // Fetch email text from server in parallel with form generation
         let formService = FormService(baseURL: APIConfig.baseURL, session: appState.rollingSession)
         let emailReq = EmailTextRequest(
@@ -944,13 +989,14 @@ struct FlightEditView: View {
             body = emailBody(formInfo: formInfo, flight: flight)
         }
 
-        #if os(iOS)
-        presentMailCompose(url: url, formInfo: formInfo, subject: subject, body: body)
-        stopGenerating()
-        #else
-        sendEmailDirectly(url: url, formInfo: formInfo, subject: subject, body: body)
-        stopGenerating()
-        #endif
+        presentAfterValidationSheet {
+            #if os(iOS)
+            presentMailCompose(url: url, formInfo: formInfo, subject: subject, body: body)
+            #else
+            sendEmailDirectly(url: url, formInfo: formInfo, subject: subject, body: body)
+            #endif
+            stopGenerating()
+        }
     }
 
     #if os(iOS)

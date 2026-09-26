@@ -34,6 +34,10 @@ nonisolated enum UITestMode {
     /// 422 returns a validation error body; unset returns a PDF.
     static let generateStatus = value("FLYFUN_MOCK_GENERATE").flatMap(Int.init)
 
+    /// `FLYFUN_MOCK_REQUIRE_REASON=1`: `/generate` rejects a request without a
+    /// reason for visit, as the GAR does, and accepts it once it has one.
+    static let requireReasonForVisit = value("FLYFUN_MOCK_REQUIRE_REASON") == "1"
+
     private static func value(_ key: String) -> String? {
         #if DEBUG
         return ProcessInfo.processInfo.environment[key]
