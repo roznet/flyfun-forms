@@ -12,6 +12,7 @@ import aero.flyfun.forms.logic.ScanDecision
 import aero.flyfun.forms.logic.ScanDocument
 import aero.flyfun.forms.logic.ScanPerson
 import aero.flyfun.forms.logic.FlightPeople
+import aero.flyfun.forms.logic.ImportedContact
 import aero.flyfun.forms.logic.PeopleRanking
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -154,6 +155,13 @@ class PeopleViewModel(
         _scanDecision.value = null
         return person
     }
+
+    private val _pickedContact = MutableStateFlow<ImportedContact?>(null)
+
+    /** The contact the system picker handed back, until it is created or merged. */
+    val pickedContact: StateFlow<ImportedContact?> = _pickedContact.asStateFlow()
+
+    fun setPickedContact(contact: ImportedContact?) { _pickedContact.value = contact }
 
     private fun scannedDocument(base: TravelDocumentEntity, result: MRZScanResult) = base.copy(
         docType = MRZResultProcessor.docType(result),
