@@ -42,6 +42,18 @@ final class Person {
         return name.isEmpty ? String(localized: "New Person") : name
     }
 
+    /// Nothing has been entered: the state of a person created by Add Person
+    /// and left without typing anything. The editor has no Cancel, so this is
+    /// how the add flows know to take such a person away again.
+    var isBlank: Bool {
+        func empty(_ value: String?) -> Bool {
+            (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return empty(firstName) && empty(lastName) && dateOfBirth == nil
+            && empty(phone) && empty(email) && empty(address) && empty(placeOfBirth)
+            && documentList.isEmpty
+    }
+
     /// Most recent flight date across all crew and passenger flights.
     var lastFlightDate: Date? {
         let crewDates = (crewFlights ?? []).map(\.departureDate)

@@ -347,6 +347,75 @@ final class flyfun_formsUITests: XCTestCase {
                       "New Person should be listed")
     }
 
+    /// Journey 7b: someone not in the app yet is added from the crew/passenger
+    /// picker and lands on the flight as a passenger, without leaving it.
+    @MainActor
+    func testAddPassengerFromPeoplePicker() throws {
+        let app = launchApp()
+        openPeoplePicker(app)
+
+        element(app, "pickerAddPersonMenu").tap()
+        let add = element(app, "pickerAddPersonButton")
+        XCTAssertTrue(add.waitForExistence(timeout: Self.uiTimeout), "the picker's + should offer Add Person")
+        add.tap()
+
+        let firstName = app.textFields["personFirstNameField"]
+        XCTAssertTrue(firstName.waitForExistence(timeout: Self.uiTimeout), "the person editor should open over the picker")
+        firstName.tap()
+        firstName.typeText("New")
+        let lastName = app.textFields["personLastNameField"]
+        lastName.tap()
+        lastName.typeText("Traveller")
+        backFromEditor(app, title: "New Traveller")
+
+        let role = element(app, "selectedRole-Traveller")
+        XCTAssertTrue(role.waitForExistence(timeout: Self.uiTimeout), "the new person should be selected")
+        XCTAssertEqual(role.label, "Passenger", "a new person is a passenger")
+
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["New Traveller"].waitForExistence(timeout: Self.uiTimeout),
+                      "the new person should be listed among the flight's passengers")
+    }
+
+    /// Journey 7c: backing out of Add Person without typing leaves nobody
+    /// behind, and a name the search didn't find can be added as it was typed.
+    @MainActor
+    func testPeoplePickerDiscardsBlankAndAddsSearchedName() throws {
+        let app = launchApp()
+        openPeoplePicker(app)
+
+        element(app, "pickerAddPersonMenu").tap()
+        let add = element(app, "pickerAddPersonButton")
+        XCTAssertTrue(add.waitForExistence(timeout: Self.uiTimeout))
+        add.tap()
+        XCTAssertTrue(app.textFields["personFirstNameField"].waitForExistence(timeout: Self.uiTimeout))
+        backFromEditor(app, title: "New Person")
+
+        let search = app.textFields["peopleSearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: Self.uiTimeout), "back in the picker")
+        XCTAssertFalse(element(app, "selectedRole-").exists, "an empty person should not stay selected")
+
+        search.tap()
+        search.typeText("Jane Zztest")
+        let addSearched = element(app, "addSearchedPersonButton")
+        XCTAssertTrue(addSearched.waitForExistence(timeout: Self.uiTimeout),
+                      "a search that finds nobody should offer to add them")
+        addSearched.tap()
+        let lastName = app.textFields["personLastNameField"]
+        XCTAssertTrue(lastName.waitForExistence(timeout: Self.uiTimeout))
+        XCTAssertEqual(lastName.value as? String, "Zztest", "the searched name should be filled in")
+        backFromEditor(app, title: "Jane Zztest")
+        XCTAssertTrue(element(app, "selectedRole-Zztest").waitForExistence(timeout: Self.uiTimeout),
+                      "the searched person should be selected")
+
+        app.buttons["Done"].firstMatch.tap()
+        goBack(app)
+        openTab(app, "People")
+        XCTAssertTrue(element(app, "personRow-Zztest").waitForExistence(timeout: Self.uiTimeout),
+                      "the searched person should be saved")
+        XCTAssertFalse(element(app, "personRow-").exists, "no empty person should be left in People")
+    }
+
     /// Journey 8: return flight, next leg and duplicate each open the new leg
     /// with the route it should have, and each lands in the list.
     @MainActor
@@ -448,6 +517,25 @@ final class flyfun_formsUITests: XCTestCase {
         let result = element(app, "airportResult-\(icao)")
         XCTAssertTrue(result.waitForExistence(timeout: Self.uiTimeout), "\(icao) should be found")
         result.tap()
+    }
+
+    /// The outbound leg's crew/passenger picker, from its passengers section.
+    @MainActor
+    private func openPeoplePicker(_ app: XCUIApplication) {
+        openLeg(app, "flightRow-EGTF-LFRM")
+        focusSection(app, "passengers")
+        tapAction(app, "editPeopleButton")
+        XCTAssertTrue(element(app, "pickerAddPersonMenu").waitForExistence(timeout: Self.uiTimeout),
+                      "the people picker should open")
+    }
+
+    /// Back from a person editor pushed inside a sheet. The flight's own bar
+    /// is still in the tree underneath, so go by the editor's title.
+    @MainActor
+    private func backFromEditor(_ app: XCUIApplication, title: String) {
+        let back = app.navigationBars[title].buttons.element(boundBy: 0)
+        XCTAssertTrue(back.waitForExistence(timeout: Self.uiTimeout), "the editor titled \(title) should have a way back")
+        back.tap()
     }
 
     @MainActor

@@ -20,7 +20,9 @@ app/flyfun-forms/flyfun-forms/
 │   ├── Trip.swift                # @Model: multi-leg trip container
 ├── Views/
 │   ├── LoginView.swift           # Google/Apple OAuth sign-in
-│   ├── PeopleListView.swift      # CRUD for people + contact import button
+│   ├── PeopleListView.swift      # CRUD for people, CSV import/export
+│   ├── AddPersonMenu.swift       # Add Person / Scan / Contact flows, shared by People and the picker
+│   ├── PeoplePickerView.swift    # Crew/passenger multi-select picker, can add new people
 │   ├── PersonEditView.swift      # Person details + document list
 │   ├── AircraftListView.swift
 │   ├── AircraftEditView.swift
@@ -167,6 +169,15 @@ Parsing is `RZFlight.ICAOFlightPlanParser` (do not reimplement it locally: forms
 - **Fuzzy matching:** finds existing `Person` records by name similarity (prefix matching + Levenshtein distance ≤ 2)
 - **Create new:** creates a fresh `Person` with phone, email, address, DOB from the contact
 - **Merge into existing:** either "Fill Missing Only" (preserves existing fields) or "Override All" mode
+
+### Adding People
+
+`AddPersonMenuItems` + `.addPersonFlows(request:onPerson:)` (`AddPersonMenu.swift`) are the one-at-a-time ways to create a person: **Add Person** (blank), **Scan Document** (MRZ via camera on iOS, image/PDF on macOS, `MRZResultProcessor` `.standalone`) and **Import from Contact**. The flow ends with a single callback carrying the person, new or an existing one the scan matched / the contact was merged into. The People tab opens that person; CSV import stays there only.
+
+`PeoplePickerView` (crew/passenger picker, used by both `FlightEditView` and `NewFlightFlow`) hangs the same menu off its (+). The person goes straight into the selection (passenger unless usual crew), and Add Person / Contact push `PersonEditView` inside the picker's stack; a scan has already filled the name and document, so it doesn't. A search that finds nobody offers "Add “name” as new person".
+
+- **Sheet hand-off:** the contact picker, scan sheet, `ContactResolveView` and `MRZResultActionView` all call back *before* they dismiss. The flows hold the result and present the next step, or report the person, from the sheet's `onDismiss` — presenting or pushing while a sheet is still leaving is silently dropped, which matters inside the picker's own sheet.
+- **Blank people:** `PersonEditView` has no Cancel, so Add Person inserts the `Person` up front. When the editor closes and `Person.isBlank` (no name, date of birth, contact details, place of birth or document), the People tab deletes it and the picker takes it off the selection and deletes it — the picker only for a person it created, never one reached by a match or merge. The picker's swipe-away check sits on its `NavigationStack`, not the root list: the root also disappears when the editor is pushed.
 
 ### Form Export
 

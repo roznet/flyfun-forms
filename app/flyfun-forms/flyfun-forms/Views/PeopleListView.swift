@@ -10,14 +10,9 @@ struct PeopleListView: View {
     @State private var searchText = ""
     @State private var sortByLastUsed = false
     @State private var newPerson: Person?
-    @State private var showingScanSheet = false
-    @State private var scanProcessingResult: MRZProcessingResult?
     @State private var navigateToPerson: Person?
-    @State private var showContactPicker = false
-    @State private var importedContact: ImportedContact?
+    @State private var addRequest: AddPersonMethod?
     #if os(macOS)
-    @State private var showFilePicker = false
-    @State private var imageOCR = ImageOCRManager()
     @State private var showingExporter = false
     #endif
 
@@ -83,32 +78,7 @@ struct PeopleListView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button {
-                        let person = Person()
-                        modelContext.insert(person)
-                        newPerson = person
-                    } label: {
-                        Label("Add Person", systemImage: "person.badge.plus")
-                    }
-                    .accessibilityIdentifier("addPersonButton")
-                    #if os(iOS)
-                    Button {
-                        showingScanSheet = true
-                    } label: {
-                        Label("Scan Document", systemImage: "doc.text.viewfinder")
-                    }
-                    #else
-                    Button {
-                        showFilePicker = true
-                    } label: {
-                        Label("Scan Document", systemImage: "doc.text.viewfinder")
-                    }
-                    #endif
-                    Button {
-                        showContactPicker = true
-                    } label: {
-                        Label("Import from Contact", systemImage: "person.crop.rectangle")
-                    }
+                    AddPersonMenuItems(request: $addRequest)
                     Button {
                         showingImporter = true
                     } label: {
@@ -143,21 +113,10 @@ struct PeopleListView: View {
         } message: {
             Text(importResult?.message ?? "")
         }
-        #if os(iOS)
-        .sheet(isPresented: $showContactPicker) {
-            ContactPickerSheet { contact in
-                importedContact = ImportedContact(from: contact)
-            }
-        }
-        #else
-        .sheet(isPresented: $showContactPicker) {
-            ContactSearchView { contact in
-                importedContact = ImportedContact(from: contact)
-            }
-        }
-        #endif
-        .sheet(item: $importedContact) { contact in
-            ContactResolveView(contact: contact) { person in
+        .addPersonFlows(request: $addRequest) { person, method in
+            if method == .blank {
+                newPerson = person
+            } else {
                 navigateToPerson = person
             }
         }
@@ -167,34 +126,13 @@ struct PeopleListView: View {
         .navigationDestination(item: $newPerson) { person in
             PersonEditView(person: person)
         }
-        #if os(iOS)
-        .sheet(isPresented: $showingScanSheet) {
-            ScanDocumentSheet { result in
-                let processing = MRZResultProcessor.process(result, context: .standalone, modelContext: modelContext)
-                scanProcessingResult = processing
+        .onChange(of: newPerson) { left, _ in
+            // Backed out of Add Person without typing anything.
+            if let left, left.isBlank {
+                modelContext.delete(left)
             }
         }
-        #else
-        .fileImporter(
-            isPresented: $showFilePicker,
-            allowedContentTypes: [.pdf, .image],
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                imageOCR.scan(url: url)
-            }
-        }
-        .onChange(of: imageOCR.status) { _, newStatus in
-            if newStatus == .success, let result = imageOCR.result {
-                let processing = MRZResultProcessor.process(result, context: .standalone, modelContext: modelContext)
-                scanProcessingResult = processing
-            } else if newStatus == .noMRZFound {
-                importResult = ImportResult(
-                    title: String(localized: "No Document Found"),
-                    message: String(localized: "No machine-readable zone (MRZ) was found in the file. Try a clearer image or PDF of the passport page.")
-                )
-            }
-        }
+        #if os(macOS)
         .fileExporter(
             isPresented: $showingExporter,
             document: CSVExportDocument(people: people),
@@ -202,15 +140,6 @@ struct PeopleListView: View {
             defaultFilename: "people.csv"
         ) { _ in }
         #endif
-        .sheet(item: $scanProcessingResult) { processing in
-            MRZResultActionView(
-                processingResult: processing,
-                onDismiss: { scanProcessingResult = nil },
-                onPersonSelected: { person in
-                    navigateToPerson = person
-                }
-            )
-        }
         .navigationDestination(item: $navigateToPerson) { person in
             PersonEditView(person: person)
         }

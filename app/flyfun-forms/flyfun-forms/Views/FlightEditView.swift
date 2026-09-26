@@ -457,6 +457,7 @@ struct FlightEditView: View {
             Button(action: openPeoplePicker) {
                 Label("Edit Crew & Passengers", systemImage: "person.badge.plus")
             }
+            .accessibilityIdentifier("editPeopleButton")
         }
     }
 
