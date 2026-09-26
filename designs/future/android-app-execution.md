@@ -12,6 +12,7 @@
 ## Related docs
 
 - [Android app](./android-app.md) — feasibility, sizing, the sync gate, portability audit
+- [Parity with iOS](./android-parity.md) — **the tracker for remaining gaps after S0–S15**, one brief per batch
 - [Move my data](./move-my-data.md) — interchange format; S14 implements the importer
 - [iOS app](../ios-app.md) — the reference implementation
 - [API](../api.md) — endpoint contract
@@ -140,7 +141,7 @@ The rules that follow from that:
 
 | Work | Location |
 |---|---|
-| All Android code | worktree `../android-app`, branch `android-app`, under `app/android/` |
+| All Android code | `app/android/` on `main`, through a branch per PR — the `android-app` branch is retired (2026-09-26); remaining work is tracked in [android-parity.md](./android-parity.md) |
 | Server changes (S1 env var, S12 endpoint, S17 export) | **`main`, not this worktree** — they ship independently and on a different cadence |
 | iOS export/import (move-my-data) | `main` — see [move-my-data.md §9](./move-my-data.md) |
 
