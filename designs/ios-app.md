@@ -206,7 +206,7 @@ All three navigate to the new flight immediately via `switchToFlight(_:)`.
 ### Responsible Person & Contact Auto-Fill
 
 The responsible person picker uses `SinglePersonPickerView` (searchable, single-select, sorted by usual crew then recent flights). When a responsible person is set:
-- `flight.contact` is set to their `displayName` (sent as `flight.contact` in the API request)
+- The API request's `flight.contact` is their `displayName`. The stored `flight.contact` is set to their phone, for older builds that read it, and is sent only when there is no responsible person
 - Extra fields `telephone` and `email` are auto-filled from the person's phone/email if not already set
 
 ## Usage Examples

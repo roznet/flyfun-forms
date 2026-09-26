@@ -198,8 +198,10 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
         Deletions(repositories.first, repositories.second, appScope, snackbar)
     }
 
+    val signInNotice by auth.signInNotice.collectAsState()
     if (!signedIn && !skippedSignIn) {
         SignInScreen(
+            notice = signInNotice,
             onSignIn = { auth.startSignIn() },
             // Form generation is the only thing that needs the server. Everything
             // else - people, aircraft, flights - is local, so let a pilot get on
@@ -487,7 +489,7 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
 }
 
 @Composable
-private fun SignInScreen(onSignIn: () -> Unit, onContinueOffline: () -> Unit) {
+private fun SignInScreen(notice: String?, onSignIn: () -> Unit, onContinueOffline: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -499,6 +501,15 @@ private fun SignInScreen(onSignIn: () -> Unit, onContinueOffline: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(vertical = 12.dp),
         )
+        if (notice != null) {
+            Text(
+                notice,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+        }
         Button(onClick = onSignIn) { Text("Sign in with Google") }
         androidx.compose.material3.TextButton(onClick = onContinueOffline) {
             Text("Enter data without signing in")

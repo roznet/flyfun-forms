@@ -6,6 +6,9 @@ import aero.flyfun.forms.net.ExchangeRequest
 import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.security.SecureRandom
 import android.util.Base64
 
@@ -28,6 +31,14 @@ class AuthService(
     private val api: ApiClient,
     private val tokens: TokenStore,
 ) {
+
+    /**
+     * Why the sign-in screen is showing, when that is not obvious - shown there
+     * until the next sign-in. Held here rather than in the screen that caused
+     * it, which has already left composition by the time it would show it.
+     */
+    private val _signInNotice = MutableStateFlow<String?>(null)
+    val signInNotice: StateFlow<String?> = _signInNotice.asStateFlow()
 
     /**
      * The `state` nonce, held between launching the tab and handling the
@@ -106,6 +117,7 @@ class AuthService(
         return runCatching {
             val response = api.auth.exchange(ExchangeRequest(code = code, state = state))
             tokens.token = response.token
+            _signInNotice.value = null
             response.userId
         }
     }
@@ -123,6 +135,11 @@ class AuthService(
      */
     suspend fun deleteAccount(): Result<Unit> = runCatching {
         val response = api.auth.deleteAccount()
+        if (response.code() == 401) {
+            // ApiClient has already dropped the token, so the sign-in screen
+            // replaces Settings before its error could show. Say it there.
+            _signInNotice.value = "Your session had expired, so your account was not deleted. Sign in again to delete it."
+        }
         if (!response.isSuccessful) error("The server returned ${response.code()}. Your account was not deleted.")
         tokens.clear()
     }

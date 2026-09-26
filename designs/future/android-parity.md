@@ -22,7 +22,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
-| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Code complete; emulator run owed (§8) |
+| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
 | 2 | #30 | Getting data in fast | §5 (2a–2e) | Not started — after PR 1 |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
@@ -221,3 +221,7 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 1e — "Languages you speak" is stored in SharedPreferences under the iOS key `spokenLanguageCodes`, same comma-separated format, rather than DataStore: one string does not justify a new dependency.
 - 2026-09-26 — 1e — E-mail is `ACTION_SEND` with a `mailto:` selector and the file as `EXTRA_STREAM` + ClipData, falling back to the share sheet when no mail app answers (iOS falls back the same way without a mail account). The subject is the server's local subject, or the English one when that is empty; the body is local only when the pilot speaks the airport's language. #26 needed nothing client-side: the server already lists the form to e-mail first, and the primary form is simply the first document form.
 - 2026-09-26 — 1e — Document forms keep their "Generate" button (file, then a Share dialog) next to the new "Email"; iOS's "Share" opens the share sheet directly.
+- 2026-09-26 — merge — Before merging #33: `:core-logic:test` + `:app:testDebugUnitTest` (170 tests), `assembleDebug`, and the 19 instrumented tests on the API 37 emulator all pass. The manual drive (Save/Discard, leg actions, Email, swipe + Undo, Delete account) was not done.
+- 2026-09-26 — review — The flight draft (new flight, edit or new leg) is not saved across process death: the ViewModel keeps no `SavedStateHandle`, and a restored new-leg screen shows the leg it came from, already stored. Accepted for now; persisting drafts would cover all three at once.
+- 2026-09-26 — review — A Delete account refused with 401 (expired session) now tells the pilot on the sign-in screen that the account was not deleted. The interceptor has already dropped the token, so Settings is gone before its own error could show.
+- 2026-09-26 — review — `contact` stores the responsible person's phone, as iOS `setResponsiblePerson` does; both builders send the person's name and fall back to the stored `contact` only when there is no responsible person. Kept as iOS for interchange; `designs/ios-app.md` corrected.
