@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The languages offered in the system's per-app language setting (Settings >
+  Apps > FlyFun Forms > Language). The same four as iOS; keep in step with the
+  values-* folders scripts/android_strings.py writes.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="fr" />
+    <locale android:name="de" />
+    <locale android:name="es" />
+</locale-config>

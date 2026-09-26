@@ -1,5 +1,7 @@
 package aero.flyfun.forms.ui.people
 
+import android.content.res.Resources
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.FlightRepository
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
@@ -29,6 +31,8 @@ import java.time.Instant
 class PeopleViewModel(
     private val repository: PeopleRepository,
     private val flights: FlightRepository,
+    /** The app's (not an activity's) resources, for messages this shows; see strings.xml. */
+    private val resources: Resources,
 ) : ViewModel() {
 
     val people: StateFlow<List<PersonWithDocuments>> =
@@ -52,8 +56,13 @@ class PeopleViewModel(
 
     fun importCsv(content: String) = viewModelScope.launch {
         _csvResult.value = runCatching { repository.importCsv(content) }.fold(
-            onSuccess = { CsvResult("Import Complete", it.summary) },
-            onFailure = { CsvResult("Import Failed", it.message ?: "The file could not be read.") },
+            onSuccess = { CsvResult(resources.getString(R.string.people_import_complete), it.summary) },
+            onFailure = {
+                CsvResult(
+                    resources.getString(R.string.people_import_failed),
+                    it.message ?: resources.getString(R.string.people_file_could_not_be_read),
+                )
+            },
         )
     }
 

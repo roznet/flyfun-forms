@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.auth.AuthService
 import aero.flyfun.forms.auth.SignInProvider
 import aero.flyfun.forms.ui.common.SignInButtons
@@ -95,6 +96,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -128,15 +131,16 @@ private class Factory(
     private val appVersion: String,
     private val preferences: Preferences,
     private val airports: AirportDatabase,
+    private val resources: android.content.res.Resources,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
-        modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people, flights) as T
+        modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people, flights, resources) as T
         modelClass.isAssignableFrom(AircraftViewModel::class.java) -> AircraftViewModel(flights) as T
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
-            FlightsViewModel(flights, people, api, cacheDir, { preferences.spokenLanguages.value }, airports) as T
+            FlightsViewModel(flights, people, api, cacheDir, { preferences.spokenLanguages.value }, airports, resources) as T
         modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
-            DataTransferViewModel(transfer, cacheDir, appVersion) as T
+            DataTransferViewModel(transfer, cacheDir, appVersion, resources) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
     }
 }
@@ -154,21 +158,22 @@ private class Deletions(
     private val flights: FlightRepository,
     private val scope: CoroutineScope,
     private val snackbar: SnackbarHostState,
+    private val resources: android.content.res.Resources,
 ) {
     fun person(person: PersonEntity) = delete(
-        "Deleted ${person.displayName.ifBlank { "person" }}",
+        resources.getString(R.string.app_deleted, person.displayName.ifBlank { resources.getString(R.string.app_deleted_person) }),
         { people.deletePerson(person.id) },
         { people.restorePerson(person.id) },
     )
 
     fun aircraft(aircraft: AircraftEntity) = delete(
-        "Deleted ${aircraft.registration.ifBlank { "aircraft" }}",
+        resources.getString(R.string.app_deleted, aircraft.registration.ifBlank { resources.getString(R.string.app_deleted_aircraft) }),
         { flights.deleteAircraft(aircraft.id) },
         { flights.restoreAircraft(aircraft.id) },
     )
 
     fun flight(flight: FlightEntity) = delete(
-        "Deleted ${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}",
+        resources.getString(R.string.app_deleted, "${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}"),
         { flights.deleteFlight(flight.id) },
         { flights.restoreFlight(flight.id) },
     )
@@ -178,7 +183,7 @@ private class Deletions(
             remove()
             // One Undo at a time: a second delete replaces the first's offer.
             snackbar.currentSnackbarData?.dismiss()
-            val result = snackbar.showSnackbar(message, actionLabel = "Undo", duration = SnackbarDuration.Long)
+            val result = snackbar.showSnackbar(message, actionLabel = resources.getString(R.string.app_undo), duration = SnackbarDuration.Long)
             if (result == SnackbarResult.ActionPerformed) restore()
         }
     }
@@ -199,11 +204,11 @@ private const val NEW_PERSON = "new"
 /** A scan that is not for anyone yet. */
 private const val STANDALONE_SCAN = "people/scan"
 
-private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    FLIGHTS("flights", "Flights", Icons.Default.Flight),
-    PEOPLE("people", "People", Icons.Default.People),
-    AIRCRAFT("aircraft", "Aircraft", Icons.Default.AirplanemodeActive),
-    SETTINGS("settings", "Settings", Icons.Default.Settings),
+private enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVector) {
+    FLIGHTS("flights", R.string.app_tab_flights, Icons.Default.Flight),
+    PEOPLE("people", R.string.app_tab_people, Icons.Default.People),
+    AIRCRAFT("aircraft", R.string.app_tab_aircraft, Icons.Default.AirplanemodeActive),
+    SETTINGS("settings", R.string.app_tab_settings, Icons.Default.Settings),
 }
 
 @Composable
@@ -236,6 +241,8 @@ fun FlyFunApp(
             }.getOrDefault(""),
             preferences = preferences,
             airports = AirportDatabase.get(context),
+            // The application's: ViewModels outlive the activity.
+            resources = context.applicationContext.resources,
         )
     }
     val signedIn by tokens.signedIn.collectAsState()
@@ -254,7 +261,7 @@ fun FlyFunApp(
     val snackbar = remember { SnackbarHostState() }
     val appScope = rememberCoroutineScope()
     val deletions = remember {
-        Deletions(repositories.first, repositories.second, appScope, snackbar)
+        Deletions(repositories.first, repositories.second, appScope, snackbar, context.applicationContext.resources)
     }
 
     val signInNotice by auth.signInNotice.collectAsState()
@@ -301,7 +308,7 @@ fun FlyFunApp(
                         }
                     },
                     icon = { Icon(tab.icon, contentDescription = null) },
-                    label = { Text(tab.label) },
+                    label = { Text(stringResource(tab.label)) },
                 )
             }
         },
@@ -382,7 +389,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             list = {
                 FlightList(vm, deletions, selectedId = null, onOpen = { nav.openFromList("flight/$it", Tab.FLIGHTS) })
             },
-            detail = { NothingSelected("Pick a flight, or add one with +.") },
+            detail = { NothingSelected(stringResource(R.string.app_pick_flight)) },
         )
     }
 
@@ -414,19 +421,19 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         pendingOpen?.let { next ->
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { pendingOpen = null },
-                title = { Text("Save your changes?") },
-                text = { Text("Opening another flight discards what you have not saved.") },
+                title = { Text(stringResource(R.string.app_save_changes_title)) },
+                text = { Text(stringResource(R.string.app_open_other_flight_discards)) },
                 confirmButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         pendingOpen = null
                         scope.launch { vm.save().join(); nav.openFromList("flight/$next", Tab.FLIGHTS) }
-                    }) { Text("Save") }
+                    }) { Text(stringResource(R.string.app_save)) }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(onClick = {
                         pendingOpen = null
                         nav.openFromList("flight/$next", Tab.FLIGHTS)
-                    }) { Text("Discard") }
+                    }) { Text(stringResource(R.string.app_discard)) }
                 },
             )
         }
@@ -583,8 +590,8 @@ private fun FlightRoute(
 
         if (pickingPrevious) {
             PastFlightPickerScreen(
-                title = "Previous Flight",
-                emptyText = "No earlier flights yet.",
+                title = stringResource(R.string.app_previous_flight),
+                emptyText = stringResource(R.string.app_no_earlier_flights),
                 rows = allFlights
                     .filter { it.id != current.flight.id && (it.originICAO.isNotBlank() || it.destinationICAO.isNotBlank()) }
                     .sortedByDescending { it.departureInstant }
@@ -606,8 +613,8 @@ private fun FlightRoute(
         }
         if (pickingCrewSource) {
             PastFlightPickerScreen(
-                title = "Copy Crew From",
-                emptyText = "Once a flight has crew or passengers, you can copy them here.",
+                title = stringResource(R.string.app_copy_crew_from),
+                emptyText = stringResource(R.string.app_copy_crew_empty),
                 rows = PeopleSuggestion.crewSources(others).mapNotNull { flightsById[it.flightId] }.map(::row),
                 onPick = { flight ->
                     others.firstOrNull { it.flightId == flight.id }?.let { source ->
@@ -620,6 +627,8 @@ private fun FlightRoute(
             return
         }
 
+        val usualCrewLabel = stringResource(R.string.app_usual_crew)
+        val sameAsFormat = stringResource(R.string.app_same_as)
         val suggestion = PeopleSuggestion.suggest(
             others,
             current.flight.aircraftId,
@@ -630,8 +639,8 @@ private fun FlightRoute(
             if (crew.isEmpty() && passengers.isEmpty()) return@let null
             SuggestionChoice(
                 label = s.fromFlightId?.let(flightsById::get)
-                    ?.let { "Same as ${it.originICAO.ifBlank { "????" }} → ${it.destinationICAO.ifBlank { "????" }}" }
-                    ?: "Usual crew",
+                    ?.let { sameAsFormat.format("${it.originICAO.ifBlank { "????" }} → ${it.destinationICAO.ifBlank { "????" }}") }
+                    ?: usualCrewLabel,
                 summary = PeopleSuggestion.summary((crew + passengers).map { it.displayName }),
                 crew = crew,
                 passengers = passengers,
@@ -726,7 +735,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             list = {
                 PeopleList(nav, factory, deletions, selectedId = null, onOpen = { nav.openFromList("person/$it", Tab.PEOPLE) })
             },
-            detail = { NothingSelected("Pick someone, or add them with +.") },
+            detail = { NothingSelected(stringResource(R.string.app_pick_person)) },
         )
     }
     composable("person/$NEW_PERSON") { entry ->
@@ -967,7 +976,11 @@ private fun PeopleList(
                     context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
                 }.getOrNull()
             }
-            if (text == null) vm.reportCsv("Import Failed", "Could not read that file.") else vm.importCsv(text)
+            if (text == null) {
+                vm.reportCsv(context.getString(R.string.app_import_failed), context.getString(R.string.app_could_not_read_file))
+            } else {
+                vm.importCsv(text)
+            }
         }
     }
     val exportCsv = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -979,11 +992,11 @@ private fun PeopleList(
                 val csv = vm.exportCsv()
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-                } ?: error("Could not write that file.")
+                } ?: error(context.getString(R.string.app_could_not_write_file))
             }.onSuccess {
-                android.widget.Toast.makeText(context, "People exported", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(R.string.app_people_exported), android.widget.Toast.LENGTH_SHORT).show()
             }.onFailure {
-                vm.reportCsv("Export Failed", it.message ?: "Could not write that file.")
+                vm.reportCsv(context.getString(R.string.app_export_failed), it.message ?: context.getString(R.string.app_could_not_write_file))
             }
         }
     }
@@ -1007,7 +1020,7 @@ private fun PeopleList(
             onDismissRequest = { vm.dismissCsvResult() },
             title = { Text(result.title) },
             text = { Text(result.message) },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.dismissCsvResult() }) { Text("OK") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.dismissCsvResult() }) { Text(stringResource(R.string.app_ok)) } },
         )
     }
 }
@@ -1021,7 +1034,7 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
         ListDetail(
             showingDetail = false,
             list = { AircraftList(factory, deletions, selectedId = null) { nav.openFromList("aircraft/$it", Tab.AIRCRAFT) } },
-            detail = { NothingSelected("Pick an aircraft, or add one with +.") },
+            detail = { NothingSelected(stringResource(R.string.app_pick_aircraft)) },
         )
     }
     composable("aircraft/new") { entry ->
@@ -1105,9 +1118,9 @@ private fun SignInScreen(notice: String?, onSignIn: (SignInProvider) -> Unit, on
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("FlyFun Forms", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Sign in to generate customs and immigration forms.",
+            stringResource(R.string.app_sign_in_intro),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(vertical = 12.dp),
         )
@@ -1122,7 +1135,7 @@ private fun SignInScreen(notice: String?, onSignIn: (SignInProvider) -> Unit, on
         }
         SignInButtons(onSignIn)
         androidx.compose.material3.TextButton(onClick = onContinueOffline) {
-            Text("Enter data without signing in")
+            Text(stringResource(R.string.app_continue_offline))
         }
     }
 }
@@ -1136,7 +1149,7 @@ private fun SignInScreen(notice: String?, onSignIn: (SignInProvider) -> Unit, on
 private fun shareFile(context: Context, file: File) {
     // Cleared after a while in the background (FormFiles); regenerating is one tap.
     if (!file.exists()) {
-        android.widget.Toast.makeText(context, "That file has been cleared. Generate it again.", android.widget.Toast.LENGTH_LONG).show()
+        android.widget.Toast.makeText(context, context.getString(R.string.app_file_cleared), android.widget.Toast.LENGTH_LONG).show()
         return
     }
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -1145,7 +1158,7 @@ private fun shareFile(context: Context, file: File) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "Share ${file.name}"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.app_share_file, file.name)))
 }
 
 
@@ -1243,7 +1256,7 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
                     deleteAccountError = null
                     // Success clears the token, and the sign-in screen follows.
                     auth.deleteAccount().onFailure {
-                        deleteAccountError = it.message ?: "Could not delete the account."
+                        deleteAccountError = it.message ?: context.getString(R.string.app_delete_account_failed)
                     }
                     deletingAccount = false
                 }

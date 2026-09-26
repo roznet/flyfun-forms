@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.people
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.logic.MRZFormat
 import aero.flyfun.forms.logic.ScanContext
@@ -30,6 +31,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
@@ -62,16 +64,19 @@ fun ScanResultSheet(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Scan Result", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = onCancel) { Text("Cancel") }
+                Text(stringResource(R.string.people_scan_result), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.people_cancel)) }
             }
 
-            Section("Scanned Document")
-            Field("Name", scannedName)
-            Field("Document", "${if (result.format == MRZFormat.TD1) "ID Card" else "Passport"} ${result.passportNumber}")
-            Field("Nationality", result.nationality)
-            Field("Date of Birth", result.dateOfBirth.format(DAY))
-            Field("Expiry", result.expiryDate.format(DAY))
+            Section(stringResource(R.string.people_scanned_document))
+            Field(stringResource(R.string.people_name), scannedName)
+            Field(
+                stringResource(R.string.people_document),
+                "${stringResource(if (result.format == MRZFormat.TD1) R.string.people_id_card else R.string.people_doc_type_passport)} ${result.passportNumber}",
+            )
+            Field(stringResource(R.string.people_nationality), result.nationality)
+            Field(stringResource(R.string.people_date_of_birth_title), result.dateOfBirth.format(DAY))
+            Field(stringResource(R.string.people_expiry), result.expiryDate.format(DAY))
 
             if (duplicate != null) {
                 Card(
@@ -80,8 +85,8 @@ fun ScanResultSheet(
                 ) {
                     ListItem(
                         leadingContent = { Icon(Icons.Default.Warning, contentDescription = null) },
-                        headlineContent = { Text("Document already exists") },
-                        supportingContent = people[duplicate.personId]?.let { { Text("Assigned to ${it.displayName}") } },
+                        headlineContent = { Text(stringResource(R.string.people_document_already_exists)) },
+                        supportingContent = people[duplicate.personId]?.let { { Text(stringResource(R.string.people_assigned_to, it.displayName)) } },
                     )
                 }
             }
@@ -89,26 +94,29 @@ fun ScanResultSheet(
             when (val context = decision.context) {
                 is ScanContext.ForPerson -> {
                     val person = people[context.personId]
-                    val name = person?.displayName?.ifBlank { null } ?: "this person"
+                    val name = person?.displayName?.ifBlank { null } ?: stringResource(R.string.people_this_person)
                     val ownDuplicate = duplicate?.personId == context.personId
-                    Section(if (duplicate != null && !ownDuplicate) "Actions (document already exists)" else "Actions")
+                    Section(stringResource(if (duplicate != null && !ownDuplicate) R.string.people_actions_document_exists else R.string.people_actions))
                     when {
                         duplicate == null ->
-                            Action(Icons.Default.AddCircleOutline, "Add document to $name") { onApply(context.personId, false, true) }
+                            Action(Icons.Default.AddCircleOutline, stringResource(R.string.people_add_document_to, name)) { onApply(context.personId, false, true) }
                         ownDuplicate ->
-                            Action(Icons.Default.Badge, "Update the document on $name") { onApply(context.personId, false, true) }
+                            Action(Icons.Default.Badge, stringResource(R.string.people_update_document_on, name)) { onApply(context.personId, false, true) }
                     }
                     if (decision.namesMismatch) {
                         if (duplicate == null) {
-                            Action(Icons.Default.Badge, "Add document and update name to $scannedName") {
+                            Action(Icons.Default.Badge, stringResource(R.string.people_add_document_update_name, scannedName)) {
                                 onApply(context.personId, true, true)
                             }
                         }
-                        Action(Icons.Default.PersonAdd, "Create new person instead", onCreatePerson)
+                        Action(Icons.Default.PersonAdd, stringResource(R.string.people_create_new_person_instead), onCreatePerson)
                     }
                     if (duplicate != null && !ownDuplicate && !decision.namesMismatch) {
                         Text(
-                            "Nothing to add: open ${people[duplicate.personId]?.displayName ?: "its owner"} to edit it.",
+                            stringResource(
+                                R.string.people_nothing_to_add,
+                                people[duplicate.personId]?.displayName ?: stringResource(R.string.people_its_owner),
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         )
@@ -120,20 +128,20 @@ fun ScanResultSheet(
                 ScanContext.Standalone -> {
                     val matches = decision.matchingPeople.mapNotNull { people[it] }
                     if (matches.isNotEmpty()) {
-                        Section("Matching People")
+                        Section(stringResource(R.string.people_matching_people))
                         matches.forEach { person ->
                             // Their own copy is refreshed; someone else's is not copied onto them.
                             val addDocument = duplicate == null || duplicate.personId == person.id
                             ListItem(
                                 headlineContent = { Text(person.displayName) },
-                                supportingContent = person.dateOfBirth?.let { { Text("Born ${it.format(DAY)}") } },
-                                trailingContent = { Icon(Icons.Default.AddCircleOutline, contentDescription = "Use") },
+                                supportingContent = person.dateOfBirth?.let { { Text(stringResource(R.string.people_born, it.format(DAY))) } },
+                                trailingContent = { Icon(Icons.Default.AddCircleOutline, contentDescription = stringResource(R.string.people_use)) },
                                 modifier = Modifier.clickable { onApply(person.id, false, addDocument) },
                             )
                         }
                     }
-                    Section(if (matches.isEmpty()) "Actions" else "Or")
-                    Action(Icons.Default.PersonAdd, "Create new person", onCreatePerson)
+                    Section(stringResource(if (matches.isEmpty()) R.string.people_actions else R.string.people_or))
+                    Action(Icons.Default.PersonAdd, stringResource(R.string.people_create_new_person), onCreatePerson)
                 }
             }
         }

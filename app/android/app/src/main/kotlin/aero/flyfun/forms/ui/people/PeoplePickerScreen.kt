@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.people
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.logic.FlightPeople
@@ -42,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -90,45 +92,51 @@ fun PeoplePickerScreen(
             everyone.filter { PeopleRanking.matches(query, it.firstName, it.lastName) }.map { it.ranked(lastFlights) },
         ).mapNotNull { byId[it.id] }
     }
-    val group: Pair<String, List<PersonEntity>>? = remember(crew, passengers, everyone, flightPeople) {
+    val usualCrewTitle = stringResource(R.string.people_usual_crew_group)
+    val frequentWith = stringResource(R.string.people_frequent_with)
+    val group: Pair<String, List<PersonEntity>>? = remember(crew, passengers, everyone, flightPeople, usualCrewTitle, frequentWith) {
         val anchor = crew.firstOrNull() ?: passengers.firstOrNull()
         if (anchor == null) {
-            everyone.filter { it.isUsualCrew }.takeIf { it.isNotEmpty() }?.let { "Usual Crew" to it }
+            everyone.filter { it.isUsualCrew }.takeIf { it.isNotEmpty() }?.let { usualCrewTitle to it }
         } else {
             PeopleRanking.coTravelers(anchor.id, flightPeople)
                 .mapNotNull { byId[it] }
                 .filter { it.id !in selectedIds }
                 .takeIf { it.isNotEmpty() }
-                ?.let { "Frequent with ${anchor.displayName}" to it }
+                ?.let { frequentWith.format(anchor.displayName) to it }
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Crew & Passengers") },
+                title = { Text(stringResource(R.string.people_crew_and_passengers)) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = "Close") }
+                    IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.people_close)) }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { addMenu = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Add person")
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.people_add_person_description))
                         }
                         DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                             AddPersonMenuItems(add) { addMenu = false }
                         }
                     }
-                    TextButton(onClick = onDone) { Text("Done") }
+                    TextButton(onClick = onDone) { Text(stringResource(R.string.people_done)) }
                 },
             )
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            SearchField(query, { query = it }, "Search people")
+            SearchField(query, { query = it }, stringResource(R.string.people_search_people))
+            // Headers are added outside composition, so their titles are read here.
+            val selectedTitle = stringResource(R.string.people_selected)
+            val groupsTitle = stringResource(R.string.people_groups)
+            val peopleTitle = stringResource(R.string.people_title)
             LazyColumn(Modifier.fillMaxSize()) {
                 if (crew.isNotEmpty() || passengers.isNotEmpty()) {
-                    header("Selected")
+                    header(selectedTitle)
                     crew.forEachIndexed { index, person ->
                         item(key = "crew:${person.id}") {
                             SelectedRow(
@@ -155,12 +163,12 @@ fun PeoplePickerScreen(
 
                 // The groups widen a selection, so they give way to a search.
                 if (group != null && query.isBlank()) {
-                    header("Groups")
+                    header(groupsTitle)
                     item(key = "group") {
                         ListItem(
                             headlineContent = { Text(group.first) },
                             supportingContent = { Text(group.second.joinToString(", ") { it.displayName }, maxLines = 2) },
-                            trailingContent = { Icon(Icons.Default.Add, contentDescription = "Add all") },
+                            trailingContent = { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.people_add_all)) },
                             modifier = Modifier.clickable {
                                 val (addCrew, addPax) = group.second.partition { it.isUsualCrew }
                                 onChange(crew + addCrew, passengers + addPax)
@@ -170,15 +178,15 @@ fun PeoplePickerScreen(
                 }
 
                 if (matching.isNotEmpty()) {
-                    header("People")
+                    header(peopleTitle)
                     items(matching, key = { "person:${it.id}" }) { person ->
                         val selected = person.id in selectedIds
                         ListItem(
-                            headlineContent = { Text(person.displayName.ifBlank { "New Person" }) },
-                            supportingContent = lastFlights[person.id]?.let { { Text("Flew ${dayFormat.format(it)}") } },
+                            headlineContent = { Text(person.displayName.ifBlank { stringResource(R.string.people_new_person) }) },
+                            supportingContent = lastFlights[person.id]?.let { { Text(stringResource(R.string.people_flew, dayFormat.format(it))) } },
                             leadingContent = if (person.isUsualCrew) { { CrewPill() } } else null,
                             trailingContent = if (selected) {
-                                { Icon(Icons.Default.Check, contentDescription = "On this flight") }
+                                { Icon(Icons.Default.Check, contentDescription = stringResource(R.string.people_on_this_flight)) }
                             } else {
                                 null
                             },
@@ -191,7 +199,7 @@ fun PeoplePickerScreen(
                 if (name.isNotEmpty() && matching.isEmpty()) {
                     item(key = "add-named") {
                         ListItem(
-                            headlineContent = { Text("Add “$name” as new person") },
+                            headlineContent = { Text(stringResource(R.string.people_add_named, name)) },
                             leadingContent = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
                             modifier = Modifier.clickable {
                                 query = ""
@@ -226,30 +234,31 @@ private fun SelectedRow(
     onUp: (() -> Unit)? = null,
     onDown: (() -> Unit)? = null,
 ) {
+    val newPerson = stringResource(R.string.people_new_person)
     ListItem(
-        headlineContent = { Text(person.displayName.ifBlank { "New Person" }) },
+        headlineContent = { Text(person.displayName.ifBlank { newPerson }) },
         supportingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 // Tap to move between crew and passengers; one person is never both.
                 FilterChip(
                     selected = isCrew,
                     onClick = onToggle,
-                    label = { Text(if (isCrew) "Crew" else "Passenger") },
+                    label = { Text(stringResource(if (isCrew) R.string.people_crew else R.string.people_passenger)) },
                 )
-                if (isPic) Text("Pilot in command", style = MaterialTheme.typography.bodySmall)
+                if (isPic) Text(stringResource(R.string.people_pilot_in_command), style = MaterialTheme.typography.bodySmall)
             }
         },
         trailingContent = {
             Row {
                 if (isCrew) {
                     IconButton(onClick = { onUp?.invoke() }, enabled = onUp != null) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.people_move_up))
                     }
                     IconButton(onClick = { onDown?.invoke() }, enabled = onDown != null) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.people_move_down))
                     }
                 }
-                IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = "Remove") }
+                IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.people_remove)) }
             }
         },
     )

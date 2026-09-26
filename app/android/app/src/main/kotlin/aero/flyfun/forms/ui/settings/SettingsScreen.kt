@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.settings
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.auth.SignInProvider
 import aero.flyfun.forms.ui.common.SignInButtons
 import aero.flyfun.forms.logic.SpokenLanguages
@@ -33,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.io.File
 
@@ -58,14 +60,14 @@ fun SettingsScreen(
 ) {
     var confirmDeleteAccount by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Languages you speak", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_languages_you_speak), style = MaterialTheme.typography.titleMedium)
                     SpokenLanguages.ALL.forEach { (code, name) ->
                         Row(
                             Modifier.fillMaxWidth(),
@@ -77,8 +79,7 @@ fun SettingsScreen(
                         }
                     }
                     Text(
-                        "When an airport's local language matches one you speak, emails are written " +
-                            "in that language. Otherwise English is used.",
+                        stringResource(R.string.settings_languages_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -86,47 +87,42 @@ fun SettingsScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                    Text("Move my data", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_move_my_data), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Creates one encrypted file holding your people, aircraft and flights, " +
-                            "protected by a passphrase shown once. Use it to move everything to " +
-                            "another device.",
+                        stringResource(R.string.settings_move_my_data_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Button(onClick = onExportEncrypted, enabled = state !is TransferState.Working) {
-                        Text("Export encrypted file")
+                        Text(stringResource(R.string.settings_export_encrypted_file))
                     }
                     OutlinedButton(onClick = onPickFile, enabled = state !is TransferState.Working) {
-                        Text("Import from a file")
+                        Text(stringResource(R.string.settings_import_from_a_file))
                     }
                 }
             }
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                    Text("Download a copy of my data", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_download_copy), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "A plain JSON copy of everything this app holds about you, for your own " +
-                            "records. It is NOT encrypted, and it contains passport details - " +
-                            "keep it somewhere safe.",
+                        stringResource(R.string.settings_download_copy_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     OutlinedButton(onClick = onExportPlain, enabled = state !is TransferState.Working) {
-                        Text("Export unencrypted JSON")
+                        Text(stringResource(R.string.settings_export_unencrypted_json))
                     }
                 }
             }
 
             if (signedIn) {
-                OutlinedButton(onClick = onSignOut) { Text("Sign out") }
+                OutlinedButton(onClick = onSignOut) { Text(stringResource(R.string.settings_sign_out)) }
 
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                        Text("Delete account", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_delete_account), style = MaterialTheme.typography.titleMedium)
                         Text(
                             deleteAccountError
-                                ?: "Permanently deletes your account and all server data. " +
-                                "People, aircraft and flights on this device are kept.",
+                                ?: stringResource(R.string.settings_delete_account_footer),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (deleteAccountError != null) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -138,7 +134,7 @@ fun SettingsScreen(
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error,
                                 ),
-                            ) { Text("Delete account") }
+                            ) { Text(stringResource(R.string.settings_delete_account)) }
                             if (deletingAccount) CircularProgressIndicator(Modifier.padding(start = 12.dp))
                         }
                     }
@@ -148,10 +144,9 @@ fun SettingsScreen(
                 // signing in": generating forms needs an account.
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                        Text("Not signed in", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_not_signed_in), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Sign in to load each airport's forms and generate them. " +
-                                "Your people, aircraft and flights stay on this device either way.",
+                            stringResource(R.string.settings_not_signed_in_footer),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         SignInButtons(onSignIn)
@@ -166,48 +161,48 @@ fun SettingsScreen(
     if (confirmDeleteAccount) {
         AlertDialog(
             onDismissRequest = { confirmDeleteAccount = false },
-            title = { Text("Delete account") },
-            text = { Text("This will permanently delete your account. This action cannot be undone.") },
+            title = { Text(stringResource(R.string.settings_delete_account)) },
+            text = { Text(stringResource(R.string.settings_delete_account_confirm_message)) },
             confirmButton = {
                 TextButton(
                     onClick = { confirmDeleteAccount = false; onDeleteAccount() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete my account") }
+                ) { Text(stringResource(R.string.settings_delete_my_account)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
     when (state) {
         is TransferState.Exported -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(if (state.passphrase != null) "Passphrase" else "Export ready") },
+            title = { Text(if (state.passphrase != null) stringResource(R.string.settings_passphrase) else stringResource(R.string.settings_export_ready)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.passphrase != null) {
-                        Text("Type this on the other device to open the file. It is not stored anywhere, so write it down now.")
+                        Text(stringResource(R.string.settings_passphrase_instructions))
                         SelectionContainer {
                             Text(state.passphrase, style = MaterialTheme.typography.titleMedium)
                         }
                     } else {
-                        Text("${state.file.name} is ready. It is not encrypted.")
+                        Text(stringResource(R.string.settings_file_ready_not_encrypted, state.file.name))
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { onShare(state.file) }) { Text("Share file") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+            confirmButton = { TextButton(onClick = { onShare(state.file) }) { Text(stringResource(R.string.settings_share_file)) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } },
         )
 
         is TransferState.NeedsPassword -> {
             var password by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = onDismiss,
-                title = { Text("Passphrase") },
+                title = { Text(stringResource(R.string.settings_passphrase)) },
                 text = {
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Passphrase from the other device") },
+                        label = { Text(stringResource(R.string.settings_passphrase_from_other_device)) },
                         singleLine = true,
                     )
                 },
@@ -215,40 +210,40 @@ fun SettingsScreen(
                     TextButton(
                         enabled = password.isNotBlank(),
                         onClick = { onSubmitPassword(password) },
-                    ) { Text("Open") }
+                    ) { Text(stringResource(R.string.settings_open)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
             )
         }
 
         is TransferState.Previewed -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Import this file?") },
+            title = { Text(stringResource(R.string.settings_import_this_file)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(state.summary.describe())
                     Text(
-                        "Nothing already on this device is removed unless the file says it was deleted.",
+                        stringResource(R.string.settings_import_nothing_removed),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = onConfirmImport) { Text("Import") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = onConfirmImport) { Text(stringResource(R.string.settings_import)) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } },
         )
 
         is TransferState.Imported -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Imported") },
+            title = { Text(stringResource(R.string.settings_imported)) },
             text = { Text(state.summary.describe()) },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_ok)) } },
         )
 
         is TransferState.Failed -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Could not do that") },
+            title = { Text(stringResource(R.string.settings_could_not_do_that)) },
             text = { Text(state.message) },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_ok)) } },
         )
 
         else -> Unit
