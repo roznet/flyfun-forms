@@ -20,7 +20,7 @@ private func utc(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: I
 }
 
 private func makeContainer() throws -> ModelContainer {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     return try ModelContainer(
         for: Person.self, TravelDocument.self, Aircraft.self, Flight.self, Trip.self,
         configurations: config

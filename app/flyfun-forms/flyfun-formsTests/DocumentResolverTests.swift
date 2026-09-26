@@ -7,7 +7,7 @@ import SwiftData
 
 /// Creates an in-memory ModelContainer for testing (no CloudKit, no persistence).
 private func makeTestContainer() throws -> ModelContainer {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     return try ModelContainer(
         for: Person.self, TravelDocument.self, Aircraft.self, Flight.self, Trip.self,
         configurations: config

@@ -428,7 +428,7 @@ struct CSVImportTests {
     init() throws {
         container = try ModelContainer(
             for: Person.self, TravelDocument.self, Aircraft.self, Flight.self, Trip.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
     }
 
