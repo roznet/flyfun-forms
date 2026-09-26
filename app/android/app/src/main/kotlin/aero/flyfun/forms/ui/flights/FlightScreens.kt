@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -54,6 +55,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -201,6 +203,9 @@ fun FlightEditScreen(
     /** Each person's active documents, by id: a per-flight choice is offered when there are several. */
     documents: Map<String, List<TravelDocumentEntity>>,
     airportForms: List<AirportForms>,
+    /** Name, zone and notice of each airport on the route, by ICAO. */
+    airportInfo: Map<String, AirportDetails>,
+    onOpenRoutePicker: () -> Unit,
     generateState: GenerateState,
     onEditFlight: ((FlightEntity) -> FlightEntity) -> Unit,
     onSetDeparture: (java.time.Instant) -> Unit,
@@ -235,10 +240,10 @@ fun FlightEditScreen(
         return
     }
     val flight = detail.flight
+    val origin = flight.originICAO
+    val destination = flight.destinationICAO
     // Local text state so typing does not round-trip through the ViewModel;
     // keyed on the flight so a different leg starts from its own values.
-    var origin by remember(flight.id) { mutableStateOf(flight.originICAO) }
-    var destination by remember(flight.id) { mutableStateOf(flight.destinationICAO) }
     var observations by remember(flight.id) { mutableStateOf(flight.observations.orEmpty()) }
     var confirmDiscard by remember { mutableStateOf(false) }
 
@@ -272,31 +277,20 @@ fun FlightEditScreen(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    origin,
-                    { value ->
-                        if (value.length <= 4) {
-                            origin = value.uppercase()
-                            onEditFlight { it.copy(originICAO = origin.trim()) }
-                        }
-                    },
-                    label = { Text("From (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    destination,
-                    { value ->
-                        if (value.length <= 4) {
-                            destination = value.uppercase()
-                            onEditFlight { it.copy(destinationICAO = destination.trim()) }
-                        }
-                    },
-                    label = { Text("To (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f),
-                )
-            }
+            RouteCard(origin, destination, airportInfo, onOpenRoutePicker)
+            AirportNotice("Departure", origin, airportInfo)
+            if (destination != origin) AirportNotice("Arrival", destination, airportInfo)
 
-            ScheduleField("Departure", flight.departureInstant, onSetDeparture)
-            ScheduleField("Arrival", flight.arrivalInstant) { t -> onEditFlight { it.copy(arrivalInstant = t) } }
+            // Zones in route order, once each: a local flight has one.
+            val zones = listOfNotNull(airportInfo[origin]?.timeZone, airportInfo[destination]?.timeZone).distinct()
+            ScheduleField(
+                "Departure", flight.departureInstant, onSetDeparture,
+                zones = zones, preferredZone = airportInfo[origin]?.timeZone,
+            )
+            ScheduleField(
+                "Arrival", flight.arrivalInstant, { t -> onEditFlight { it.copy(arrivalInstant = t) } },
+                zones = zones, preferredZone = airportInfo[destination]?.timeZone,
+            )
             if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
                 Text(
                     "Arrival is before departure.",
@@ -406,6 +400,57 @@ fun FlightEditScreen(
     }
 
     GenerateFeedback(generateState, onShare, onDismissGenerate)
+}
+
+/** FROM → TO with the airports' names; tapping it opens the route picker. */
+@Composable
+private fun RouteCard(origin: String, destination: String, info: Map<String, AirportDetails>, onClick: () -> Unit) {
+    OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            RouteEndLabel("From", origin, info[origin]?.summary?.name, Modifier.weight(1f))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+            RouteEndLabel("To", destination, info[destination]?.summary?.name, Modifier.weight(1f))
+            Icon(Icons.Default.Edit, contentDescription = "Change route")
+        }
+    }
+}
+
+@Composable
+private fun RouteEndLabel(label: String, icao: String, name: String?, modifier: Modifier) {
+    Column(modifier.padding(horizontal = 4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall)
+        Text(
+            icao.ifBlank { "----" },
+            style = MaterialTheme.typography.titleLarge,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+        )
+        name?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+    }
+}
+
+/**
+ * The airport's notice (customs notification rules, PPR...) from the maps
+ * service, shown under the route as on iOS; tap for the full text.
+ */
+@Composable
+private fun AirportNotice(label: String, icao: String, info: Map<String, AirportDetails>) {
+    val notice = info[icao]?.notice ?: return
+    val detail = notice.rawText ?: notice.pretty
+    var open by rememberSaveable(icao) { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth().then(if (detail != null) Modifier.clickable { open = !open } else Modifier),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("$label — $icao", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            if (detail != null) {
+                Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (open) "Less" else "More")
+            }
+        }
+        Text(notice.summary.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (open && detail != null) {
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable

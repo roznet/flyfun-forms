@@ -23,7 +23,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
 | 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
-| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a, 2b done |
+| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a, 2b, 2c done |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
 
@@ -147,10 +147,10 @@ from the errors sheet) are a new gap, outside "getting data in", listed in §7.
 
 ### 2c — Airports and local time (M, Opus)
 
-- [ ] Airport search picker over the bundled `airports.db` (10 MB, currently unread), with recent routes (`AirportPickerView.swift`, `SingleAirportPickerView.swift`)
-- [ ] ICAO→IANA timezone column in `airports.db` at build time (or from the server)
-- [ ] Schedule in UTC or origin/destination local time (`FlightDateTimeField.swift`); `ui/flights/ScheduleField.kt` is UTC-only
-- [ ] NOTAM / notification rows from `maps.flyfun.aero/api/notifications/{icao}` (`FlightEditView.swift:626`)
+- [x] Airport search picker over the bundled `airports.db` (10 MB, currently unread), with recent routes (`AirportPickerView.swift`, `SingleAirportPickerView.swift`)
+- [x] ICAO→IANA timezone column in `airports.db` at build time (or from the server)
+- [x] Schedule in UTC or origin/destination local time (`FlightDateTimeField.swift`); `ui/flights/ScheduleField.kt` is UTC-only
+- [x] NOTAM / notification rows from `maps.flyfun.aero/api/notifications/{icao}` (`FlightEditView.swift:626`)
 
 ### 2d — New-flight flow (M, Sonnet)
 
@@ -239,3 +239,7 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 2a — Aircraft owner is picked from People and `owner`/`ownerAddress` are kept in step with the choice (company or person), as iOS's `onChange` handlers do. An owner typed before this, with no person, is kept until one is picked.
 - 2026-09-26 — 2b — `MRZResultProcessor` is ported to `:core-logic` over plain values; duplicates are searched across everyone's live documents. The result is a bottom sheet over the camera. Android adds one action iOS lacks: a scan of a document the person already holds offers "Update the document", which the pre-work upsert did silently. The document-editor scan context is ported but not offered: Android scans from the person.
 - 2026-09-26 — 2b — Photo and PDF scans use the Photo Picker and SAF `OpenDocument` with `PdfRenderer` (about 300 dpi, first five pages), no permission and no new dependency. ML Kit `GmsDocumentScanning` was not adopted: it is a Play Services module this build cannot fetch or check here, and the two pickers already cover the case. Worth revisiting once the flow has been used.
+- 2026-09-26 — 2c — Airport time zones are an `icao,zone` table (`assets/airport_timezones.csv`, 8,474 rows, 180 KB) generated from `airports.db` by `scripts/airport_timezones.py` (timezonefinder), not a column added to the database at build time: adding one would need SQLite and a time zone library in the Gradle build. Re-run the script when `airports.db` changes; an airport missing from it only loses the local-time option.
+- 2026-09-26 — 2c — The route is picked from the database (the route card replaces the two ICAO text fields); a four-letter code the database lacks can still be used as typed. The database is copied out of the APK to no-backup storage once per app update, since SQLite cannot open an asset.
+- 2026-09-26 — 2c — The schedule field starts in UTC and moves to the airport's zone once it is known, unless the pilot picked a zone; iOS moves only while the selection is still the default, and Android also never overrides a choice. The date picker is fed the shown day as UTC midnight so a local date does not shift through the device zone.
+- 2026-09-26 — 2c — Airport notices come from `maps.flyfun.aero` through their own client, so the forms token is never sent there; a notice that fails to load is left out, as on iOS.
