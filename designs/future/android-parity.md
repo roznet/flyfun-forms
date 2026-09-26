@@ -91,9 +91,9 @@ and Settings, which is why it is one PR.
 
 ### 1b — Delete account; delete with Undo (S, Sonnet)
 
-- [ ] Delete account in Settings → `DELETE /auth/account` (iOS `ContentView.swift:215-257`). **Play Store requirement**
-- [ ] Swipe-to-delete + Undo on people, aircraft, flights (VM `delete` exists, unused). iOS `PeopleListView.swift:68`, `FlightsListView.swift:42,53`
-- [ ] Delete in each edit screen's overflow menu
+- [x] Delete account in Settings → `DELETE /auth/account` (iOS `ContentView.swift:215-257`). **Play Store requirement**
+- [x] Swipe-to-delete + Undo on people, aircraft, flights (VM `delete` exists, unused). iOS `PeopleListView.swift:68`, `FlightsListView.swift:42,53`
+- [x] Delete in each edit screen's overflow menu
 
 ### 1c — Flight fields the forms depend on (M, Opus for logic, Sonnet for UI)
 
@@ -210,3 +210,6 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 1a — A 401 to a request that carried a token clears it; the UI observes `TokenStore.signedIn` and returns to sign-in. The nav controller sits above the sign-in screen so a flight draft survives signing in again. Settings offers "Sign in" after "Enter data without signing in".
 - 2026-09-26 — 1a — Pure logic this PR needs (`FormSides`, `TripExtras`, and later sections' leg and e-mail helpers) goes in `:core-logic`, so it is tested on the JVM without the Android SDK.
 - 2026-09-26 — 1a — Built in a cloud session with no route to Google Maven (`dl.google.com`), so `./gradlew :app:…` could not run and nothing was driven on the emulator. Checked instead by compiling `app/src/main` against Compose Multiplatform 1.6 desktop plus stubs for the Android APIs, and running `app/src/test` and `:core-logic:test` on the JVM. Emulator runs are still owed before merge.
+- 2026-09-26 — 1b — Deletes run on the app's scope against the repositories, with one app-level Snackbar for Undo. A delete from an edit screen pops the screen, and a ViewModel-scoped Undo would be cancelled with it. Restore clears the tombstone and bumps `updatedAt`, so the restore wins a later merge.
+- 2026-09-26 — 1b — List rows are keyed on id + `updatedAt`, so a restored row gets fresh swipe state instead of coming back already swiped away.
+- 2026-09-26 — 1b — Delete account keeps people, aircraft and flights on the device: they were never on the server.

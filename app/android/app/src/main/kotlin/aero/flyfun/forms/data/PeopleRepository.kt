@@ -19,6 +19,7 @@ interface PeopleRepository {
     suspend fun save(person: PersonEntity)
     suspend fun saveDocument(document: TravelDocumentEntity)
     suspend fun deletePerson(id: String)
+    suspend fun restorePerson(id: String)
     suspend fun deleteDocument(id: String)
 
     /** The document to use for this person at this airport. */
@@ -41,6 +42,8 @@ class RoomPeopleRepository(
         documents.upsert(document.copy(updatedAt = Instant.now()))
 
     override suspend fun deletePerson(id: String) = people.softDelete(id, Instant.now())
+
+    override suspend fun restorePerson(id: String) = people.restore(id, Instant.now())
 
     override suspend fun deleteDocument(id: String) = documents.softDelete(id, Instant.now())
 

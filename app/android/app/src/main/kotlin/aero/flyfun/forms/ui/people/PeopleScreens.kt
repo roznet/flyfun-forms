@@ -3,6 +3,8 @@ package aero.flyfun.forms.ui.people
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.TravelDocumentEntity
+import aero.flyfun.forms.ui.common.DeleteOverflowMenu
+import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,6 +58,7 @@ fun PeopleListScreen(
     people: List<PersonWithDocuments>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
+    onDelete: (PersonEntity) -> Unit,
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("People") }) },
@@ -80,22 +83,24 @@ fun PeopleListScreen(
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                items(people, key = { it.person.id }) { row ->
-                    ListItem(
-                        headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
-                        supportingContent = {
-                            val active = row.documents.count { it.isActive && it.deletedAt == null }
-                            Text(
-                                buildString {
-                                    if (row.person.isUsualCrew) append("Usual crew")
-                                    if (row.person.isUsualCrew && active > 0) append(" · ")
-                                    if (active > 0) append("$active document${if (active == 1) "" else "s"}")
-                                    if (isEmpty()) append("No documents")
-                                },
-                            )
-                        },
-                        modifier = Modifier.clickable { onOpen(row.person.id) },
-                    )
+                items(people, key = { "${it.person.id}:${it.person.updatedAt}" }) { row ->
+                    SwipeToDelete(onDelete = { onDelete(row.person) }) {
+                        ListItem(
+                            headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
+                            supportingContent = {
+                                val active = row.documents.count { it.isActive && it.deletedAt == null }
+                                Text(
+                                    buildString {
+                                        if (row.person.isUsualCrew) append("Usual crew")
+                                        if (row.person.isUsualCrew && active > 0) append(" · ")
+                                        if (active > 0) append("$active document${if (active == 1) "" else "s"}")
+                                        if (isEmpty()) append("No documents")
+                                    },
+                                )
+                            },
+                            modifier = Modifier.clickable { onOpen(row.person.id) },
+                        )
+                    }
                     HorizontalDivider()
                 }
             }
@@ -128,6 +133,8 @@ fun PersonEditScreen(
     onDeleteDocument: (String) -> Unit,
     onBack: () -> Unit,
     onScan: ((PersonEntity) -> Unit)? = null,
+    /** Null for a person not stored yet. */
+    onDelete: (() -> Unit)? = null,
 ) {
     val existing = initial?.person
     val id = remember { existing?.id ?: UUID.randomUUID().toString() }
@@ -164,6 +171,7 @@ fun PersonEditScreen(
                 },
                 actions = {
                     TextButton(onClick = { onSave(edited()) }) { Text("Save") }
+                    onDelete?.let { DeleteOverflowMenu(onDelete = it) }
                 },
             )
         },

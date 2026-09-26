@@ -1,6 +1,8 @@
 package aero.flyfun.forms.ui.aircraft
 
 import aero.flyfun.forms.data.AircraftEntity
+import aero.flyfun.forms.ui.common.DeleteOverflowMenu
+import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,7 @@ fun AircraftListScreen(
     aircraft: List<AircraftEntity>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
+    onDelete: (AircraftEntity) -> Unit,
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Aircraft") }) },
@@ -66,14 +69,16 @@ fun AircraftListScreen(
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                items(aircraft, key = { it.id }) { a ->
-                    ListItem(
-                        headlineContent = { Text(a.registration.ifBlank { "New Aircraft" }) },
-                        supportingContent = {
-                            Text(listOfNotNull(a.type.ifBlank { null }, a.usualBase).joinToString(" · "))
-                        },
-                        modifier = Modifier.clickable { onOpen(a.id) },
-                    )
+                items(aircraft, key = { "${it.id}:${it.updatedAt}" }) { a ->
+                    SwipeToDelete(onDelete = { onDelete(a) }) {
+                        ListItem(
+                            headlineContent = { Text(a.registration.ifBlank { "New Aircraft" }) },
+                            supportingContent = {
+                                Text(listOfNotNull(a.type.ifBlank { null }, a.usualBase).joinToString(" · "))
+                            },
+                            modifier = Modifier.clickable { onOpen(a.id) },
+                        )
+                    }
                     HorizontalDivider()
                 }
             }
@@ -87,6 +92,8 @@ fun AircraftEditScreen(
     initial: AircraftEntity?,
     onSave: (AircraftEntity) -> Unit,
     onBack: () -> Unit,
+    /** Null for an aircraft not stored yet. */
+    onDelete: (() -> Unit)? = null,
 ) {
     var registration by remember { mutableStateOf(initial?.registration.orEmpty()) }
     var type by remember { mutableStateOf(initial?.type.orEmpty()) }
@@ -120,6 +127,7 @@ fun AircraftEditScreen(
                             )
                         },
                     ) { Text("Save") }
+                    onDelete?.let { DeleteOverflowMenu(onDelete = it) }
                 },
             )
         },

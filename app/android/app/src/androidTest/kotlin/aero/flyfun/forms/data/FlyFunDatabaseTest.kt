@@ -120,6 +120,29 @@ class FlyFunDatabaseTest {
     }
 
     @Test
+    fun undo_restores_a_tombstoned_person_flight_and_aircraft() = runTest {
+        val p = person("Gita", "Rao")
+        val ac = AircraftEntity(registration = "G-ABCD", type = "SR22").also { aircraft.upsert(it) }
+        val f = FlightEntity(departureInstant = dep, arrivalInstant = arr, aircraftId = ac.id)
+            .also { flights.upsert(it) }
+        val deleted = Instant.parse("2026-09-19T12:00:00Z")
+        val undone = Instant.parse("2026-09-19T12:00:05Z")
+
+        people.softDelete(p.id, deleted)
+        aircraft.softDelete(ac.id, deleted)
+        flights.softDelete(f.id, deleted)
+        people.restore(p.id, undone)
+        aircraft.restore(ac.id, undone)
+        flights.restore(f.id, undone)
+
+        assertEquals(listOf(p.id), people.observeAll().first().map { it.person.id })
+        assertEquals(listOf(ac.id), aircraft.all().map { it.id })
+        assertEquals(listOf(f.id), flights.observeAll().first().map { it.id })
+        // Newer than the tombstone, so an import carrying the deletion loses.
+        assertEquals(undone, people.byId(p.id)!!.person.updatedAt)
+    }
+
+    @Test
     fun documents_come_back_with_their_person_and_calendar_dates_survive() = runTest {
         val p = person("Hugo", "Silva")
         docs.upsert(

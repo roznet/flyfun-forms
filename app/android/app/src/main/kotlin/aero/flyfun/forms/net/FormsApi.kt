@@ -3,6 +3,7 @@ package aero.flyfun.forms.net
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -66,4 +67,8 @@ interface AuthApi {
 
     @POST("auth/logout")
     suspend fun logout(): Response<Unit>
+
+    /** Deletes the account and everything the server holds for it. Play requires the app to offer this. */
+    @DELETE("auth/account")
+    suspend fun deleteAccount(): Response<Unit>
 }

@@ -3,6 +3,7 @@ package aero.flyfun.forms.ui
 import aero.flyfun.forms.auth.AuthService
 import aero.flyfun.forms.auth.TokenStore
 import aero.flyfun.forms.data.AircraftEntity
+import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.FlightRepository
 import aero.flyfun.forms.data.FlyFunDatabase
 import aero.flyfun.forms.data.PeopleRepository
@@ -45,6 +46,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -68,6 +73,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -93,6 +99,49 @@ private class Factory(
         modelClass.isAssignableFrom(DataTransferViewModel::class.java) ->
             DataTransferViewModel(transfer, cacheDir, appVersion) as T
         else -> error("Unknown ViewModel ${modelClass.name}")
+    }
+}
+
+/**
+ * Deletes from anywhere - a swiped row, an edit screen's menu - and offers
+ * Undo.
+ *
+ * Runs on the app's scope with the repositories, not a screen's ViewModel: a
+ * delete from an edit screen pops that screen, and its ViewModel's scope goes
+ * with it, before the pilot can reach Undo.
+ */
+private class Deletions(
+    private val people: PeopleRepository,
+    private val flights: FlightRepository,
+    private val scope: CoroutineScope,
+    private val snackbar: SnackbarHostState,
+) {
+    fun person(person: PersonEntity) = delete(
+        "Deleted ${person.displayName.ifBlank { "person" }}",
+        { people.deletePerson(person.id) },
+        { people.restorePerson(person.id) },
+    )
+
+    fun aircraft(aircraft: AircraftEntity) = delete(
+        "Deleted ${aircraft.registration.ifBlank { "aircraft" }}",
+        { flights.deleteAircraft(aircraft.id) },
+        { flights.restoreAircraft(aircraft.id) },
+    )
+
+    fun flight(flight: FlightEntity) = delete(
+        "Deleted ${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}",
+        { flights.deleteFlight(flight.id) },
+        { flights.restoreFlight(flight.id) },
+    )
+
+    private fun delete(message: String, remove: suspend () -> Unit, restore: suspend () -> Unit) {
+        scope.launch {
+            remove()
+            // One Undo at a time: a second delete replaces the first's offer.
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(message, actionLabel = "Undo", duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) restore()
+        }
     }
 }
 
@@ -138,6 +187,11 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
     // Above the sign-in screen, so an expired token mid-edit keeps the back
     // stack, and with it the flight draft, for after signing in again.
     val navController = rememberNavController()
+    val snackbar = remember { SnackbarHostState() }
+    val appScope = rememberCoroutineScope()
+    val deletions = remember {
+        Deletions(repositories.first, repositories.second, appScope, snackbar)
+    }
 
     if (!signedIn && !skippedSignIn) {
         SignInScreen(
@@ -155,6 +209,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
     val currentRoute = backStack?.destination?.route
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (Tab.entries.any { it.route == currentRoute }) {
                 NavigationBar {
@@ -181,9 +236,9 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             startDestination = Tab.FLIGHTS.route,
             modifier = Modifier.padding(padding),
         ) {
-            flightRoutes(navController, factory, context)
-            peopleRoutes(navController, factory)
-            aircraftRoutes(navController, factory)
+            flightRoutes(navController, factory, context, deletions)
+            peopleRoutes(navController, factory, deletions)
+            aircraftRoutes(navController, factory, deletions)
             settingsRoute(factory, context, tokens, auth)
         }
     }
@@ -193,6 +248,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
     nav: androidx.navigation.NavHostController,
     factory: ViewModelProvider.Factory,
     context: Context,
+    deletions: Deletions,
 ) {
     composable(Tab.FLIGHTS.route) {
         val vm: FlightsViewModel = viewModel(factory = factory)
@@ -202,6 +258,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             onOpen = { nav.navigate("flight/$it") },
             // A draft, not a row: backing out of it leaves nothing behind.
             onAdd = { nav.navigate("flight/${FlightsViewModel.NEW_FLIGHT}") },
+            onDelete = { deletions.flight(it) },
         )
     }
 
@@ -246,6 +303,10 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             onShare = { shareFile(context, it) },
             onDismissGenerate = { vm.clearGenerateState() },
             onBack = { nav.popBackStack() },
+            onDelete = {
+                detail?.flight?.let { deletions.flight(it) }
+                nav.popBackStack()
+            },
         )
     }
 }
@@ -253,6 +314,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
 private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
     nav: androidx.navigation.NavHostController,
     factory: ViewModelProvider.Factory,
+    deletions: Deletions,
 ) {
     composable(Tab.PEOPLE.route) {
         val vm: PeopleViewModel = viewModel(factory = factory)
@@ -261,6 +323,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             people = people,
             onOpen = { nav.navigate("person/$it") },
             onAdd = { nav.navigate("person/new") },
+            onDelete = { deletions.person(it) },
         )
     }
     composable("person/new") {
@@ -355,6 +418,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
                 onDeleteDocument = { id -> vm.deleteDocument(id) },
                 onBack = { nav.popBackStack() },
                 onScan = { person -> persistThen(person, "person/$personId/scan") },
+                onDelete = { deletions.person(it.person); nav.popBackStack() },
             )
         }
     }
@@ -363,6 +427,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
 private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
     nav: androidx.navigation.NavHostController,
     factory: ViewModelProvider.Factory,
+    deletions: Deletions,
 ) {
     composable(Tab.AIRCRAFT.route) {
         val vm: AircraftViewModel = viewModel(factory = factory)
@@ -371,6 +436,7 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
             aircraft = aircraft,
             onOpen = { nav.navigate("aircraft/$it") },
             onAdd = { nav.navigate("aircraft/new") },
+            onDelete = { deletions.aircraft(it) },
         )
     }
     composable("aircraft/new") {
@@ -386,7 +452,12 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
         val aircraft by vm.aircraft.collectAsState()
         val existing: AircraftEntity? = aircraft.firstOrNull { it.id == id }
         existing?.let {
-            AircraftEditScreen(it, onSave = { u -> vm.save(u); nav.popBackStack() }, onBack = { nav.popBackStack() })
+            AircraftEditScreen(
+                it,
+                onSave = { u -> vm.save(u); nav.popBackStack() },
+                onBack = { nav.popBackStack() },
+                onDelete = { deletions.aircraft(it); nav.popBackStack() },
+            )
         }
     }
 }
@@ -448,6 +519,8 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
         val vm: DataTransferViewModel = viewModel(factory = factory)
         val state by vm.state.collectAsState()
         val signedIn by tokens.signedIn.collectAsState()
+        var deletingAccount by remember { mutableStateOf(false) }
+        var deleteAccountError by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
         // OpenDocument rather than GetContent: this reads one file the user
@@ -480,6 +553,19 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             // The sign-in screen follows from the token going; see FlyFunApp.
             onSignOut = { scope.launch { auth.signOut() } },
             onDismiss = { vm.reset() },
+            deletingAccount = deletingAccount,
+            deleteAccountError = deleteAccountError,
+            onDeleteAccount = {
+                scope.launch {
+                    deletingAccount = true
+                    deleteAccountError = null
+                    // Success clears the token, and the sign-in screen follows.
+                    auth.deleteAccount().onFailure {
+                        deleteAccountError = it.message ?: "Could not delete the account."
+                    }
+                    deletingAccount = false
+                }
+            },
         )
     }
 }
