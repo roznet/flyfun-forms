@@ -22,7 +22,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
-| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | In progress |
+| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Code complete; emulator run owed (§8) |
 | 2 | #30 | Getting data in fast | §5 (2a–2e) | Not started — after PR 1 |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
@@ -112,9 +112,9 @@ Entity already has `nature`, `reasonForVisit`, `responsiblePersonId` — no migr
 
 ### 1e — Email export and form grouping (M, Sonnet)
 
-- [ ] Email: call `/email-text` (in `net/FormsApi.kt`, unused), to/cc from `email`/`send_to`, body in a spoken language (`FlightEditView.swift:702-795`). Check iOS #26 (AIP customs e-mails, form to e-mail first) first
-- [ ] "Languages you speak" setting in DataStore (`ContentView.swift:104-190`)
-- [ ] Primary form, then web forms, then collapsed "Other forms" (`FlightEditView.swift:418-443`)
+- [x] Email: call `/email-text` (in `net/FormsApi.kt`, unused), to/cc from `email`/`send_to`, body in a spoken language (`FlightEditView.swift:702-795`). Check iOS #26 (AIP customs e-mails, form to e-mail first) first
+- [x] "Languages you speak" setting in DataStore (`ContentView.swift:104-190`)
+- [x] Primary form, then web forms, then collapsed "Other forms" (`FlightEditView.swift:418-443`)
 
 ---
 
@@ -218,3 +218,6 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 1c — Per-form extra values live in the flight screen's ViewModel only, keyed by airport + form as on iOS, and are not stored.
 - 2026-09-26 — 1d — Return / Next leg / Duplicate store the current flight, then open the new leg as a draft marked unsaved, so Back asks before dropping it. iOS inserts the new leg straight away. The leg actions sit in an Actions section at the foot of the editor, as on the iPhone; Delete stays in the overflow menu.
 - 2026-09-26 — 1d — Upcoming flights stay sorted soonest first (iOS sorts newest first); past flights are newest first, collapsed by default.
+- 2026-09-26 — 1e — "Languages you speak" is stored in SharedPreferences under the iOS key `spokenLanguageCodes`, same comma-separated format, rather than DataStore: one string does not justify a new dependency.
+- 2026-09-26 — 1e — E-mail is `ACTION_SEND` with a `mailto:` selector and the file as `EXTRA_STREAM` + ClipData, falling back to the share sheet when no mail app answers (iOS falls back the same way without a mail account). The subject is the server's local subject, or the English one when that is empty; the body is local only when the pilot speaks the airport's language. #26 needed nothing client-side: the server already lists the form to e-mail first, and the primary form is simply the first document form.
+- 2026-09-26 — 1e — Document forms keep their "Generate" button (file, then a Share dialog) next to the new "Email"; iOS's "Share" opens the share sheet directly.

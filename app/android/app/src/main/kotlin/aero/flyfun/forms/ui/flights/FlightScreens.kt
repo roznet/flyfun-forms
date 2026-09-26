@@ -6,6 +6,7 @@ import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.displayField
 import aero.flyfun.forms.data.FormRequestBuilder
+import aero.flyfun.forms.logic.FormSides
 import aero.flyfun.forms.net.ExtraFieldValue
 import aero.flyfun.forms.ui.common.ChoiceField
 import aero.flyfun.forms.ui.common.DeleteOverflowMenu
@@ -203,6 +204,7 @@ fun FlightEditScreen(
     /** Save, and leave once it is stored: leaving first would cancel the write. */
     onSaveAndBack: () -> Unit,
     onGenerate: (String, FormInfo) -> Unit,
+    onEmail: (String, FormInfo) -> Unit,
     onOpenWebForm: (String, FormInfo) -> Unit,
     onShare: (java.io.File) -> Unit,
     onDismissGenerate: () -> Unit,
@@ -352,6 +354,7 @@ fun FlightEditScreen(
                 extraValues = extraValues,
                 onSetExtra = onSetExtra,
                 onGenerate = onGenerate,
+                onEmail = onEmail,
                 onOpenWebForm = onOpenWebForm,
             )
             airportForms.forEach { airport -> AirportFormsCard(airport, rowContext) }
@@ -450,6 +453,7 @@ class FormRowContext(
     val extraValues: Map<String, Map<String, ExtraFieldValue>>,
     val onSetExtra: (airport: String, formId: String, key: String, value: ExtraFieldValue?) -> Unit,
     val onGenerate: (String, FormInfo) -> Unit,
+    val onEmail: (String, FormInfo) -> Unit,
     val onOpenWebForm: (String, FormInfo) -> Unit,
 )
 
@@ -471,8 +475,21 @@ private fun AirportFormsCard(airport: AirportForms, ctx: FormRowContext) {
                     Text(airport.error, style = MaterialTheme.typography.bodySmall)
                 airport.forms.isEmpty() ->
                     Text("No forms needed here.", style = MaterialTheme.typography.bodySmall)
-                else -> airport.forms.forEach { form ->
-                    if (form.isWebForm) WebFormRow(airport.icao, form, ctx) else FormRow(airport.icao, form, ctx)
+                else -> {
+                    val grouped = FormSides.group(airport.forms) { it.isWebForm }
+                    grouped.primary?.let { FormRow(airport.icao, it, ctx) }
+                    grouped.web.forEach { WebFormRow(airport.icao, it, ctx) }
+                    if (grouped.others.isNotEmpty()) {
+                        var showOthers by rememberSaveable(airport.icao, airport.direction) { mutableStateOf(false) }
+                        TextButton(onClick = { showOthers = !showOthers }) {
+                            Text("Other forms (${grouped.others.size})")
+                            Icon(
+                                if (showOthers) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                            )
+                        }
+                        if (showOthers) grouped.others.forEach { FormRow(airport.icao, it, ctx) }
+                    }
                 }
             }
         }
@@ -485,14 +502,16 @@ private fun FormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(form.label, style = MaterialTheme.typography.titleSmall)
         ExtraFields(airport, form, ctx)
-        Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp, Alignment.End), Alignment.CenterVertically) {
+            if (working) CircularProgressIndicator(Modifier.padding(2.dp))
+            OutlinedButton(
+                enabled = ctx.state !is GenerateState.Working,
+                onClick = { ctx.onEmail(airport, form) },
+            ) { Text("Email") }
             OutlinedButton(
                 enabled = ctx.state !is GenerateState.Working,
                 onClick = { ctx.onGenerate(airport, form) },
-            ) {
-                if (working) CircularProgressIndicator(Modifier.padding(2.dp))
-                else Text("Generate")
-            }
+            ) { Text("Generate") }
         }
     }
 }

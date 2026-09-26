@@ -7,9 +7,11 @@ import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.data.FormRequestBuilder
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonEntity
+import aero.flyfun.forms.logic.EmailText
 import aero.flyfun.forms.logic.FlightLegs
 import aero.flyfun.forms.logic.FormSides
 import aero.flyfun.forms.logic.Leg
+import aero.flyfun.forms.net.EmailTextRequest
 import aero.flyfun.forms.net.ExtraFieldValue
 import aero.flyfun.forms.net.GenerateRequest
 import aero.flyfun.forms.net.ApiClient
@@ -19,6 +21,7 @@ import aero.flyfun.forms.net.ServerValidationError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -76,6 +79,15 @@ sealed interface GenerateState {
 
     /** A web form's prefill plan, ready to open in a WebView. */
     data class WebPlan(val plan: FillPlan) : GenerateState
+
+    /** A form ready to go to a mail app; the screen sends it once and clears this. */
+    data class EmailReady(
+        val file: File,
+        val to: List<String>,
+        val cc: List<String>,
+        val subject: String,
+        val body: String,
+    ) : GenerateState
 }
 
 class FlightsViewModel(
@@ -83,6 +95,8 @@ class FlightsViewModel(
     private val people: PeopleRepository,
     private val api: ApiClient,
     private val cacheDir: File,
+    /** Read when an e-mail is written, so a change in Settings applies at once. */
+    private val spokenLanguages: () -> Set<String> = { emptySet() },
 ) : ViewModel() {
 
     val allFlights: StateFlow<List<FlightEntity>> =
@@ -408,30 +422,79 @@ class FlightsViewModel(
     }
 
     fun generateForm(airport: String, form: FormInfo) = viewModelScope.launch {
-        val request = buildRequest(airport, form) ?: return@launch
-        _generate.value = runCatching { api.forms.generate(request) }.fold(
-            onSuccess = { response ->
-                when {
-                    response.isSuccessful -> {
-                        val bytes = response.body()?.bytes()
-                        if (bytes == null) {
-                            GenerateState.Failed("The server returned an empty file.")
-                        } else {
-                            val name = response.suggestedFileName(airport, form.id)
-                            val file = FormFiles.dir(cacheDir).resolve(name)
-                            file.writeBytes(bytes)
-                            GenerateState.Ready(file, form.label)
-                        }
-                    }
-                    response.code() == 422 -> {
-                        val body = response.errorBody()?.string().orEmpty()
-                        GenerateState.Invalid(api.parseValidationErrors(body))
-                    }
-                    else -> GenerateState.Failed("Server returned ${response.code()}.")
-                }
-            },
-            onFailure = { GenerateState.Failed(it.friendlyMessage()) },
+        val file = generateFile(airport, form) ?: return@launch
+        _generate.value = GenerateState.Ready(file, form.label)
+    }
+
+    /**
+     * Generate the form and hand it to a mail app, addressed as the form says
+     * and with the server's covering text. Port of iOS `generateAndEmail`: the
+     * text is fetched alongside the file, in the airport's language when the
+     * pilot speaks it.
+     */
+    fun emailForm(airport: String, form: FormInfo) = viewModelScope.launch {
+        val current = _detail.value ?: return@launch
+        val flight = current.flight
+        val registration = current.aircraft?.registration.orEmpty()
+        val departureDate = FormRequestBuilder.utcDate(flight.departureInstant)
+        val text = async {
+            runCatching {
+                api.forms.emailText(
+                    EmailTextRequest(
+                        airport = airport,
+                        form = form.id,
+                        origin = flight.originICAO,
+                        destination = flight.destinationICAO,
+                        departureDate = departureDate,
+                        registration = registration,
+                        aircraftType = current.aircraft?.type,
+                    ),
+                )
+            }.getOrNull()
+        }
+        val file = generateFile(airport, form)
+        if (file == null) {
+            text.cancel()
+            return@launch
+        }
+        val message = text.await()?.let {
+            EmailText.choose(it.localLanguage, spokenLanguages(), it.subjectEn, it.subjectLocal, it.bodyEn, it.bodyLocal)
+        } ?: EmailText.fallback(form.label, flight.originICAO, flight.destinationICAO, departureDate, registration)
+
+        _generate.value = GenerateState.EmailReady(
+            file = file,
+            to = form.email?.to?.takeIf { it.isNotEmpty() } ?: listOfNotNull(form.sendTo?.takeIf { it.isNotBlank() }),
+            cc = form.email?.cc.orEmpty(),
+            subject = message.subject,
+            body = message.body,
         )
+    }
+
+    /** The filled form as a file, or null with the state saying why not. */
+    private suspend fun generateFile(airport: String, form: FormInfo): File? {
+        val request = buildRequest(airport, form) ?: return null
+        val response = runCatching { api.forms.generate(request) }.getOrElse {
+            _generate.value = GenerateState.Failed(it.friendlyMessage())
+            return null
+        }
+        when {
+            response.isSuccessful -> {
+                val bytes = response.body()?.bytes()
+                if (bytes == null) {
+                    _generate.value = GenerateState.Failed("The server returned an empty file.")
+                    return null
+                }
+                val file = FormFiles.dir(cacheDir).resolve(response.suggestedFileName(airport, form.id))
+                file.writeBytes(bytes)
+                return file
+            }
+            response.code() == 422 -> {
+                val body = response.errorBody()?.string().orEmpty()
+                _generate.value = GenerateState.Invalid(api.parseValidationErrors(body))
+            }
+            else -> _generate.value = GenerateState.Failed("Server returned ${response.code()}.")
+        }
+        return null
     }
 
     /**
