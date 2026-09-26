@@ -1,5 +1,7 @@
 package aero.flyfun.forms.ui.settings
 
+import android.content.res.Resources
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.DataTransfer
 import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.logic.DataFileCrypto
@@ -33,6 +35,8 @@ class DataTransferViewModel(
     private val transfer: DataTransfer,
     private val cacheDir: File,
     private val appVersion: String,
+    /** The app's (not an activity's) resources, for messages this shows; see strings.xml. */
+    private val resources: Resources,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<TransferState>(TransferState.Idle)
@@ -48,7 +52,7 @@ class DataTransferViewModel(
             val file = outDir().resolve("flyfun-forms-data.ffdata")
             file.writeBytes(bytes)
             TransferState.Exported(file, passphrase)
-        }.getOrElse { TransferState.Failed(it.message ?: "Export failed") }
+        }.getOrElse { TransferState.Failed(it.message ?: resources.getString(R.string.settings_export_failed)) }
     }
 
     /** GDPR Art. 20: machine-readable, and deliberately not encrypted. */
@@ -58,7 +62,7 @@ class DataTransferViewModel(
             val file = outDir().resolve("flyfun-forms-export.json")
             file.writeText(transfer.exportPlain(appVersion))
             TransferState.Exported(file, null)
-        }.getOrElse { TransferState.Failed(it.message ?: "Export failed") }
+        }.getOrElse { TransferState.Failed(it.message ?: resources.getString(R.string.settings_export_failed)) }
     }
 
     fun previewImport(bytes: ByteArray, password: String? = null) = viewModelScope.launch {
@@ -74,8 +78,8 @@ class DataTransferViewModel(
         }.getOrElse {
             when (it) {
                 is DataFileCrypto.WrongPasswordException ->
-                    TransferState.Failed("That password does not match this file.")
-                else -> TransferState.Failed(it.message ?: "Could not read that file")
+                    TransferState.Failed(resources.getString(R.string.settings_wrong_password))
+                else -> TransferState.Failed(it.message ?: resources.getString(R.string.settings_could_not_read_file))
             }
         }
     }
@@ -87,7 +91,7 @@ class DataTransferViewModel(
             transfer.apply(summary)
             pending = null
             TransferState.Imported(summary)
-        }.getOrElse { TransferState.Failed(it.message ?: "Import failed") }
+        }.getOrElse { TransferState.Failed(it.message ?: resources.getString(R.string.settings_import_failed)) }
     }
 
     fun reset() {

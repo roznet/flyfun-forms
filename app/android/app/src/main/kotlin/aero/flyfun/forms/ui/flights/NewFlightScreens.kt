@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
@@ -37,6 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -67,9 +72,12 @@ fun NewFlightScreen(
     airportInfo: Map<String, AirportDetails>,
     importSummary: String?,
     hasPreviousFlights: Boolean,
+    /** FlyFun Weather needs the account; offered greyed with the reason otherwise. */
+    signedIn: Boolean,
     suggestion: SuggestionChoice?,
     hasCrewSources: Boolean,
     onImportPrevious: () -> Unit,
+    onImportWeather: () -> Unit,
     onOpenRoutePicker: () -> Unit,
     onSetDeparture: (Instant) -> Unit,
     onSetArrival: (Instant) -> Unit,
@@ -84,16 +92,17 @@ fun NewFlightScreen(
 ) {
     val flight = detail.flight
     val steps = rememberSaveableStateHolder()
+    val none = stringResource(R.string.flights_none)
     BackHandler { if (step == NewFlightStep.PEOPLE) onBack() else onCancel() }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (step == NewFlightStep.ROUTE) "New Flight" else "Add People") },
+                title = { Text(stringResource(if (step == NewFlightStep.ROUTE) R.string.flights_new_flight else R.string.flights_add_people)) },
                 navigationIcon = {
                     if (step == NewFlightStep.PEOPLE) {
-                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.flights_back)) }
                     } else {
-                        IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = "Cancel") }
+                        IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_cancel)) }
                     }
                 },
                 actions = {
@@ -101,9 +110,9 @@ fun NewFlightScreen(
                         TextButton(
                             onClick = onNext,
                             enabled = flight.originICAO.isNotBlank() || flight.destinationICAO.isNotBlank(),
-                        ) { Text("Next") }
+                        ) { Text(stringResource(R.string.flights_next)) }
                     } else {
-                        TextButton(onClick = onCreate) { Text("Create Flight") }
+                        TextButton(onClick = onCreate) { Text(stringResource(R.string.flights_create_flight)) }
                     }
                 },
             )
@@ -117,44 +126,51 @@ fun NewFlightScreen(
             steps.SaveableStateProvider(step) {
                 when (step) {
                     NewFlightStep.ROUTE -> {
-                        Text("Import", style = MaterialTheme.typography.titleMedium)
-                        OutlinedButton(onClick = onImportPrevious, enabled = hasPreviousFlights) {
-                            Icon(Icons.Default.History, contentDescription = null)
-                            Text("Previous Flight", Modifier.padding(start = 8.dp))
-                        }
-                        Text(
-                            if (hasPreviousFlights) "Repeat a flight with the same crew, rescheduled" else "No earlier flights yet",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        // Every method listed, an unusable one greyed with its
+                        // reason, as iOS's import list (FlightImportMethod).
+                        Text(stringResource(R.string.flights_import), style = MaterialTheme.typography.titleMedium)
+                        ImportMethod(
+                            icon = Icons.Default.History,
+                            title = stringResource(R.string.flights_previous_flight),
+                            subtitle = stringResource(if (hasPreviousFlights) R.string.flights_previous_flight_subtitle else R.string.flights_no_earlier_flights),
+                            enabled = hasPreviousFlights,
+                            onClick = onImportPrevious,
+                        )
+                        ImportMethod(
+                            icon = Icons.Default.Cloud,
+                            title = stringResource(R.string.flights_flyfun_weather),
+                            subtitle = stringResource(if (signedIn) R.string.flights_weather_subtitle else R.string.flights_sign_in_to_import),
+                            enabled = signedIn,
+                            onClick = onImportWeather,
                         )
                         importSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
-                        Text("Route", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.flights_route), style = MaterialTheme.typography.titleMedium)
                         ListItem(
-                            headlineContent = { Text("Route") },
+                            headlineContent = { Text(stringResource(R.string.flights_route)) },
                             trailingContent = {
                                 Text(
-                                    if (flight.originICAO.isBlank() && flight.destinationICAO.isBlank()) "Tap to select"
+                                    if (flight.originICAO.isBlank() && flight.destinationICAO.isBlank()) stringResource(R.string.flights_tap_to_select)
                                     else "${flight.originICAO.ifBlank { "----" }} → ${flight.destinationICAO.ifBlank { "----" }}",
                                 )
                             },
                             modifier = Modifier.clickable(onClick = onOpenRoutePicker),
                         )
 
-                        Text("Schedule", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.flights_schedule), style = MaterialTheme.typography.titleMedium)
                         val zones = listOfNotNull(
                             airportInfo[flight.originICAO]?.timeZone,
                             airportInfo[flight.destinationICAO]?.timeZone,
                         ).distinct()
-                        ScheduleField("Departure", flight.departureInstant, onSetDeparture, zones, airportInfo[flight.originICAO]?.timeZone)
-                        ScheduleField("Arrival", flight.arrivalInstant, onSetArrival, zones, airportInfo[flight.destinationICAO]?.timeZone)
+                        ScheduleField(stringResource(R.string.flights_departure), flight.departureInstant, onSetDeparture, zones, airportInfo[flight.originICAO]?.timeZone)
+                        ScheduleField(stringResource(R.string.flights_arrival), flight.arrivalInstant, onSetArrival, zones, airportInfo[flight.destinationICAO]?.timeZone)
 
-                        Text("Aircraft", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.flights_aircraft), style = MaterialTheme.typography.titleMedium)
                         ChoiceField(
-                            label = "Aircraft",
+                            label = stringResource(R.string.flights_aircraft),
                             selected = detail.aircraft,
                             options = listOf<AircraftEntity?>(null) + aircraftOptions,
-                            display = { a -> a?.let { "${it.registration} (${it.type.ifBlank { "?" }})" } ?: "None" },
+                            display = { a -> a?.let { "${it.registration} (${it.type.ifBlank { "?" }})" } ?: none },
                             onSelect = { onSetAircraft(it?.id) },
                         )
                     }
@@ -162,7 +178,7 @@ fun NewFlightScreen(
                     NewFlightStep.PEOPLE -> {
                         // Only while nobody is chosen: an import that brought people hides it.
                         if (suggestion != null && detail.crew.isEmpty() && detail.passengers.isEmpty()) {
-                            Text("Suggestion", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.flights_suggestion), style = MaterialTheme.typography.titleMedium)
                             Card(Modifier.fillMaxWidth().clickable { onApplySuggestion(suggestion) }) {
                                 ListItem(
                                     leadingContent = { Icon(Icons.Default.GroupAdd, contentDescription = null) },
@@ -174,24 +190,35 @@ fun NewFlightScreen(
                         if (hasCrewSources) {
                             TextButton(onClick = onOpenCrewSources) {
                                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
-                                Text("Choose another flight…", Modifier.padding(start = 8.dp))
+                                Text(stringResource(R.string.flights_choose_another_flight), Modifier.padding(start = 8.dp))
                             }
                         }
-                        Text("Crew", style = MaterialTheme.typography.titleMedium)
-                        if (detail.crew.isEmpty()) Hint("No crew selected")
+                        Text(stringResource(R.string.flights_crew), style = MaterialTheme.typography.titleMedium)
+                        if (detail.crew.isEmpty()) Hint(stringResource(R.string.flights_no_crew_selected))
                         detail.crew.forEach { Text(it.displayName) }
-                        Text("Passengers", style = MaterialTheme.typography.titleMedium)
-                        if (detail.passengers.isEmpty()) Hint("No passengers selected")
+                        Text(stringResource(R.string.flights_passengers), style = MaterialTheme.typography.titleMedium)
+                        if (detail.passengers.isEmpty()) Hint(stringResource(R.string.flights_no_passengers_selected))
                         detail.passengers.forEach { Text(it.displayName) }
                         OutlinedButton(onClick = onOpenPeoplePicker) {
                             Icon(Icons.Default.GroupAdd, contentDescription = null)
-                            Text("Select People", Modifier.padding(start = 8.dp))
+                            Text(stringResource(R.string.flights_select_people), Modifier.padding(start = 8.dp))
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun ImportMethod(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
+    val alpha = if (enabled) 1f else 0.38f
+    ListItem(
+        leadingContent = { Icon(icon, contentDescription = null, Modifier.alpha(alpha)) },
+        headlineContent = { Text(title, Modifier.alpha(alpha)) },
+        supportingContent = { Text(subtitle, Modifier.alpha(alpha)) },
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+    )
 }
 
 @Composable
@@ -221,7 +248,7 @@ fun PastFlightPickerScreen(
         topBar = {
             TopAppBar(
                 title = { Text(title) },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = "Cancel") } },
+                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_cancel)) } },
             )
         },
     ) { padding ->

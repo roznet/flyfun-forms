@@ -5,14 +5,17 @@ import aero.flyfun.forms.auth.TokenStore
 import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.ApiConfig
+import aero.flyfun.forms.ui.AppShortcut
 import aero.flyfun.forms.ui.FlyFunApp
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
+import androidx.activity.enableEdgeToEdge
+import aero.flyfun.forms.ui.FlyFunTheme
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -21,10 +24,16 @@ class MainActivity : ComponentActivity() {
     private lateinit var api: ApiClient
     private lateinit var auth: AuthService
 
+    /** A launcher shortcut waiting for the UI to act on it; see res/xml/shortcuts.xml. */
+    private val shortcut = MutableStateFlow<AppShortcut?>(null)
+
     /** The redirect already handled, so a recreated activity does not handle it twice. */
     private var handledCallback: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Target 35+ draws edge to edge regardless; this also makes the system
+        // bar icons follow the theme, light or dark.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         tokens = TokenStore(this)
         api = ApiClient(tokens)
@@ -38,12 +47,15 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            MaterialTheme {
-                FlyFunApp(auth = auth, tokens = tokens, api = api)
+            FlyFunTheme {
+                FlyFunApp(auth = auth, tokens = tokens, api = api, shortcut = shortcut)
             }
         }
         handledCallback = savedInstanceState?.getString(KEY_HANDLED_CALLBACK)
         handleAuthRedirect(intent)
+        // Only on a fresh start: a recreated activity keeps its old intent,
+        // and the shortcut was acted on the first time.
+        if (savedInstanceState == null) shortcut.value = AppShortcut.from(intent?.action)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -65,6 +77,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleAuthRedirect(intent)
+        AppShortcut.from(intent.action)?.let { shortcut.value = it }
     }
 
     private companion object {
@@ -85,7 +98,7 @@ class MainActivity : ComponentActivity() {
                 .onFailure {
                     Toast.makeText(
                         this@MainActivity,
-                        it.message ?: "Sign-in failed",
+                        it.message ?: getString(R.string.app_sign_in_failed),
                         Toast.LENGTH_LONG,
                     ).show()
                 }

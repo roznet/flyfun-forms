@@ -1,5 +1,6 @@
 package aero.flyfun.forms.auth
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.ApiConfig
 import aero.flyfun.forms.net.ExchangeRequest
@@ -11,6 +12,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.security.SecureRandom
 import android.util.Base64
+
+/** The sign-in providers the flyfun server offers, by their path segment in `/auth/login/{provider}`. */
+enum class SignInProvider(val path: String) {
+    GOOGLE("google"),
+
+    /**
+     * Sign in with Apple through the same web flow as Google: Apple posts back
+     * to the server (`response_mode=form_post`), which then redirects to the
+     * app with the auth code, so nothing Apple-specific happens on Android.
+     * The native `POST /auth/apple/token` route needs the iOS SDK.
+     */
+    APPLE("apple"),
+}
 
 /**
  * Google / Apple sign-in through a Chrome Custom Tab.
@@ -69,12 +83,12 @@ class AuthService(
             }.commit()
         }
 
-    fun startSignIn(provider: String = "google") {
+    fun startSignIn(provider: SignInProvider) {
         val state = newState().also { pendingState = it }
         val url = Uri.parse(ApiConfig.BASE_URL).buildUpon()
             .appendPath("auth")
             .appendPath("login")
-            .appendPath(provider)
+            .appendPath(provider.path)
             // The server's native branch keys off `platform=ios`. That name is
             // historical - it means "native app", not the OS - and it is what
             // selects the custom-scheme redirect instead of a web session
@@ -106,11 +120,11 @@ class AuthService(
             // no `state`. We always send one, so seeing this means something
             // else produced the redirect - refuse it rather than trusting a
             // token that arrived over a scheme any app can claim.
-            return Result.failure(IllegalStateException("Sign-in did not return an auth code"))
+            return Result.failure(IllegalStateException(context.getString(R.string.app_sign_in_no_code)))
         }
         val expected = pendingState
         if (expected == null || state != expected) {
-            return Result.failure(IllegalStateException("Sign-in state did not match"))
+            return Result.failure(IllegalStateException(context.getString(R.string.app_sign_in_state_mismatch)))
         }
         pendingState = null
 
@@ -138,9 +152,9 @@ class AuthService(
         if (response.code() == 401) {
             // ApiClient has already dropped the token, so the sign-in screen
             // replaces Settings before its error could show. Say it there.
-            _signInNotice.value = "Your session had expired, so your account was not deleted. Sign in again to delete it."
+            _signInNotice.value = context.getString(R.string.app_delete_account_expired)
         }
-        if (!response.isSuccessful) error("The server returned ${response.code()}. Your account was not deleted.")
+        if (!response.isSuccessful) error(context.getString(R.string.app_delete_account_server_error, response.code()))
         tokens.clear()
     }
 

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared across screens (ui/common and friends) -->
+    <string name="common_cancel">Cancel</string>
+    <string name="common_ok">OK</string>
+    <string name="common_done">Done</string>
+    <string name="common_back">Back</string>
+    <string name="common_save">Save</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_more">More</string>
+    <string name="common_select">Select…</string>
+    <string name="common_sign_in_with_google">Sign in with Google</string>
+    <string name="common_sign_in_with_apple">Sign in with Apple</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_languages_you_speak">Languages you speak</string>
+    <string name="settings_languages_footer">When an airport\'s local language matches one you speak, emails are written in that language. Otherwise English is used.</string>
+    <string name="settings_move_my_data">Move my data</string>
+    <string name="settings_move_my_data_footer">Creates one encrypted file holding your people, aircraft and flights, protected by a passphrase shown once. Use it to move everything to another device.</string>
+    <string name="settings_export_encrypted_file">Export encrypted file</string>
+    <string name="settings_import_from_a_file">Import from a file</string>
+    <string name="settings_download_copy">Download a copy of my data</string>
+    <string name="settings_download_copy_footer">A plain JSON copy of everything this app holds about you, for your own records. It is NOT encrypted, and it contains passport details - keep it somewhere safe.</string>
+    <string name="settings_export_unencrypted_json">Export unencrypted JSON</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_delete_account">Delete account</string>
+    <string name="settings_delete_account_footer">Permanently deletes your account and all server data. People, aircraft and flights on this device are kept.</string>
+    <string name="settings_not_signed_in">Not signed in</string>
+    <string name="settings_not_signed_in_footer">Sign in to load each airport\'s forms and generate them. Your people, aircraft and flights stay on this device either way.</string>
+    <string name="settings_delete_account_confirm_message">This will permanently delete your account. This action cannot be undone.</string>
+    <string name="settings_delete_my_account">Delete my account</string>
+    <string name="settings_passphrase">Passphrase</string>
+    <string name="settings_export_ready">Export ready</string>
+    <string name="settings_passphrase_instructions">Type this on the other device to open the file. It is not stored anywhere, so write it down now.</string>
+    <string name="settings_file_ready_not_encrypted">%1$s is ready. It is not encrypted.</string>
+    <string name="settings_share_file">Share file</string>
+    <string name="settings_passphrase_from_other_device">Passphrase from the other device</string>
+    <string name="settings_open">Open</string>
+    <string name="settings_import_this_file">Import this file?</string>
+    <string name="settings_import_nothing_removed">Nothing already on this device is removed unless the file says it was deleted.</string>
+    <string name="settings_import">Import</string>
+    <string name="settings_imported">Imported</string>
+    <string name="settings_could_not_do_that">Could not do that</string>
+    <string name="settings_export_failed">Export failed</string>
+    <string name="settings_wrong_password">That password does not match this file.</string>
+    <string name="settings_could_not_read_file">Could not read that file</string>
+    <string name="settings_import_failed">Import failed</string>
+
+    <!-- Aircraft -->
+    <string name="aircraft_title">Aircraft</string>
+    <string name="aircraft_add">Add aircraft</string>
+    <string name="aircraft_empty_title">No aircraft yet</string>
+    <string name="aircraft_empty_message">Add the aircraft you fly so forms can carry its registration and type.</string>
+    <string name="aircraft_new_aircraft">New Aircraft</string>
+    <string name="aircraft_edit_aircraft">Edit Aircraft</string>
+    <string name="aircraft_usual_base">Usual Base</string>
+    <string name="aircraft_registration">Registration</string>
+    <string name="aircraft_type_hint">Type (e.g. SR22)</string>
+    <string name="aircraft_airplane">Airplane</string>
+    <string name="aircraft_helicopter">Helicopter</string>
+    <string name="aircraft_operator">Operator</string>
+    <string name="aircraft_company_operator">Company operator</string>
+    <string name="aircraft_company_name_address">Company name &amp; address</string>
+    <string name="aircraft_owner">Owner</string>
+    <string name="aircraft_unnamed">Unnamed</string>
+    <string name="aircraft_on_file">On file</string>
+    <string name="aircraft_email">Email</string>
+    <string name="aircraft_phone">Phone</string>
+    <string name="aircraft_address">Address</string>
+    <string name="aircraft_add_owner_in_people">Add the owner in People to pick them here.</string>
+    <string name="aircraft_base">Base</string>
+
+    <!-- Web form -->
+    <string name="webform_fill_again">Fill again</string>
+    <string name="webform_submit_on_page">Check the details, then submit on the page itself.</string>
+    <string name="webform_could_not_fill">Could not fill this page automatically.</string>
+    <string name="webform_filled_fields">Filled %1$d fields.</string>
+    <string name="webform_filled_fields_not_found">Filled %1$d fields. Not found: %2$s</string>
+</resources>

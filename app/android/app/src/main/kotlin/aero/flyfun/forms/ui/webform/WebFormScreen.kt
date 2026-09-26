@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.webform
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.net.FillPlan
 import android.annotation.SuppressLint
 import android.webkit.CookieManager
@@ -31,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.serialization.builtins.serializer
@@ -80,13 +82,13 @@ fun WebFormScreen(plan: FillPlan, onBack: () -> Unit) {
                 title = { Text(plan.label) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     TextButton(onClick = {
                         webView?.let { status = null; it.applyPlan(plan) { s -> status = s } }
-                    }) { Text("Fill again") }
+                    }) { Text(stringResource(R.string.webform_fill_again)) }
                 },
             )
         },
@@ -103,7 +105,7 @@ fun WebFormScreen(plan: FillPlan, onBack: () -> Unit) {
                 }
             }
             Text(
-                "Check the details, then submit on the page itself.",
+                stringResource(R.string.webform_submit_on_page),
                 Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.labelSmall,
             )
@@ -155,9 +157,13 @@ private fun WebView.applyPlan(plan: FillPlan, onStatus: (String) -> Unit) {
 
         onStatus(
             when {
-                result == null -> "Could not fill this page automatically."
-                result.missing.isEmpty() -> "Filled ${result.filled.size} fields."
-                else -> "Filled ${result.filled.size} fields. Not found: ${result.missing.joinToString(", ")}"
+                result == null -> context.getString(R.string.webform_could_not_fill)
+                result.missing.isEmpty() -> context.getString(R.string.webform_filled_fields, result.filled.size)
+                else -> context.getString(
+                    R.string.webform_filled_fields_not_found,
+                    result.filled.size,
+                    result.missing.joinToString(", "),
+                )
             },
         )
     }

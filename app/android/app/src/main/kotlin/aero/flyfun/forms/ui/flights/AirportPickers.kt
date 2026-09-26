@@ -1,9 +1,11 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.logic.AirportSummary
 import aero.flyfun.forms.logic.RecentRoute
 import aero.flyfun.forms.ui.people.SearchField
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,9 +88,9 @@ fun RoutePickerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Route") },
-                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = "Close") } },
-                actions = { TextButton(onClick = onDone) { Text("Done") } },
+                title = { Text(stringResource(R.string.flights_route)) },
+                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_close)) } },
+                actions = { TextButton(onClick = onDone) { Text(stringResource(R.string.flights_done)) } },
             )
         },
     ) { padding ->
@@ -97,22 +100,22 @@ fun RoutePickerScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RouteEnd("FROM", origin, lookup, active = editingOrigin, Modifier.weight(1f)) {
+                RouteEnd(stringResource(R.string.flights_route_from), origin, lookup, active = editingOrigin, Modifier.weight(1f)) {
                     editingOrigin = true
                     query = ""
                 }
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                RouteEnd("TO", destination, lookup, active = !editingOrigin, Modifier.weight(1f)) {
+                RouteEnd(stringResource(R.string.flights_route_to), destination, lookup, active = !editingOrigin, Modifier.weight(1f)) {
                     editingOrigin = false
                     query = ""
                 }
             }
-            SearchField(query, { query = it }, "Search airport name or ICAO")
+            SearchField(query, { query = it }, stringResource(R.string.flights_search_airport))
             LazyColumn(Modifier.fillMaxSize()) {
                 airportResults(query, results, if (editingOrigin) origin else destination, ::pick)
                 val routes = recentRoutes(query)
                 if (routes.isNotEmpty()) {
-                    header("Recent Routes")
+                    header(R.string.flights_recent_routes)
                     items(routes, key = { "route:${it.origin}-${it.destination}" }) { route ->
                         ListItem(
                             headlineContent = {
@@ -151,15 +154,15 @@ fun AirportPickerScreen(
         topBar = {
             TopAppBar(
                 title = { Text(title) },
-                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = "Close") } },
+                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_close)) } },
                 actions = {
-                    if (selected.isNotEmpty()) TextButton(onClick = { onPick(""); onDone() }) { Text("Clear") }
+                    if (selected.isNotEmpty()) TextButton(onClick = { onPick(""); onDone() }) { Text(stringResource(R.string.flights_clear)) }
                 },
             )
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            SearchField(query, { query = it }, "Search airport name or ICAO")
+            SearchField(query, { query = it }, stringResource(R.string.flights_search_airport))
             LazyColumn(Modifier.fillMaxSize()) {
                 airportResults(query, results, selected) { onPick(it); onDone() }
             }
@@ -189,14 +192,14 @@ private fun LazyListScope.airportResults(
     onPick: (String) -> Unit,
 ) {
     if (results.isNotEmpty()) {
-        header("Airports")
+        header(R.string.flights_airports)
         items(results, key = { "airport:${it.icao}" }) { airport ->
             ListItem(
                 leadingContent = { Text(airport.icao, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
                 headlineContent = { Text(airport.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 supportingContent = { Text(listOf(airport.city, airport.country).filter { it.isNotBlank() }.joinToString(", ")) },
                 trailingContent = if (airport.icao == selected) {
-                    { Icon(Icons.Default.Check, contentDescription = "Selected") }
+                    { Icon(Icons.Default.Check, contentDescription = stringResource(R.string.flights_selected)) }
                 } else {
                     null
                 },
@@ -209,8 +212,8 @@ private fun LazyListScope.airportResults(
     if (code.length == 4 && code.all { it.isLetterOrDigit() } && results.none { it.icao == code }) {
         item(key = "use-code") {
             ListItem(
-                headlineContent = { Text("Use $code") },
-                supportingContent = { Text("Not in the airport database") },
+                headlineContent = { Text(stringResource(R.string.flights_use_code, code)) },
+                supportingContent = { Text(stringResource(R.string.flights_not_in_database)) },
                 modifier = Modifier.clickable { onPick(code) },
             )
         }
@@ -249,10 +252,10 @@ private fun RouteEnd(
     }
 }
 
-private fun LazyListScope.header(text: String) {
+private fun LazyListScope.header(@StringRes text: Int) {
     item(key = "header:$text") {
         Text(
-            text,
+            stringResource(text),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),

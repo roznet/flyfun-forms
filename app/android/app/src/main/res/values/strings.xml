@@ -1,3 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English, the source language. Strings are split by area (strings_*.xml);
+  these are the app shell's: navigation, sign-in, deletion, sharing.
+
+  Translations in values-fr, values-de and values-es are written by
+  scripts/android_strings.py from the iOS app's Localizable.xcstrings: a string
+  whose English matches an iOS key exactly takes that key's translation. Keep
+  wording the same as iOS where the meaning is the same, and re-run the script
+  after adding strings.
+-->
 <resources>
-    <string name="app_name">FlyFun Forms</string>
+    <string name="app_name" translatable="false">FlyFun Forms</string>
+    <string name="shortcut_new_flight">New Flight</string>
+    <string name="shortcut_scan_passport">Scan Passport</string>
+
+    <string name="app_tab_flights">Flights</string>
+    <string name="app_tab_people">People</string>
+    <string name="app_tab_aircraft">Aircraft</string>
+    <string name="app_tab_settings">Settings</string>
+
+    <string name="app_pick_flight">Pick a flight, or add one with +.</string>
+    <string name="app_pick_person">Pick someone, or add them with +.</string>
+    <string name="app_pick_aircraft">Pick an aircraft, or add one with +.</string>
+
+    <string name="app_ok">OK</string>
+    <string name="app_save">Save</string>
+    <string name="app_discard">Discard</string>
+    <string name="app_undo">Undo</string>
+    <string name="app_save_changes_title">Save your changes?</string>
+    <string name="app_open_other_flight_discards">Opening another flight discards what you have not saved.</string>
+
+    <!-- %1$s: a person's name, a registration, or a route such as EGTF → LFMN. -->
+    <string name="app_deleted">Deleted %1$s</string>
+    <string name="app_deleted_person">person</string>
+    <string name="app_deleted_aircraft">aircraft</string>
+
+    <string name="app_previous_flight">Previous Flight</string>
+    <string name="app_no_earlier_flights">No earlier flights yet.</string>
+    <string name="app_copy_crew_from">Copy Crew From</string>
+    <string name="app_copy_crew_empty">Once a flight has crew or passengers, you can copy them here.</string>
+    <string name="app_usual_crew">Usual crew</string>
+    <!-- %1$s: a route such as EGTF → LFMN. -->
+    <string name="app_same_as">Same as %1$s</string>
+
+    <string name="app_import_failed">Import Failed</string>
+    <string name="app_export_failed">Export Failed</string>
+    <string name="app_could_not_read_file">Could not read that file.</string>
+    <string name="app_could_not_write_file">Could not write that file.</string>
+    <string name="app_people_exported">People exported</string>
+    <string name="app_file_cleared">That file has been cleared. Generate it again.</string>
+    <!-- %1$s: a file name. -->
+    <string name="app_share_file">Share %1$s</string>
+
+    <string name="app_sign_in_intro">Sign in to generate customs and immigration forms.</string>
+    <string name="app_continue_offline">Enter data without signing in</string>
+    <string name="app_sign_in_failed">Sign-in failed</string>
+    <string name="app_sign_in_no_code">Sign-in did not return an auth code</string>
+    <string name="app_sign_in_state_mismatch">Sign-in state did not match</string>
+    <string name="app_delete_account_failed">Could not delete the account.</string>
+    <string name="app_delete_account_expired">Your session had expired, so your account was not deleted. Sign in again to delete it.</string>
+    <!-- %1$d: an HTTP status code. -->
+    <string name="app_delete_account_server_error">The server returned %1$d. Your account was not deleted.</string>
+
+    <string name="app_weather_sign_in">Sign in to the same FlyFun account to import your weather flights.</string>
+    <string name="app_weather_no_route">This flight has no route to import.</string>
+    <!-- %1$d: an HTTP status code; %2$s: ": " and the server's message, or nothing. -->
+    <string name="app_weather_server_error">Weather server error (%1$d)%2$s</string>
+    <string name="app_weather_empty">Weather server sent nothing back.</string>
+    <!-- %1$s: why, in English from the decoder. -->
+    <string name="app_weather_unreadable">That flight could not be read. %1$s</string>
 </resources>

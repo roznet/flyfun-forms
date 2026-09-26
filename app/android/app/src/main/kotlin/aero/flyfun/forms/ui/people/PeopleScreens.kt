@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.people
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.TravelDocumentEntity
@@ -47,6 +48,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -63,6 +65,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -93,6 +97,8 @@ fun PeopleListScreen(
     add: AddPersonActions,
     onExportCsv: () -> Unit,
     onDelete: (PersonEntity) -> Unit,
+    /** The person open beside the list, on a screen wide enough for both. */
+    selectedId: String? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var sortByRecent by rememberSaveable { mutableStateOf(false) }
@@ -112,21 +118,21 @@ fun PeopleListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("People") },
+                title = { Text(stringResource(R.string.people_title)) },
                 actions = {
                     IconButton(onClick = { sortByRecent = !sortByRecent }) {
                         Icon(
                             if (sortByRecent) Icons.Default.SortByAlpha else Icons.Default.Schedule,
-                            contentDescription = if (sortByRecent) "Sort A-Z" else "Sort by Recent",
+                            contentDescription = stringResource(if (sortByRecent) R.string.people_sort_az else R.string.people_sort_by_recent),
                         )
                     }
                     Box {
                         IconButton(onClick = { overflow = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.people_more))
                         }
                         DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
                             DropdownMenuItem(
-                                text = { Text("Export to CSV") },
+                                text = { Text(stringResource(R.string.people_export_csv)) },
                                 leadingIcon = { Icon(Icons.Default.Upload, contentDescription = null) },
                                 enabled = people.isNotEmpty(),
                                 onClick = { overflow = false; onExportCsv() },
@@ -139,7 +145,7 @@ fun PeopleListScreen(
         floatingActionButton = {
             Box {
                 FloatingActionButton(onClick = { addMenu = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add person")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.people_add_person_description))
                 }
                 DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                     AddPersonMenuItems(add) { addMenu = false }
@@ -149,7 +155,7 @@ fun PeopleListScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (people.isNotEmpty()) {
-                SearchField(query, { query = it }, "Search by name")
+                SearchField(query, { query = it }, stringResource(R.string.people_search_by_name))
             }
             when {
                 people.isEmpty() -> Column(
@@ -157,22 +163,22 @@ fun PeopleListScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("No crew or passengers yet", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.people_empty_title), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Add the people you fly with, and their passports, so forms fill themselves.",
+                        stringResource(R.string.people_empty_message),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 shown.isEmpty() -> Text(
-                    "No one matches “${query.trim()}”.",
+                    stringResource(R.string.people_no_match, query.trim()),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(16.dp),
                 )
                 else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(shown, key = { "${it.person.id}:${it.person.updatedAt}" }) { row ->
                         SwipeToDelete(onDelete = { onDelete(row.person) }) {
-                            PersonRow(row, lastFlight = lastFlights[row.person.id].takeIf { sortByRecent }) {
+                            PersonRow(row, lastFlight = lastFlights[row.person.id].takeIf { sortByRecent }, selected = row.person.id == selectedId) {
                                 onOpen(row.person.id)
                             }
                         }
@@ -188,27 +194,27 @@ fun PeopleListScreen(
 @Composable
 fun AddPersonMenuItems(add: AddPersonActions, close: () -> Unit) {
     DropdownMenuItem(
-        text = { Text("Add Person") },
+        text = { Text(stringResource(R.string.people_add_person)) },
         leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
         onClick = { close(); add.onAdd() },
     )
     add.onScan?.let { scan ->
         DropdownMenuItem(
-            text = { Text("Scan Document") },
+            text = { Text(stringResource(R.string.people_scan_document)) },
             leadingIcon = { Icon(Icons.Default.DocumentScanner, contentDescription = null) },
             onClick = { close(); scan() },
         )
     }
     add.onFromContact?.let { contact ->
         DropdownMenuItem(
-            text = { Text("Import from Contact") },
+            text = { Text(stringResource(R.string.people_import_from_contact)) },
             leadingIcon = { Icon(Icons.Default.ContactPage, contentDescription = null) },
             onClick = { close(); contact() },
         )
     }
     add.onImportCsv?.let { csv ->
         DropdownMenuItem(
-            text = { Text("Import from CSV") },
+            text = { Text(stringResource(R.string.people_import_from_csv)) },
             leadingIcon = { Icon(Icons.Default.Download, contentDescription = null) },
             onClick = { close(); csv() },
         )
@@ -216,28 +222,36 @@ fun AddPersonMenuItems(add: AddPersonActions, close: () -> Unit) {
 }
 
 @Composable
-private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, onClick: () -> Unit) {
+private fun PersonRow(row: PersonWithDocuments, lastFlight: Instant?, selected: Boolean, onClick: () -> Unit) {
     val active = row.documents.filter { it.isActive && it.deletedAt == null }
+    val newPerson = stringResource(R.string.people_new_person)
+    val documents = if (active.isEmpty()) {
+        stringResource(R.string.people_no_documents)
+    } else {
+        pluralStringResource(R.plurals.people_documents_count, active.size, active.size)
+    }
+    val flew = lastFlight?.let { stringResource(R.string.people_flew, lastFlightFormat.format(it)) }
     ListItem(
-        headlineContent = { Text(row.person.displayName.ifBlank { "New Person" }) },
+        headlineContent = { Text(row.person.displayName.ifBlank { newPerson }) },
         supportingContent = {
             Text(
                 listOfNotNull(
                     // Nationality derives from the documents, never the person.
                     active.mapNotNull { it.issuingCountry }.distinct().joinToString("/").ifBlank { null },
-                    if (active.isEmpty()) "No documents" else "${active.size} document${if (active.size == 1) "" else "s"}",
-                    lastFlight?.let { "Flew ${lastFlightFormat.format(it)}" },
+                    documents,
+                    flew,
                 ).joinToString(" · "),
             )
         },
         trailingContent = if (row.person.isUsualCrew) { { CrewPill() } } else null,
+        colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
 
 /** The small "Crew" tag iOS puts on usual crew. */
 @Composable
-fun CrewPill(text: String = "Crew") {
+fun CrewPill(text: String = stringResource(R.string.people_crew)) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape) {
         Text(
             text,
@@ -260,7 +274,7 @@ fun SearchField(query: String, onChange: (String) -> Unit, placeholder: String, 
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {
-            { IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear search") } }
+            { IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.people_clear_search)) } }
         } else {
             null
         },
@@ -286,6 +300,23 @@ private val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM y
 /** Same vocabulary as iOS, so a record moved between the two reads the same. */
 private val sexOptions = listOf("Male", "Female")
 private val documentTypes = listOf("Passport", "Identity card", "Other")
+
+/** The shown label for a stored sex value; anything unknown is shown as stored. */
+@Composable
+private fun sexLabel(value: String): String = when (value) {
+    "Male" -> stringResource(R.string.people_sex_male)
+    "Female" -> stringResource(R.string.people_sex_female)
+    else -> value
+}
+
+/** The shown label for a stored document type; anything unknown is shown as stored. */
+@Composable
+private fun documentTypeLabel(value: String): String = when (value) {
+    "Passport" -> stringResource(R.string.people_doc_type_passport)
+    "Identity card" -> stringResource(R.string.people_doc_type_identity_card)
+    "Other" -> stringResource(R.string.people_doc_type_other)
+    else -> value
+}
 
 /**
  * The person's own fields, plus the list of their documents.
@@ -336,14 +367,14 @@ fun PersonEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (existing == null) "New Person" else "Edit Person") },
+                title = { Text(stringResource(if (existing == null) R.string.people_new_person else R.string.people_edit_person)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.people_back))
                     }
                 },
                 actions = {
-                    TextButton(onClick = { onSave(edited()) }) { Text("Save") }
+                    TextButton(onClick = { onSave(edited()) }) { Text(stringResource(R.string.people_save)) }
                     onDelete?.let { DeleteOverflowMenu(onDelete = it) }
                 },
             )
@@ -360,7 +391,7 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
-                label = { Text("First name") },
+                label = { Text(stringResource(R.string.people_first_name)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 modifier = Modifier.fillMaxWidth(),
@@ -368,16 +399,16 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = lastName,
                 onValueChange = { lastName = it },
-                label = { Text("Last name") },
+                label = { Text(stringResource(R.string.people_last_name)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(Modifier.height(4.dp))
-            Text("Details", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.people_details), style = MaterialTheme.typography.titleMedium)
             OptionalDateField(
-                label = "Date of birth",
+                label = stringResource(R.string.people_date_of_birth),
                 value = dateOfBirth,
                 onChange = { dateOfBirth = it },
                 yearRange = 1900..LocalDate.now().year,
@@ -386,7 +417,7 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = placeOfBirth,
                 onValueChange = { placeOfBirth = it },
-                label = { Text("Place of birth") },
+                label = { Text(stringResource(R.string.people_place_of_birth)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 modifier = Modifier.fillMaxWidth(),
@@ -396,14 +427,14 @@ fun PersonEditScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Sex", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.people_sex), style = MaterialTheme.typography.bodyLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     sexOptions.forEach { option ->
                         FilterChip(
                             selected = sex == option,
                             // Tapping the selected chip again clears it.
                             onClick = { sex = if (sex == option) null else option },
-                            label = { Text(option) },
+                            label = { Text(sexLabel(option)) },
                         )
                     }
                 }
@@ -411,7 +442,7 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.people_email)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
@@ -419,7 +450,7 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("Phone") },
+                label = { Text(stringResource(R.string.people_phone)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth(),
@@ -427,7 +458,7 @@ fun PersonEditScreen(
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
-                label = { Text("Address") },
+                label = { Text(stringResource(R.string.people_address)) },
                 minLines = 2,
                 maxLines = 3,
                 modifier = Modifier.fillMaxWidth(),
@@ -437,12 +468,12 @@ fun PersonEditScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Usual crew", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.people_usual_crew), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = usualCrew, onCheckedChange = { usualCrew = it })
             }
 
             Spacer(Modifier.height(8.dp))
-            Text("Travel documents", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.people_travel_documents), style = MaterialTheme.typography.titleMedium)
             DocumentSection(
                 documents = initial?.documents.orEmpty().filter { it.deletedAt == null },
                 onOpen = { docId -> onOpenDocument(edited(), docId) },
@@ -463,22 +494,26 @@ private fun DocumentSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         documents.forEach { doc ->
             Card(modifier = Modifier.fillMaxWidth().clickable { onOpen(doc.id) }) {
+                val type = documentTypeLabel(doc.docType)
+                val noNumber = stringResource(R.string.people_no_number)
+                val expires = doc.expiryDate?.let { stringResource(R.string.people_expires, it.format(dateFormat)) }
+                val inactive = stringResource(R.string.people_inactive)
                 ListItem(
                     headlineContent = {
-                        Text("${doc.docType} (${doc.issuingCountry ?: "?"})")
+                        Text("$type (${doc.issuingCountry ?: "?"})")
                     },
                     supportingContent = {
                         Text(
                             buildString {
-                                append(doc.docNumber.ifBlank { "No number" })
-                                doc.expiryDate?.let { append(" · expires ${it.format(dateFormat)}") }
-                                if (!doc.isActive) append(" · inactive")
+                                append(doc.docNumber.ifBlank { noNumber })
+                                expires?.let { append(" · $it") }
+                                if (!doc.isActive) append(" · $inactive")
                             },
                         )
                     },
                     trailingContent = {
                         IconButton(onClick = { onDelete(doc.id) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Remove document")
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.people_remove_document))
                         }
                     },
                 )
@@ -486,9 +521,9 @@ private fun DocumentSection(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { onOpen(null) }) { Text("Add document") }
+            TextButton(onClick = { onOpen(null) }) { Text(stringResource(R.string.people_add_document)) }
             if (onScan != null) {
-                TextButton(onClick = onScan) { Text("Scan passport") }
+                TextButton(onClick = onScan) { Text(stringResource(R.string.people_scan_passport)) }
             }
         }
     }
@@ -517,10 +552,10 @@ fun DocumentEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isNew) "New Document" else "Edit Document") },
+                title = { Text(stringResource(if (isNew) R.string.people_new_document else R.string.people_edit_document)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.people_back))
                     }
                 },
                 actions = {
@@ -537,7 +572,7 @@ fun DocumentEditScreen(
                                 ),
                             )
                         },
-                    ) { Text("Save") }
+                    ) { Text(stringResource(R.string.people_save)) }
                 },
             )
         },
@@ -550,13 +585,13 @@ fun DocumentEditScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Document type", style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.people_document_type), style = MaterialTheme.typography.bodyLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 documentTypes.forEach { type ->
                     FilterChip(
                         selected = docType == type,
                         onClick = { docType = type },
-                        label = { Text(type) },
+                        label = { Text(documentTypeLabel(type)) },
                     )
                 }
             }
@@ -565,7 +600,7 @@ fun DocumentEditScreen(
                 // Upper-cased on save, not per keystroke: rewriting the text under
                 // the keyboard breaks its composing span and drops characters.
                 onValueChange = { number = it },
-                label = { Text("Document number") },
+                label = { Text(stringResource(R.string.people_document_number)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth(),
@@ -573,13 +608,13 @@ fun DocumentEditScreen(
             OutlinedTextField(
                 value = country,
                 onValueChange = { if (it.length <= 3) country = it.uppercase() },
-                label = { Text("Issuing country (e.g. FRA)") },
+                label = { Text(stringResource(R.string.people_issuing_country_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
                 modifier = Modifier.fillMaxWidth(),
             )
             OptionalDateField(
-                label = "Expiry date",
+                label = stringResource(R.string.people_expiry_date),
                 value = expiry,
                 onChange = { expiry = it },
                 yearRange = LocalDate.now().year - 20..LocalDate.now().year + 20,
@@ -589,13 +624,13 @@ fun DocumentEditScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Active", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.people_active), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = active, onCheckedChange = { active = it })
             }
             if (!isNew) {
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onDelete) {
-                    Text("Remove document", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.people_remove_document), color = MaterialTheme.colorScheme.error)
                 }
             }
         }

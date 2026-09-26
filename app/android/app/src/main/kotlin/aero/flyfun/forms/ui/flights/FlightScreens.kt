@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
@@ -53,6 +54,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -70,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.ZoneId
@@ -87,6 +90,8 @@ fun FlightListScreen(
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
     onDelete: (FlightEntity) -> Unit,
+    /** The flight open beside the list, on a screen wide enough for both. */
+    selectedId: String? = null,
 ) {
     // Split at the start of today, as iOS does: a flight earlier today is
     // still one the pilot is working on.
@@ -97,10 +102,10 @@ fun FlightListScreen(
     var showPast by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Flights") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.flights_title)) }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAdd) {
-                Icon(Icons.Default.Add, contentDescription = "Add flight")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.flights_add_flight))
             }
         },
     ) { padding ->
@@ -110,19 +115,19 @@ fun FlightListScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No flights yet", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.flights_no_flights_yet), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Add a flight to generate its customs and immigration forms.",
+                    stringResource(R.string.flights_empty_message),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
         } else {
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-                item { SectionHeader("Upcoming") }
+                item { SectionHeader(stringResource(R.string.flights_upcoming)) }
                 if (upcoming.isEmpty()) {
                     item {
                         Text(
-                            "No upcoming flights",
+                            stringResource(R.string.flights_no_upcoming),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -130,17 +135,17 @@ fun FlightListScreen(
                     }
                 }
                 items(upcoming, key = { "${it.id}:${it.updatedAt}" }) {
-                    FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
+                    FlightRow(it, registrations[it.aircraftId], it.id == selectedId, onOpen, onDelete)
                 }
                 if (past.isNotEmpty()) {
                     // Collapsed by default: the list is for what is coming up.
                     item {
                         ListItem(
-                            headlineContent = { Text("Past Flights (${past.size})") },
+                            headlineContent = { Text(stringResource(R.string.flights_past_flights_count, past.size)) },
                             trailingContent = {
                                 Icon(
                                     if (showPast) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = if (showPast) "Hide past flights" else "Show past flights",
+                                    contentDescription = stringResource(if (showPast) R.string.flights_hide_past else R.string.flights_show_past),
                                 )
                             },
                             modifier = Modifier.clickable { showPast = !showPast },
@@ -148,7 +153,7 @@ fun FlightListScreen(
                     }
                     if (showPast) {
                         items(past, key = { "${it.id}:${it.updatedAt}" }) {
-                            FlightRow(it, registrations[it.aircraftId], onOpen, onDelete)
+                            FlightRow(it, registrations[it.aircraftId], it.id == selectedId, onOpen, onDelete)
                         }
                     }
                 }
@@ -170,6 +175,7 @@ private fun SectionHeader(text: String) {
 private fun FlightRow(
     flight: FlightEntity,
     registration: String?,
+    selected: Boolean,
     onOpen: (String) -> Unit,
     onDelete: (FlightEntity) -> Unit,
 ) {
@@ -187,6 +193,7 @@ private fun FlightRow(
                     ).joinToString(" · "),
                 )
             },
+            colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
             modifier = Modifier.clickable { onOpen(flight.id) },
         )
     }
@@ -232,7 +239,7 @@ fun FlightEditScreen(
     onDuplicate: () -> Unit,
 ) {
     if (detail == null) {
-        Scaffold(topBar = { TopAppBar(title = { Text("Flight") }) }) { p ->
+        Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.flights_flight)) }) }) { p ->
             Column(Modifier.fillMaxSize().padding(p), Arrangement.Center, Alignment.CenterHorizontally) {
                 CircularProgressIndicator()
             }
@@ -246,6 +253,9 @@ fun FlightEditScreen(
     // keyed on the flight so a different leg starts from its own values.
     var observations by remember(flight.id) { mutableStateOf(flight.observations.orEmpty()) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    val unnamed = stringResource(R.string.flights_unnamed)
+    val commercialLabel = stringResource(R.string.flights_commercial)
+    val privateLabel = stringResource(R.string.flights_private)
 
     // Back with edits asks first, whether it came from the arrow or the system.
     val leave = { if (hasUnsavedChanges) confirmDiscard = true else onBack() }
@@ -256,17 +266,17 @@ fun FlightEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (detail.isNew && origin.isBlank() && destination.isBlank()) "New Flight"
+                        if (detail.isNew && origin.isBlank() && destination.isBlank()) stringResource(R.string.flights_new_flight)
                         else "${origin.ifBlank { "????" }} → ${destination.ifBlank { "????" }}",
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = leave) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.flights_back))
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSave, enabled = hasUnsavedChanges) { Text("Save") }
+                    TextButton(onClick = onSave, enabled = hasUnsavedChanges) { Text(stringResource(R.string.flights_save)) }
                     // A draft has nothing stored to delete; Back discards it.
                     if (!detail.isNew) DeleteOverflowMenu(onDelete = onDelete)
                 },
@@ -278,28 +288,28 @@ fun FlightEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             RouteCard(origin, destination, airportInfo, onOpenRoutePicker)
-            AirportNotice("Departure", origin, airportInfo)
-            if (destination != origin) AirportNotice("Arrival", destination, airportInfo)
+            AirportNotice(stringResource(R.string.flights_departure), origin, airportInfo)
+            if (destination != origin) AirportNotice(stringResource(R.string.flights_arrival), destination, airportInfo)
 
             // Zones in route order, once each: a local flight has one.
             val zones = listOfNotNull(airportInfo[origin]?.timeZone, airportInfo[destination]?.timeZone).distinct()
             ScheduleField(
-                "Departure", flight.departureInstant, onSetDeparture,
+                stringResource(R.string.flights_departure), flight.departureInstant, onSetDeparture,
                 zones = zones, preferredZone = airportInfo[origin]?.timeZone,
             )
             ScheduleField(
-                "Arrival", flight.arrivalInstant, { t -> onEditFlight { it.copy(arrivalInstant = t) } },
+                stringResource(R.string.flights_arrival), flight.arrivalInstant, { t -> onEditFlight { it.copy(arrivalInstant = t) } },
                 zones = zones, preferredZone = airportInfo[destination]?.timeZone,
             )
             if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
                 Text(
-                    "Arrival is before departure.",
+                    stringResource(R.string.flights_arrival_before_departure),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            Text("Aircraft", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.flights_aircraft), style = MaterialTheme.typography.titleMedium)
             // Scrolls sideways: a fleet does not fit across a phone.
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
                 aircraftOptions.forEach { a ->
@@ -311,33 +321,33 @@ fun FlightEditScreen(
                 }
             }
             if (aircraftOptions.isEmpty()) {
-                Text("Add an aircraft first.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.flights_add_aircraft_first), style = MaterialTheme.typography.bodySmall)
             }
 
             ChoiceField(
-                label = "Nature",
+                label = stringResource(R.string.flights_nature),
                 selected = flight.nature,
                 options = listOf("private", "commercial"),
-                display = { if (it == "commercial") "Commercial" else "Private" },
+                display = { if (it == "commercial") commercialLabel else privateLabel },
                 onSelect = { value -> onEditFlight { it.copy(nature = value) } },
             )
             ChoiceField(
-                label = "Reason for Visit",
+                label = stringResource(R.string.flights_reason_for_visit),
                 selected = flight.reasonForVisit.orEmpty(),
                 options = listOf("") + REASONS_FOR_VISIT,
                 display = { it.ifBlank { "—" } },
                 onSelect = { value -> onEditFlight { it.copy(reasonForVisit = value.ifBlank { null }) } },
             )
             ChoiceField(
-                label = "Responsible Person",
+                label = stringResource(R.string.flights_responsible_person),
                 selected = detail.responsiblePerson,
                 options = listOf<PersonEntity?>(null) + people,
-                display = { it?.displayName?.ifBlank { "Unnamed" } ?: "—" },
+                display = { it?.displayName?.ifBlank { unnamed } ?: "—" },
                 onSelect = onSetResponsiblePerson,
             )
             detail.responsiblePerson?.let { person ->
-                person.phone?.takeIf { it.isNotBlank() }?.let { DetailLine("Phone", it) }
-                person.address?.takeIf { it.isNotBlank() }?.let { DetailLine("Address", it) }
+                person.phone?.takeIf { it.isNotBlank() }?.let { DetailLine(stringResource(R.string.flights_phone), it) }
+                person.address?.takeIf { it.isNotBlank() }?.let { DetailLine(stringResource(R.string.flights_address), it) }
             }
 
             PeopleOnBoard(
@@ -355,10 +365,10 @@ fun FlightEditScreen(
                     observations = value
                     onEditFlight { it.copy(observations = value.trim().ifBlank { null }) }
                 },
-                label = { Text("Observations") }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.flights_observations)) }, modifier = Modifier.fillMaxWidth(),
             )
 
-            Text("Forms", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.flights_forms), style = MaterialTheme.typography.titleMedium)
             val rowContext = FormRowContext(
                 state = generateState,
                 flightPeople = detail.crew + detail.passengers,
@@ -372,29 +382,29 @@ fun FlightEditScreen(
             airportForms.forEach { airport -> AirportFormsCard(airport, rowContext) }
             if (airportForms.isEmpty()) {
                 Text(
-                    "Enter the route to see which forms these airports need.",
+                    stringResource(R.string.flights_enter_route_for_forms),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
 
             // Each stores this flight first, then opens the new leg.
-            Text("Actions", style = MaterialTheme.typography.titleMedium)
-            LegAction(Icons.AutoMirrored.Filled.Undo, "Create Return Flight", onCreateReturn)
-            LegAction(Icons.AutoMirrored.Filled.ArrowForward, "Create Next Leg", onCreateNextLeg)
-            LegAction(Icons.Default.ContentCopy, "Duplicate Flight", onDuplicate)
+            Text(stringResource(R.string.flights_actions), style = MaterialTheme.typography.titleMedium)
+            LegAction(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.flights_create_return), onCreateReturn)
+            LegAction(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.flights_create_next_leg), onCreateNextLeg)
+            LegAction(Icons.Default.ContentCopy, stringResource(R.string.flights_duplicate), onDuplicate)
         }
     }
 
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text(if (detail.isNew) "Save this flight?" else "Save your changes?") },
-            text = { Text("Leaving now discards what you have not saved.") },
+            title = { Text(stringResource(if (detail.isNew) R.string.flights_save_this_flight else R.string.flights_save_your_changes)) },
+            text = { Text(stringResource(R.string.flights_leaving_discards)) },
             confirmButton = {
-                TextButton(onClick = { confirmDiscard = false; onSaveAndBack() }) { Text("Save") }
+                TextButton(onClick = { confirmDiscard = false; onSaveAndBack() }) { Text(stringResource(R.string.flights_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard") }
+                TextButton(onClick = { confirmDiscard = false; onBack() }) { Text(stringResource(R.string.flights_discard)) }
             },
         )
     }
@@ -407,10 +417,10 @@ fun FlightEditScreen(
 private fun RouteCard(origin: String, destination: String, info: Map<String, AirportDetails>, onClick: () -> Unit) {
     OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            RouteEndLabel("From", origin, info[origin]?.summary?.name, Modifier.weight(1f))
+            RouteEndLabel(stringResource(R.string.flights_from), origin, info[origin]?.summary?.name, Modifier.weight(1f))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-            RouteEndLabel("To", destination, info[destination]?.summary?.name, Modifier.weight(1f))
-            Icon(Icons.Default.Edit, contentDescription = "Change route")
+            RouteEndLabel(stringResource(R.string.flights_to), destination, info[destination]?.summary?.name, Modifier.weight(1f))
+            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.flights_change_route))
         }
     }
 }
@@ -443,7 +453,7 @@ private fun AirportNotice(label: String, icao: String, info: Map<String, Airport
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("$label — $icao", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             if (detail != null) {
-                Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (open) "Less" else "More")
+                Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = stringResource(if (open) R.string.flights_less else R.string.flights_more))
             }
         }
         Text(notice.summary.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -489,21 +499,22 @@ private fun PeopleOnBoard(
     onOpenPicker: () -> Unit,
 ) {
     val chosen = detail.flight.chosenDocNumbers.orEmpty()
-    Text("Crew", style = MaterialTheme.typography.titleMedium)
-    if (detail.crew.isEmpty()) Text("No crew yet.", style = MaterialTheme.typography.bodySmall)
+    val pic = stringResource(R.string.flights_pic)
+    Text(stringResource(R.string.flights_crew), style = MaterialTheme.typography.titleMedium)
+    if (detail.crew.isEmpty()) Text(stringResource(R.string.flights_no_crew_yet), style = MaterialTheme.typography.bodySmall)
     detail.crew.forEachIndexed { index, person ->
-        OnBoardRow(person, if (index == 0) "PIC" else null, documents[person.id].orEmpty(), chosen,
+        OnBoardRow(person, if (index == 0) pic else null, documents[person.id].orEmpty(), chosen,
             { onChooseDocument(person, it) }, { onRemoveCrew(person) })
     }
-    Text("Passengers", style = MaterialTheme.typography.titleMedium)
-    if (detail.passengers.isEmpty()) Text("No passengers.", style = MaterialTheme.typography.bodySmall)
+    Text(stringResource(R.string.flights_passengers), style = MaterialTheme.typography.titleMedium)
+    if (detail.passengers.isEmpty()) Text(stringResource(R.string.flights_no_passengers), style = MaterialTheme.typography.bodySmall)
     detail.passengers.forEach { person ->
         OnBoardRow(person, null, documents[person.id].orEmpty(), chosen,
             { onChooseDocument(person, it) }, { onRemovePassenger(person) })
     }
     OutlinedButton(onClick = onOpenPicker) {
         Icon(Icons.Default.Groups, contentDescription = null)
-        Text("Choose Crew & Passengers", Modifier.padding(start = 8.dp))
+        Text(stringResource(R.string.flights_choose_crew_passengers), Modifier.padding(start = 8.dp))
     }
 }
 
@@ -519,7 +530,7 @@ private fun OnBoardRow(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(person.displayName.ifBlank { "Unnamed" }, style = MaterialTheme.typography.bodyLarge)
+                Text(person.displayName.ifBlank { stringResource(R.string.flights_unnamed) }, style = MaterialTheme.typography.bodyLarge)
                 tag?.let { CrewPill(it) }
             }
             if (documents.size > 1) {
@@ -529,10 +540,10 @@ private fun OnBoardRow(
                 Box {
                     TextButton(onClick = { open = true }) {
                         Icon(Icons.Default.Badge, contentDescription = null)
-                        Text(chosen?.let(::documentLabel) ?: "Document: Automatic", Modifier.padding(start = 4.dp))
+                        Text(chosen?.let(::documentLabel) ?: stringResource(R.string.flights_document_automatic), Modifier.padding(start = 4.dp))
                     }
                     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                        DropdownMenuItem(text = { Text("Automatic") }, onClick = { open = false; onChoose(null) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.flights_automatic)) }, onClick = { open = false; onChoose(null) })
                         documents.filter { it.docNumber.isNotEmpty() }.forEach { doc ->
                             DropdownMenuItem(text = { Text(documentLabel(doc)) }, onClick = { open = false; onChoose(doc) })
                         }
@@ -540,7 +551,7 @@ private fun OnBoardRow(
                 }
             }
         }
-        IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = "Remove from flight") }
+        IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_remove_from_flight)) }
     }
 }
 
@@ -581,7 +592,7 @@ private fun AirportFormsCard(airport: AirportForms, ctx: FormRowContext) {
                 airport.error != null ->
                     Text(airport.error, style = MaterialTheme.typography.bodySmall)
                 airport.forms.isEmpty() ->
-                    Text("No forms needed here.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.flights_no_forms_needed), style = MaterialTheme.typography.bodySmall)
                 else -> {
                     val grouped = FormSides.group(airport.forms) { it.isWebForm }
                     grouped.primary?.let { FormRow(airport.icao, it, ctx) }
@@ -589,7 +600,7 @@ private fun AirportFormsCard(airport: AirportForms, ctx: FormRowContext) {
                     if (grouped.others.isNotEmpty()) {
                         var showOthers by rememberSaveable(airport.icao, airport.direction) { mutableStateOf(false) }
                         TextButton(onClick = { showOthers = !showOthers }) {
-                            Text("Other forms (${grouped.others.size})")
+                            Text(stringResource(R.string.flights_other_forms_count, grouped.others.size))
                             Icon(
                                 if (showOthers) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                 contentDescription = null,
@@ -614,11 +625,11 @@ private fun FormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
             OutlinedButton(
                 enabled = ctx.state !is GenerateState.Working,
                 onClick = { ctx.onEmail(airport, form) },
-            ) { Text("Email") }
+            ) { Text(stringResource(R.string.flights_email)) }
             OutlinedButton(
                 enabled = ctx.state !is GenerateState.Working,
                 onClick = { ctx.onGenerate(airport, form) },
-            ) { Text("Generate") }
+            ) { Text(stringResource(R.string.flights_generate)) }
         }
     }
 }
@@ -630,7 +641,7 @@ private fun WebFormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(form.label, style = MaterialTheme.typography.titleSmall)
-                Text("Official web form", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.flights_official_web_form), style = MaterialTheme.typography.bodySmall)
             }
             // The airport's own page: prefilled via /prefill and submitted by
             // the pilot, never by the app.
@@ -639,13 +650,13 @@ private fun WebFormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
                 onClick = { ctx.onOpenWebForm(airport, form) },
             ) {
                 if (working) CircularProgressIndicator(Modifier.padding(2.dp))
-                else Text("Open prefilled")
+                else Text(stringResource(R.string.flights_open_prefilled))
             }
         }
         if (ctx.responsiblePerson == null &&
             form.extraFields.any { it.key in FormRequestBuilder.PERSON_SUPPLIED_EXTRAS }
         ) {
-            Hint("Pick a responsible person to fill in phone and email")
+            Hint(stringResource(R.string.flights_pick_responsible_for_phone_email))
         }
     }
 }
@@ -660,6 +671,7 @@ private fun WebFormRow(airport: String, form: FormInfo, ctx: FormRowContext) {
 private fun ExtraFields(airport: String, form: FormInfo, ctx: FormRowContext) {
     val values = ctx.extraValues[FlightsViewModel.formKey(airport, form.id)].orEmpty()
     val set = { key: String, value: ExtraFieldValue? -> ctx.onSetExtra(airport, form.id, key, value) }
+    val unnamed = stringResource(R.string.flights_unnamed)
 
     form.extraFields
         .filter { it.key !in FormRequestBuilder.FLIGHT_SUPPLIED_EXTRAS }
@@ -682,7 +694,7 @@ private fun ExtraFields(airport: String, form: FormInfo, ctx: FormRowContext) {
                         label = field.label,
                         selected = ctx.flightPeople.firstOrNull { it.displayName == chosen["name"] },
                         options = listOf<PersonEntity?>(null) + ctx.flightPeople,
-                        display = { it?.displayName?.ifBlank { "Unnamed" } ?: "—" },
+                        display = { it?.displayName?.ifBlank { unnamed } ?: "—" },
                         onSelect = { person ->
                             set(
                                 field.key,
@@ -702,7 +714,7 @@ private fun ExtraFields(airport: String, form: FormInfo, ctx: FormRowContext) {
                                 address = value
                                 set(field.key, ExtraFieldValue.Person(chosen + ("address" to value)))
                             },
-                            label = { Text("Address") },
+                            label = { Text(stringResource(R.string.flights_address)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -740,8 +752,8 @@ private fun ResponsiblePersonValue(label: String, key: String, person: PersonEnt
     Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         when {
-            person == null -> Hint("Pick a responsible person")
-            value.isNullOrBlank() -> Hint("Set ${label.lowercase()} on ${person.displayName}")
+            person == null -> Hint(stringResource(R.string.flights_pick_responsible))
+            value.isNullOrBlank() -> Hint(stringResource(R.string.flights_set_field_on_person, label.lowercase(), person.displayName))
             else -> Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -763,25 +775,25 @@ private fun GenerateFeedback(
         is GenerateState.Ready -> AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(state.label) },
-            text = { Text("${state.file.name} is ready.") },
-            confirmButton = { TextButton(onClick = { onShare(state.file); onDismiss() }) { Text("Share") } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+            text = { Text(stringResource(R.string.flights_file_ready, state.file.name)) },
+            confirmButton = { TextButton(onClick = { onShare(state.file); onDismiss() }) { Text(stringResource(R.string.flights_share)) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.flights_close)) } },
         )
         is GenerateState.Invalid -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Missing information") },
+            title = { Text(stringResource(R.string.flights_missing_information)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     state.errors.forEach { Text("${it.displayField}: ${it.error}") }
                 }
             },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.flights_ok)) } },
         )
         is GenerateState.Failed -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Could not generate") },
+            title = { Text(stringResource(R.string.flights_could_not_generate)) },
             text = { Text(state.message) },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.flights_ok)) } },
         )
         else -> Unit
     }

@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.people
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.logic.ContactImport
 import aero.flyfun.forms.logic.ImportedContact
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.format.DateTimeFormatter
 
@@ -70,8 +72,8 @@ fun ContactResolveScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Import Contact") },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = "Cancel") } },
+                title = { Text(stringResource(R.string.people_import_contact)) },
+                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.people_cancel)) } },
             )
         },
     ) { padding ->
@@ -79,18 +81,18 @@ fun ContactResolveScreen(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Section("Contact")
+            Section(stringResource(R.string.people_contact))
             Column(Modifier.padding(horizontal = 16.dp)) {
-                Line("Name", "${contact.firstName} ${contact.lastName}".trim())
-                Pick("Phone", contact.phones, phone) { phone = it }
-                Pick("Email", contact.emails, email) { email = it }
-                contact.dateOfBirth?.let { Line("Date of Birth", it.format(DAY)) }
-                Pick("Address", contact.addresses, address) { address = it }
+                Line(stringResource(R.string.people_name), "${contact.firstName} ${contact.lastName}".trim())
+                Pick(stringResource(R.string.people_phone), contact.phones, phone) { phone = it }
+                Pick(stringResource(R.string.people_email), contact.emails, email) { email = it }
+                contact.dateOfBirth?.let { Line(stringResource(R.string.people_date_of_birth_title), it.format(DAY)) }
+                Pick(stringResource(R.string.people_address), contact.addresses, address) { address = it }
             }
 
             ListItem(
                 leadingContent = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
-                headlineContent = { Text("Create as New Person", color = MaterialTheme.colorScheme.primary) },
+                headlineContent = { Text(stringResource(R.string.people_create_as_new_person), color = MaterialTheme.colorScheme.primary) },
                 modifier = Modifier.clickable {
                     onResult(
                         PersonEntity(
@@ -106,9 +108,9 @@ fun ContactResolveScreen(
             )
 
             if (matches.isNotEmpty()) {
-                Section("Update Existing")
+                Section(stringResource(R.string.people_update_existing))
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    listOf(false to "Fill Missing Only", true to "Override All").forEachIndexed { index, (value, label) ->
+                    listOf(false to stringResource(R.string.people_fill_missing_only), true to stringResource(R.string.people_override_all)).forEachIndexed { index, (value, label) ->
                         SegmentedButton(
                             selected = override == value,
                             onClick = { override = value },
@@ -121,7 +123,7 @@ fun ContactResolveScreen(
                         headlineContent = { Text(person.displayName) },
                         supportingContent = listOfNotNull(person.phone, person.email).joinToString(" · ")
                             .takeIf { it.isNotEmpty() }?.let { { Text(it, maxLines = 1) } },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Update") },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.people_update)) },
                         modifier = Modifier.clickable {
                             val merged = ContactImport.merge(
                                 person.fields(), contact,
