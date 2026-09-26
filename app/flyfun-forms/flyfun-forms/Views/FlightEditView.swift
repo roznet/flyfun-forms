@@ -873,8 +873,7 @@ struct FlightEditView: View {
         } catch let FormService.FormError.validationErrors(errors) {
             showValidationErrors(errors, airport: airport, form: form)
         } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+            showError(error)
         }
         // Only clear spinner on error — callers clear on success
         isGenerating = false
@@ -920,6 +919,16 @@ struct FlightEditView: View {
         }
     }
 
+    /// A Try Again that fails for another reason (offline, server error) has
+    /// the errors sheet still up, and the alert cannot show over it.
+    private func showError(_ error: Error) {
+        let message = error.localizedDescription
+        presentAfterValidationSheet {
+            errorMessage = message
+            showingError = true
+        }
+    }
+
     private func presentAfterValidationSheet(_ show: @escaping () -> Void) {
         guard showingValidationErrors else { show(); return }
         afterValidationSheet = show
@@ -939,8 +948,7 @@ struct FlightEditView: View {
         } catch let FormService.FormError.validationErrors(errors) {
             showValidationErrors(errors, airport: airport, form: form)
         } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+            showError(error)
         }
     }
 
