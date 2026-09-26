@@ -24,6 +24,8 @@ import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.AddPersonActions
 import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeoplePickerScreen
+import aero.flyfun.forms.ui.people.ScanResultSheet
+import aero.flyfun.forms.logic.ScanContext
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
 import aero.flyfun.forms.ui.webform.WebFormScreen
@@ -154,6 +156,9 @@ private class Deletions(
  * person just created, so a flight's picker can put them on board.
  */
 private const val ADDED_PERSON = "addedPersonId"
+
+/** A scan that is not for anyone yet. */
+private const val STANDALONE_SCAN = "people/scan"
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     FLIGHTS("flights", "Flights", Icons.Default.Flight),
@@ -338,7 +343,10 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                     crew = current.crew,
                     passengers = current.passengers,
                     onChange = { crew, passengers -> vm.setPeople(crew, passengers) },
-                    add = AddPersonActions(onAdd = { nav.navigate("person/new") }),
+                    add = AddPersonActions(
+                        onAdd = { nav.navigate("person/new") },
+                        onScan = { nav.navigate(STANDALONE_SCAN) },
+                    ),
                     onAddNamed = { name ->
                         scope.launch {
                             val person = peopleVm.addNamed(name)
@@ -445,6 +453,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             onOpen = { nav.navigate("person/$it") },
             add = AddPersonActions(
                 onAdd = { nav.navigate("person/new") },
+                onScan = { nav.navigate(STANDALONE_SCAN) },
                 onImportCsv = { importCsv.launch(arrayOf("text/*", "application/csv")) },
             ),
             onExportCsv = { exportCsv.launch("people.csv") },
@@ -483,6 +492,37 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             onScan = { person -> persistThen(person, "person/${person.id}/scan") },
         )
     }
+    // A scan from the People list or a flight's picker: whose document it is
+    // is the question, and the person it ends with is opened.
+    composable(STANDALONE_SCAN) {
+        val vm: PeopleViewModel = viewModel(factory = factory)
+        val scope = rememberCoroutineScope()
+        val people by vm.people.collectAsState()
+        val decision by vm.scanDecision.collectAsState()
+        fun open(person: PersonEntity) {
+            // A flight's picker puts them on board.
+            nav.previousBackStackEntry?.savedStateHandle?.set(ADDED_PERSON, person.id)
+            nav.navigate("person/${person.id}") { popUpTo(STANDALONE_SCAN) { inclusive = true } }
+        }
+        ScanScreen(
+            onScanned = { vm.decide(it, ScanContext.Standalone) },
+            onBack = { nav.popBackStack() },
+        )
+        decision?.let { current ->
+            ScanResultSheet(
+                decision = current,
+                people = people.associate { it.person.id to it.person },
+                onApply = { personId, overwriteName, addDocument ->
+                    scope.launch {
+                        vm.applyScanTo(personId, current.result, overwriteName, addDocument)
+                        people.firstOrNull { it.person.id == personId }?.let { open(it.person) }
+                    }
+                },
+                onCreatePerson = { scope.launch { open(vm.createScannedPerson(current.result)) } },
+                onCancel = { vm.dismissScan(); nav.popBackStack() },
+            )
+        }
+    }
     composable(
         "person/{personId}/scan",
         arguments = listOf(navArgument("personId") { type = NavType.StringType }),
@@ -490,15 +530,32 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
         val personId = entry.arguments?.getString("personId").orEmpty()
         val vm: PeopleViewModel = viewModel(factory = factory)
         val scope = rememberCoroutineScope()
+        val people by vm.people.collectAsState()
+        val decision by vm.scanDecision.collectAsState()
         ScanScreen(
-            onScanned = { result ->
-                scope.launch {
-                    vm.applyScan(personId, result).join()
-                    nav.popBackStack()
-                }
-            },
+            onScanned = { vm.decide(it, ScanContext.ForPerson(personId)) },
             onBack = { nav.popBackStack() },
         )
+        decision?.let { current ->
+            ScanResultSheet(
+                decision = current,
+                people = people.associate { it.person.id to it.person },
+                onApply = { id, overwriteName, addDocument ->
+                    scope.launch {
+                        vm.applyScanTo(id, current.result, overwriteName, addDocument)
+                        nav.popBackStack()
+                    }
+                },
+                // The scan was someone else's: open them instead of this person.
+                onCreatePerson = {
+                    scope.launch {
+                        val created = vm.createScannedPerson(current.result)
+                        nav.navigate("person/${created.id}") { popUpTo("person/{personId}") { inclusive = true } }
+                    }
+                },
+                onCancel = { vm.dismissScan(); nav.popBackStack() },
+            )
+        }
     }
     composable(
         "person/{personId}/document/{documentId}",

@@ -5,8 +5,12 @@ import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.TravelDocumentEntity
-import aero.flyfun.forms.logic.MRZFormat
+import aero.flyfun.forms.logic.MRZResultProcessor
 import aero.flyfun.forms.logic.MRZScanResult
+import aero.flyfun.forms.logic.ScanContext
+import aero.flyfun.forms.logic.ScanDecision
+import aero.flyfun.forms.logic.ScanDocument
+import aero.flyfun.forms.logic.ScanPerson
 import aero.flyfun.forms.logic.FlightPeople
 import aero.flyfun.forms.logic.PeopleRanking
 import androidx.lifecycle.ViewModel
@@ -17,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.Instant
 
@@ -78,42 +83,87 @@ class PeopleViewModel(
 
     fun deleteDocument(id: String) = viewModelScope.launch { repository.deleteDocument(id) }
 
+    private val _scanDecision = MutableStateFlow<ScanDecision?>(null)
+
+    /** What the last scan means for the stored people, until the pilot picks an action or cancels. */
+    val scanDecision: StateFlow<ScanDecision?> = _scanDecision.asStateFlow()
+    private var deciding = false
+
     /**
-     * Apply a passport scan to a person, as iOS `MRZResultProcessor` does.
-     *
-     * The person's own fields are filled only where empty: the pilot may have
-     * spelled a name deliberately, and an MRZ is transliterated and
-     * upper-cased. A document with the same number is refreshed rather than
-     * duplicated, so rescanning a renewed passport is harmless.
+     * Work out what [result] means from where it was scanned: a duplicate
+     * document on anyone, a name that is not the person's, or people it might
+     * belong to. Port of iOS `MRZResultProcessor.process`. A second read while
+     * one is on screen is ignored.
      */
-    fun applyScan(personId: String, result: MRZScanResult): Job = viewModelScope.launch {
-        val row = repository.person(personId) ?: return@launch
-        val person = row.person
-        repository.save(
-            person.copy(
-                firstName = person.firstName.ifBlank { result.givenNames },
-                lastName = person.lastName.ifBlank { result.surname },
-                dateOfBirth = person.dateOfBirth ?: result.dateOfBirth,
-                sex = person.sex ?: when (result.gender) {
-                    "M" -> "Male"
-                    "F" -> "Female"
-                    else -> null
+    fun decide(result: MRZScanResult, context: ScanContext) {
+        if (deciding || _scanDecision.value != null) return
+        deciding = true
+        viewModelScope.launch {
+            val rows = repository.observePeople().first()
+            _scanDecision.value = MRZResultProcessor.process(
+                result,
+                context,
+                people = rows.map { it.person.toScanPerson() },
+                documents = rows.flatMap { row ->
+                    row.documents.filter { it.deletedAt == null }.map { ScanDocument(it.id, it.personId, it.docNumber) }
                 },
-            ),
-        )
-        val same = row.documents.firstOrNull {
-            it.deletedAt == null && it.docNumber.equals(result.passportNumber, ignoreCase = true)
+            )
+            deciding = false
         }
-        repository.saveDocument(
-            (same ?: TravelDocumentEntity(personId = personId)).copy(
-                docType = if (result.format == MRZFormat.TD1) "Identity card" else "Passport",
-                docNumber = result.passportNumber,
-                issuingCountry = result.issuingCountry.uppercase().ifBlank { null },
-                expiryDate = result.expiryDate,
-                isActive = true,
+    }
+
+    fun dismissScan() { _scanDecision.value = null }
+
+    /**
+     * Fill the person's empty fields from the scan (the name too, with
+     * [overwriteName]) and, with [addDocument], store the document on them.
+     * A document of theirs with the same number is refreshed rather than
+     * duplicated, so rescanning a passport is harmless.
+     */
+    suspend fun applyScanTo(personId: String, result: MRZScanResult, overwriteName: Boolean, addDocument: Boolean) {
+        val row = repository.person(personId) ?: return
+        val fill = MRZResultProcessor.fillPerson(row.person.toScanPerson(), result, overwriteName)
+        repository.save(
+            row.person.copy(
+                firstName = fill.firstName,
+                lastName = fill.lastName,
+                dateOfBirth = fill.dateOfBirth,
+                sex = fill.sex,
             ),
         )
+        if (addDocument) {
+            val same = row.documents.firstOrNull {
+                it.deletedAt == null && it.docNumber.equals(result.passportNumber, ignoreCase = true)
+            }
+            repository.saveDocument(scannedDocument(same ?: TravelDocumentEntity(personId = personId), result))
+        }
+        _scanDecision.value = null
     }
+
+    /** A new person with the scanned name and document; returns them. */
+    suspend fun createScannedPerson(result: MRZScanResult): PersonEntity {
+        val fill = MRZResultProcessor.fillPerson(ScanPerson("", "", ""), result, overwriteName = true)
+        val person = PersonEntity(
+            firstName = fill.firstName,
+            lastName = fill.lastName,
+            dateOfBirth = fill.dateOfBirth,
+            sex = fill.sex,
+        )
+        repository.save(person)
+        repository.saveDocument(scannedDocument(TravelDocumentEntity(personId = person.id), result))
+        _scanDecision.value = null
+        return person
+    }
+
+    private fun scannedDocument(base: TravelDocumentEntity, result: MRZScanResult) = base.copy(
+        docType = MRZResultProcessor.docType(result),
+        docNumber = result.passportNumber,
+        issuingCountry = result.issuingCountry.uppercase().ifBlank { null },
+        expiryDate = result.expiryDate,
+        isActive = true,
+    )
 }
 
 data class CsvResult(val title: String, val message: String)
+
+private fun PersonEntity.toScanPerson() = ScanPerson(id, firstName, lastName, dateOfBirth, sex)

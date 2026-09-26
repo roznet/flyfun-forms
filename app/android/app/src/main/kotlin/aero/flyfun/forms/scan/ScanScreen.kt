@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,11 +32,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,10 +49,12 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 /**
- * Point the camera at the two lines at the bottom of a passport.
+ * Point the camera at the two lines at the bottom of a passport, or pick a
+ * photo or PDF of the page.
  *
  * Nothing is stored: frames are analysed in memory and discarded, and only the
  * parsed fields reach the caller. A passport photo on disk would be a far worse
@@ -53,6 +65,24 @@ import java.util.concurrent.Executors
 fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    var reading by remember { mutableStateOf(false) }
+    var notFound by remember { mutableStateOf(false) }
+    var sourceMenu by remember { mutableStateOf(false) }
+
+    fun readFile(uri: android.net.Uri?, isPdf: Boolean) {
+        uri ?: return
+        scope.launch {
+            reading = true
+            notFound = false
+            val result = ImageMrzReader.read(context, uri, isPdf)
+            reading = false
+            if (result == null) notFound = true else onScanned(result)
+        }
+    }
+    // The Photo Picker needs no permission; a PDF comes through SAF.
+    val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { readFile(it, isPdf = false) }
+    val pdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { readFile(it, isPdf = true) }
 
     var granted by remember {
         mutableStateOf(
@@ -67,10 +97,32 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scan passport") },
+                title = { Text("Scan document") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { sourceMenu = true }, enabled = !reading) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = "Scan from a photo or PDF")
+                        }
+                        DropdownMenu(expanded = sourceMenu, onDismissRequest = { sourceMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Choose Photo") },
+                                leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                                onClick = {
+                                    sourceMenu = false
+                                    photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Choose PDF") },
+                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
+                                onClick = { sourceMenu = false; pdf.launch(arrayOf("application/pdf")) },
+                            )
+                        }
                     }
                 },
             )
@@ -97,12 +149,27 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
             } else {
                 CameraPreview(onScanned)
                 Text(
-                    "Line up the two lines at the bottom of the passport",
+                    "Line up the two lines at the bottom of the passport or ID card",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
                 )
             }
+            if (reading) CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
+    }
+
+    if (notFound) {
+        AlertDialog(
+            onDismissRequest = { notFound = false },
+            title = { Text("No Document Found") },
+            text = {
+                Text(
+                    "No machine-readable zone (MRZ) was found in the file. " +
+                        "Try a clearer image or PDF of the passport page.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { notFound = false }) { Text("OK") } },
+        )
     }
 
     // Nothing to dispose when permission was never granted; the camera binding
@@ -112,6 +179,8 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
 
 @Composable
 private fun CameraPreview(onScanned: (MRZScanResult) -> Unit) {
+    // The analyser is built once; this keeps it calling the current callback.
+    val latestCallback by androidx.compose.runtime.rememberUpdatedState(onScanned)
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
@@ -133,7 +202,7 @@ private fun CameraPreview(onScanned: (MRZScanResult) -> Unit) {
                     // scanner feel laggy and change nothing about the result.
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
-                    .also { it.setAnalyzer(executor, MrzScanner(onScanned)) }
+                    .also { it.setAnalyzer(executor, MrzScanner { result -> latestCallback(result) }) }
 
                 provider.unbindAll()
                 provider.bindToLifecycle(
