@@ -11,7 +11,7 @@ Native iOS/iPadOS/macOS app that lets pilots manage their people database (crew,
 ```
 app/flyfun-forms/flyfun-forms/
 ├── flyfun_formsApp.swift      # App entry, SwiftData container, migration
-├── ContentView.swift          # Tab navigation (Flights, People, Aircraft, Settings)
+├── ContentView.swift          # Tab navigation (Flights, People, Aircraft, Settings); Settings has Privacy, Delete All Data, Delete Account
 ├── Models/
 │   ├── Person.swift              # @Model: crew/passenger data
 │   ├── TravelDocument.swift      # @Model: passport/ID card (many per Person)
@@ -38,8 +38,10 @@ app/flyfun-forms/flyfun-forms/
 │   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
 │   └── ValidationErrorsView.swift  # Errors sheet: edit each field in place, Try Again
 └── Services/
-    ├── AppState.swift         # @Observable: JWT auth state, token storage
-    ├── Environment.swift      # APIConfig (base URL, simulator vs device)
+    ├── AppState.swift         # @Observable: JWT auth state, token storage, localDataEpoch (UI rebuild after erase)
+    ├── Environment.swift      # APIConfig (base URL, simulator vs device; privacy URLs always prod)
+    ├── GeneratedFormFiles.swift # tmp/forms/<uuid>/ lifetime of filled forms: remove, 15-min sweep, launch clear
+    ├── LocalDataEraser.swift  # AppSchema (the single @Model list) + Delete All Data
     ├── AuthService.swift      # Google OAuth + native Apple Sign-In
     ├── FormService.swift      # API client for /airports, /generate, /prefill, /validate, /email-text; parses 422 into structured errors
     ├── PeopleCSVImporter.swift # CSV parser + SwiftData importer for bulk people entry
@@ -55,6 +57,8 @@ app/flyfun-forms/flyfun-forms/
 - **CloudKit container:** `iCloud.net.ro-z.flyfun-forms` (private database, syncs across iOS + macOS)
 - All PII encrypted at rest by Apple (CloudKit private DB guarantee)
 - Works offline — form generation requires connectivity
+- **`AppSchema.models` is the one list of `@Model` types** — the container and Delete All Data both use it, so a new model is erased automatically. Add it there, not to the container call.
+- **Delete All Data** deletes record by record (not batch `delete(model:)`) so CloudKit syncs each deletion — it empties the user's iCloud and other devices too, and the confirmation says so. It then bumps `AppState.localDataEpoch`, which `.id()`s `ContentView` so no open editor keeps a deleted object. It never touches the Keychain or `@AppStorage`.
 
 ### Auth Flow
 
@@ -186,6 +190,8 @@ Two export paths per form: **Share** (generic share sheet) and **Email** (pre-po
 - **Share:** `UIActivityViewController` on iOS, custom `MacShareView` (save/copy/Finder reveal) on macOS
 - **Email:** `MFMailComposeViewController` on iOS, `NSSharingService.composeEmail` on macOS. Pre-fills to/cc from `email_overrides` or `send_to` in the mapping, subject/body from `POST /email-text` (with language preference: local, English, or both). Falls back to client-side subject/body if the server call fails.
 
+**Generated files are personal data** (filled passports), so their lifetime is owned by `GeneratedFormFiles`: iOS deletes on share-sheet close and right after the mail composer has read the attachment; macOS deletes on Done/close/Save but keeps the file after Open, Reveal, a sharing service or Mail (the receiving app reads it later), relying on the 15-minute sweep before the next form and the clear at launch. Don't write a form anywhere else — `SECURITY_AUDIT.md` §16 regressed once when QuickLook's cleanup was removed with QuickLook.
+
 Email language preference is stored in `@AppStorage("emailLanguage")` with options: `.local`, `.english`, `.both`.
 
 ### Web Forms (book-out, PPR, out-of-hours)
@@ -307,7 +313,8 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - Models, CRUD UI, auth flow, API integration: **complete**
 - CSV import for bulk people entry: **complete**
 - Multi-document per person with auto-resolve: **complete**
-- PDF preview via QuickLook: **complete**
+- Form share/email with temp-file cleanup: **complete** (QuickLook preview was replaced by the share sheet)
+- Privacy link, passenger privacy note, Delete All Data: **complete**
 - Extra fields dynamic UI (choice, person, text): **complete**
 - macOS compilation and CloudKit sync: **complete**
 - Navigate to edit on create (people, aircraft): **complete**

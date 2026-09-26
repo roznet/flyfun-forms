@@ -217,25 +217,24 @@ Even if a mapping file were compromised with a `../` traversal payload, the serv
 
 ## LOW Severity Issues
 
-### 16. ~~Generated PDFs Written to Temp Directory~~ (RESOLVED)
+### 16. ~~Generated PDFs Written to Temp Directory~~ (RESOLVED — regressed, fixed again)
 
-**File:** `app/flyfun-forms/flyfun-forms/Views/FlightEditView.swift`
+**Files:** `app/flyfun-forms/flyfun-forms/Services/GeneratedFormFiles.swift`, `Views/FlightEditView.swift`
 
-**Status: FIXED** — Temp PDF files (which contain filled passport data) are now deleted as soon as the QuickLook preview is dismissed:
-```swift
-.onChange(of: previewURL) { oldURL, _ in
-    if let oldURL {
-        try? FileManager.default.removeItem(at: oldURL)
-    }
-}
-```
-Note: This is on the user's iOS device (already protected by iOS Data Protection), so the risk was low. The fix is still good hygiene to minimize the window where passport data exists in plaintext on disk.
+**History:** first fixed by deleting the file when the QuickLook preview was dismissed. That cleanup went away on 2026-03-14 (`6d5d0cc`) when QuickLook was replaced by the share sheet, and filled forms were left in tmp until iOS purged it — while this section still said FIXED. Found by the GDPR review (`legal/GDPR.md` §9).
 
-### 17. No Rate Limiting on /generate Endpoint (LOW)
+**Status: FIXED (2026-09-26)** — every generated form is written to its own folder under `tmp/forms/`, and:
+- **iOS:** deleted when the share sheet closes; for mail, deleted as soon as the attachment has been read into the composer.
+- **macOS:** deleted on Done, close, or Save to File (moved out). After Open, Reveal in Finder, a sharing service or Mail the file is kept, because the receiving app reads it after the sheet closes.
+- **Sweeps:** each new form first deletes files over 15 minutes old, and launch clears the folder (plus loose forms older builds left at the tmp root). Delete All Data clears it too.
 
-The `/generate` endpoint has no rate limiting. A compromised JWT could be used to make unlimited requests. The `Usage` table tracks calls but doesn't enforce limits.
+The residual window is therefore macOS-only and bounded by the next form or launch. Still on the user's own device under Data Protection / FileVault, so the risk was always low.
 
-**Recommendation:** Add per-user rate limiting (e.g., via `slowapi` or middleware).
+### 17. ~~No Rate Limiting on /generate Endpoint~~ (RESOLVED)
+
+**File:** `src/flightforms/api/rate_limit.py`
+
+**Status: FIXED (2026-09-26)** — `/generate` and `/prefill` together allow 100 fills per user per rolling hour, counted over the existing `usage` log (the same no-counter-rows strategy as `flyfun_common.auth.rate_limit`). Over the limit the request gets `429` with `Retry-After` before any template is filled. Skipped in dev mode, like the shared limits.
 
 ### 18. ~~Server Error Messages May Leak Internal Paths~~ (RESOLVED)
 
@@ -297,10 +296,10 @@ These aspects of the architecture are well-designed:
 | **P1** | Clear legacy Person ID fields after migration (#5) | **FIXED** |
 | **P1** | Certificate pinning (#4) | Accepted risk |
 | **P2** | Use separate secret for SessionMiddleware (#10) | Open |
-| **P2** | Clean up temp PDF files after preview (#16) | **FIXED** |
+| **P2** | Clean up temp form files after sharing (#16) | **FIXED** (re-fixed 2026-09-26) |
 | **P2** | Add startup check for placeholder JWT_SECRET (#11) | **FIXED** |
 | **P3** | Add HTTP warning in CLI for non-localhost URLs (#7) | Open |
-| **P3** | Add rate limiting to /generate endpoint (#17) | Open |
+| **P3** | Add rate limiting to /generate endpoint (#17) | **FIXED** |
 
 ---
 
@@ -317,6 +316,6 @@ The most critical issues have been resolved:
 - Dependency versions are pinned to prevent unvetted upgrades
 - Legacy Person ID fields are cleared after migration to avoid duplicate PII storage
 - Server refuses to start with placeholder JWT_SECRET in production
-- Temp PDF files containing passport data are deleted after QuickLook preview
+- Temp form files containing passport data are deleted when sharing ends (re-fixed 2026-09-26 after a regression)
 
-Remaining open items (separate session secret, CLI HTTP warning, rate limiting) are lower priority and primarily affect defense-in-depth rather than direct data exposure.
+Remaining open items (separate session secret, CLI HTTP warning) are lower priority and primarily affect defense-in-depth rather than direct data exposure.
