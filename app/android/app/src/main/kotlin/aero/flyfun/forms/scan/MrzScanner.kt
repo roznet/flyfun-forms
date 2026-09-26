@@ -3,6 +3,7 @@ package aero.flyfun.forms.scan
 import aero.flyfun.forms.logic.MRZParser
 import aero.flyfun.forms.logic.MRZScanResult
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
@@ -16,10 +17,18 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
  * [MRZParser] in :core-logic, unchanged and already covered by 20 tests. This
  * class is only the glue, which is deliberate - the part that is hard to get
  * right is the part that does not depend on a camera.
+ *
+ * Starts ML Kit itself ([startMlKit]): it is not started at app launch.
  */
-class MrzScanner(private val onResult: (MRZScanResult) -> Unit) : ImageAnalysis.Analyzer {
+class MrzScanner(
+    context: Context,
+    private val onResult: (MRZScanResult) -> Unit,
+) : ImageAnalysis.Analyzer {
 
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val recognizer = run {
+        startMlKit(context)
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    }
 
     /** Stop once a frame parses; a passport does not change mid-scan. */
     @Volatile
