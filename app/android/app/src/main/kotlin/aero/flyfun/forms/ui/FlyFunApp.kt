@@ -21,7 +21,9 @@ import aero.flyfun.forms.ui.aircraft.AircraftViewModel
 import aero.flyfun.forms.ui.flights.FlightEditScreen
 import aero.flyfun.forms.ui.flights.FlightListScreen
 import aero.flyfun.forms.ui.flights.FlightsViewModel
+import aero.flyfun.forms.ui.people.AddPersonActions
 import aero.flyfun.forms.ui.people.PeopleListScreen
+import aero.flyfun.forms.ui.people.PeoplePickerScreen
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
 import aero.flyfun.forms.ui.webform.WebFormScreen
@@ -94,7 +96,7 @@ private class Factory(
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
-        modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people) as T
+        modelClass.isAssignableFrom(PeopleViewModel::class.java) -> PeopleViewModel(people, flights) as T
         modelClass.isAssignableFrom(AircraftViewModel::class.java) -> AircraftViewModel(flights) as T
         modelClass.isAssignableFrom(FlightsViewModel::class.java) ->
             FlightsViewModel(flights, people, api, cacheDir) { preferences.spokenLanguages.value } as T
@@ -146,6 +148,12 @@ private class Deletions(
         }
     }
 }
+
+/**
+ * Saved-state key on the screen that opened "person/new": the id of the
+ * person just created, so a flight's picker can put them on board.
+ */
+private const val ADDED_PERSON = "addedPersonId"
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     FLIGHTS("flights", "Flights", Icons.Default.Flight),
@@ -285,9 +293,27 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         val forms by vm.airportForms.collectAsState()
         val generate by vm.generate.collectAsState()
         val extraValues by vm.extraValues.collectAsState()
+        val lastFlights by peopleVm.lastFlights.collectAsState()
+        val flightPeople by peopleVm.flightPeople.collectAsState()
         val scope = rememberCoroutineScope()
+        var pickingPeople by rememberSaveable { mutableStateOf(false) }
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
+
+        // Someone edited from here (opened from the picker, say) comes back
+        // with their stored details, which is what forms are built from.
+        androidx.compose.runtime.LaunchedEffect(people) {
+            vm.refreshPeople(people.associate { it.person.id to it.person })
+        }
+
+        // A person created from the picker's + menu joins this flight.
+        val added by entry.savedStateHandle.getStateFlow<String?>(ADDED_PERSON, null).collectAsState()
+        androidx.compose.runtime.LaunchedEffect(added, people) {
+            val id = added ?: return@LaunchedEffect
+            val person = people.firstOrNull { it.person.id == id }?.person ?: return@LaunchedEffect
+            entry.savedStateHandle[ADDED_PERSON] = null
+            vm.addPerson(person)
+        }
 
         // Sent once: the state is cleared as soon as the mail app is asked.
         (generate as? aero.flyfun.forms.ui.flights.GenerateState.EmailReady)?.let { email ->
@@ -303,11 +329,45 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
             return@composable
         }
 
+        if (pickingPeople) {
+            detail?.let { current ->
+                PeoplePickerScreen(
+                    people = people,
+                    lastFlights = lastFlights,
+                    flightPeople = flightPeople,
+                    crew = current.crew,
+                    passengers = current.passengers,
+                    onChange = { crew, passengers -> vm.setPeople(crew, passengers) },
+                    add = AddPersonActions(onAdd = { nav.navigate("person/new") }),
+                    onAddNamed = { name ->
+                        scope.launch {
+                            val person = peopleVm.addNamed(name)
+                            vm.addPerson(person)
+                            nav.navigate("person/${person.id}")
+                        }
+                    },
+                    onDone = { pickingPeople = false },
+                )
+                return@composable
+            }
+        }
+
         FlightEditScreen(
             detail = detail,
             hasUnsavedChanges = unsaved,
             aircraftOptions = aircraft,
             people = people.map { it.person },
+            documents = people.associate { row ->
+                row.person.id to row.documents.filter { it.isActive && it.deletedAt == null }
+            },
+            onChooseDocument = { person, document ->
+                vm.chooseDocument(
+                    person,
+                    people.firstOrNull { it.person.id == person.id }?.documents.orEmpty().filter { it.deletedAt == null },
+                    document,
+                )
+            },
+            onOpenPeoplePicker = { pickingPeople = true },
             airportForms = forms,
             generateState = generate,
             onEditFlight = { vm.editFlight(it) },
@@ -345,26 +405,78 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
     composable(Tab.PEOPLE.route) {
         val vm: PeopleViewModel = viewModel(factory = factory)
         val people by vm.people.collectAsState()
+        val lastFlights by vm.lastFlights.collectAsState()
+        val csvResult by vm.csvResult.collectAsState()
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+
+        // SAF both ways: no storage permission, and only the file picked.
+        val importCsv = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            uri ?: return@rememberLauncherForActivityResult
+            scope.launch {
+                val text = runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                }.getOrNull()
+                if (text == null) vm.reportCsv("Import Failed", "Could not read that file.") else vm.importCsv(text)
+            }
+        }
+        val exportCsv = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv"),
+        ) { uri ->
+            uri ?: return@rememberLauncherForActivityResult
+            scope.launch {
+                runCatching {
+                    val csv = vm.exportCsv()
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+                        ?: error("Could not write that file.")
+                }.onSuccess {
+                    android.widget.Toast.makeText(context, "People exported", android.widget.Toast.LENGTH_SHORT).show()
+                }.onFailure {
+                    vm.reportCsv("Export Failed", it.message ?: "Could not write that file.")
+                }
+            }
+        }
+
         PeopleListScreen(
             people = people,
+            lastFlights = lastFlights,
             onOpen = { nav.navigate("person/$it") },
-            onAdd = { nav.navigate("person/new") },
+            add = AddPersonActions(
+                onAdd = { nav.navigate("person/new") },
+                onImportCsv = { importCsv.launch(arrayOf("text/*", "application/csv")) },
+            ),
+            onExportCsv = { exportCsv.launch("people.csv") },
             onDelete = { deletions.person(it) },
         )
+        csvResult?.let { result ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { vm.dismissCsvResult() },
+                title = { Text(result.title) },
+                text = { Text(result.message) },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.dismissCsvResult() }) { Text("OK") } },
+            )
+        }
     }
     composable("person/new") {
         val vm: PeopleViewModel = viewModel(factory = factory)
         val scope = rememberCoroutineScope()
+        // Tell whoever opened this - a flight's picker - who was created.
+        fun announce(person: PersonEntity) {
+            nav.previousBackStackEntry?.savedStateHandle?.set(ADDED_PERSON, person.id)
+        }
         // A document needs its person to exist, so opening one saves the new
         // person and swaps this screen for the stored person's before going on.
         fun persistThen(person: PersonEntity, next: String) = scope.launch {
             vm.save(person).join()
+            announce(person)
             nav.navigate("person/${person.id}") { popUpTo("person/new") { inclusive = true } }
             nav.navigate(next)
         }
         PersonEditScreen(
             initial = null,
-            onSave = { person -> scope.launch { vm.save(person).join(); nav.popBackStack() } },
+            onSave = { person -> scope.launch { vm.save(person).join(); announce(person); nav.popBackStack() } },
             onOpenDocument = { person, _ -> persistThen(person, "person/${person.id}/document/new") },
             onDeleteDocument = {},
             onBack = { nav.popBackStack() },
@@ -467,7 +579,14 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
     }
     composable("aircraft/new") {
         val vm: AircraftViewModel = viewModel(factory = factory)
-        AircraftEditScreen(null, onSave = { vm.save(it); nav.popBackStack() }, onBack = { nav.popBackStack() })
+        val peopleVm: PeopleViewModel = viewModel(factory = factory)
+        val people by peopleVm.people.collectAsState()
+        AircraftEditScreen(
+            null,
+            people = people.map { it.person },
+            onSave = { vm.save(it); nav.popBackStack() },
+            onBack = { nav.popBackStack() },
+        )
     }
     composable(
         "aircraft/{aircraftId}",
@@ -477,9 +596,12 @@ private fun androidx.navigation.NavGraphBuilder.aircraftRoutes(
         val vm: AircraftViewModel = viewModel(factory = factory)
         val aircraft by vm.aircraft.collectAsState()
         val existing: AircraftEntity? = aircraft.firstOrNull { it.id == id }
+        val peopleVm: PeopleViewModel = viewModel(factory = factory)
+        val people by peopleVm.people.collectAsState()
         existing?.let {
             AircraftEditScreen(
                 it,
+                people = people.map { row -> row.person },
                 onSave = { u -> vm.save(u); nav.popBackStack() },
                 onBack = { nav.popBackStack() },
                 onDelete = { deletions.aircraft(it); nav.popBackStack() },

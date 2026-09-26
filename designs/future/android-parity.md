@@ -23,7 +23,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
 | 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
-| 2 | #30 | Getting data in fast | §5 (2a–2e) | Not started — after PR 1 |
+| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a done |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
 
@@ -124,14 +124,19 @@ Outcome: people, aircraft and flights go in as quickly as on iOS — pickers,
 scanning, imports. Starts after PR 1 merges: the people picker and new-flight
 flow change the flight editor PR 1 reshapes.
 
+Re-sync with iOS before starting (2026-09-26, `a644c0d..83e47fd`): `83e47fd`
+(add a person from the crew/passenger picker) and `20065ae` (document menu on
+crew rows) fold into 2a; `7af8d61`/`b5bc3f8` (fix validation errors in place
+from the errors sheet) are a new gap, outside "getting data in", listed in §7.
+
 ### 2a — People list, people picker, CSV, aircraft editor (S–M, Sonnet)
 
-- [ ] People search (M3 `SearchBar`), "Sort by recent" (SQL `MAX(departureInstant)`), crew pill (`PeopleListView.swift:24-70`)
-- [ ] People picker as a full-screen sheet: search, crew/passenger toggle per person, usual crew first, "Frequent with X" groups, reorderable crew (PIC first) (`PeoplePickerView.swift`). One person cannot be both crew and passenger
-- [ ] CSV import UI over the ported `PeopleCsv`, with an "N imported, M existed" result (`PeopleListView.swift:128,215`); CSV export via `CreateDocument`
-- [ ] CSV rows matched by name + date of birth across the file and the app; a match adds its document to that person unless they already hold that number (iOS `1173620`, `Services/PeopleCSVImporter.swift`). Port into `PeopleCsv.plan` with the new Swift tests
-- [ ] Per-flight document choice: when a person has more than one active document, their row on the flight offers Automatic or a specific document, stored on the flight by number and winning over the region pick; carried to duplicated legs (iOS `1173620`, `Flight.chosenDocNumbers`, `Services/DocumentResolver.swift`). Needs a Room migration adding a column to `flight` (first schema change since S6 — write a real `Migration`, not destructive fallback)
-- [ ] Aircraft editor: category (`SegmentedButton`), company operator + name, owner picked from People syncing owner/address, usual base (`AircraftEditView.swift`)
+- [x] People search (M3 `SearchBar`), "Sort by recent" (SQL `MAX(departureInstant)`), crew pill (`PeopleListView.swift:24-70`)
+- [x] People picker as a full-screen sheet: search, crew/passenger toggle per person, usual crew first, "Frequent with X" groups, reorderable crew (PIC first) (`PeoplePickerView.swift`). One person cannot be both crew and passenger
+- [x] CSV import UI over the ported `PeopleCsv`, with an "N imported, M existed" result (`PeopleListView.swift:128,215`); CSV export via `CreateDocument`
+- [x] CSV rows matched by name + date of birth across the file and the app; a match adds its document to that person unless they already hold that number (iOS `1173620`, `Services/PeopleCSVImporter.swift`). Port into `PeopleCsv.plan` with the new Swift tests
+- [x] Per-flight document choice: when a person has more than one active document, their row on the flight offers Automatic or a specific document, stored on the flight by number and winning over the region pick; carried to duplicated legs (iOS `1173620`, `Flight.chosenDocNumbers`, `Services/DocumentResolver.swift`). Needs a Room migration adding a column to `flight` (first schema change since S6 — write a real `Migration`, not destructive fallback)
+- [x] Aircraft editor: category (`SegmentedButton`), company operator + name, owner picked from People syncing owner/address, usual base (`AircraftEditView.swift`)
 
 ### 2b — Scan decisions and sources (M, Opus)
 
@@ -192,6 +197,7 @@ the other FlyFun services.
 - [ ] **ICAO flight-plan paste + share target** — blocked on gate G4 (`POST /flightplan/parse` on `main`; see [android-app.md §4](./android-app.md))
 - [ ] **Remaining translations** — ~33 strings need real aviation fr/de/es; blocked on a translator (execution plan §2b)
 - [ ] **Real-passport scan test** — needs a physical device; does not block merging PR 2 once photo scan works on the emulator
+- [ ] **Fix validation errors in place** (iOS `7af8d61`, `b5bc3f8`, `Services/ValidationFix.swift`, `Views/ValidationErrorsView.swift`) — found in PR 2's re-sync; Android still lists the server's 422 errors in a dialog. Not blocked, just not in PR 2's scope; a candidate for PR 3
 
 ---
 
@@ -225,3 +231,9 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — review — The flight draft (new flight, edit or new leg) is not saved across process death: the ViewModel keeps no `SavedStateHandle`, and a restored new-leg screen shows the leg it came from, already stored. Accepted for now; persisting drafts would cover all three at once.
 - 2026-09-26 — review — A Delete account refused with 401 (expired session) now tells the pilot on the sign-in screen that the account was not deleted. The interceptor has already dropped the token, so Settings is gone before its own error could show.
 - 2026-09-26 — review — `contact` stores the responsible person's phone, as iOS `setResponsiblePerson` does; both builders send the person's name and fall back to the stored `contact` only when there is no responsible person. Kept as iOS for interchange; `designs/ios-app.md` corrected.
+- 2026-09-26 — 2a — CSV import matches rows by name + date of birth against the app and earlier rows (`PeopleCsv.plan`, iOS `1173620`); the plan is pure and the app writes it in one transaction. Android keeps no nationality on the person, so a row's `Nationality` fills the document's issuing country when `Doc Issuing State` is empty, and export writes the document's issuing country as the nationality. `M`/`F` become `Male`/`Female`, the editor's words.
+- 2026-09-26 — 2a — The per-flight document choice is `flight.chosenDocNumbers`, a JSON array column added by `MIGRATION_1_2` (the first real migration), carried by Move my data as an optional field and by every leg action, as iOS `copyCommon` does. `app/schemas/…/2.json` is written by the next real build (KSP); it could not be generated here.
+- 2026-09-26 — 2a — The people picker is a full screen inside the flight route (like the web form), editing the draft directly; Done only closes it and Save stores the flight. Crew is reordered with up/down buttons, the first labelled pilot in command; someone moved to crew leaves the passengers (`PeopleRanking.withoutDuplicates`). A person created from the picker's + menu comes back to the flight through the back-stack entry's saved state and joins it, as in iOS `83e47fd`.
+- 2026-09-26 — 2a — Search is a text field over the list, not M3 `SearchBar`: the expanding search bar is for app-wide search, not for filtering the list under it.
+- 2026-09-26 — 2a — The draft's people are refreshed from storage whenever the people list changes, so a person edited from the picker is generated with their new details; the baseline is refreshed too, so that is not an unsaved change.
+- 2026-09-26 — 2a — Aircraft owner is picked from People and `owner`/`ownerAddress` are kept in step with the choice (company or person), as iOS's `onChange` handlers do. An owner typed before this, with no person, is kept until one is picked.

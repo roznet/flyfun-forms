@@ -127,22 +127,24 @@ class PeopleCsvTest {
         assertEquals("Anna", r[0].firstName)
     }
 
+    private fun known(first: String, last: String, dob: LocalDate?, vararg docs: String) =
+        PeopleCsv.KnownPerson("id-$last", first, last, dob, docs.toSet())
+
     @Test
-    fun `plan skips people already held`() {
+    fun `plan skips people already held without a new document`() {
         val parsed = PeopleCsv.parse(
             "First Name,Last Name,DoB\nAnna,Eriksson,1974-08-12\nBo,Lindqvist,1980-01-01",
         )
-        val existing = setOf(PeopleCsv.dedupKey("anna", "ERIKSSON", LocalDate.of(1974, 8, 12)))
-        val plan = PeopleCsv.plan(parsed, existing)
+        val plan = PeopleCsv.plan(parsed, listOf(known("anna", "ERIKSSON", LocalDate.of(1974, 8, 12))))
         assertEquals(1, plan.skipped)
-        assertEquals(listOf("Lindqvist"), plan.toImport.map { it.lastName })
+        assertEquals(listOf("Lindqvist"), plan.newPeople.map { it.person.lastName })
     }
 
     @Test
     fun `plan also dedupes within the file itself`() {
         val parsed = PeopleCsv.parse("First Name,Last Name\nAnna,Eriksson\nAnna,Eriksson")
-        val plan = PeopleCsv.plan(parsed, emptySet())
-        assertEquals(1, plan.toImport.size)
+        val plan = PeopleCsv.plan(parsed, emptyList())
+        assertEquals(1, plan.newPeople.size)
         assertEquals(1, plan.skipped)
     }
 
@@ -151,6 +153,101 @@ class PeopleCsvTest {
         val parsed = PeopleCsv.parse(
             "First Name,Last Name,DoB\nAnna,Eriksson,1974-08-12\nAnna,Eriksson,1990-02-02",
         )
-        assertEquals(2, PeopleCsv.plan(parsed, emptySet()).toImport.size)
+        assertEquals(2, PeopleCsv.plan(parsed, emptyList()).newPeople.size)
+    }
+
+    // Ported from iOS `CSVImportTests` (1173620).
+    private val importHeader = "First Name,Last Name,DoB,Doc Type,Doc Number,Doc Expiry,Doc Issuing State"
+
+    @Test
+    fun `same person on several rows becomes one person with several documents`() {
+        val plan = PeopleCsv.plan(
+            PeopleCsv.parse(
+                "$importHeader\n" +
+                    "Zara,Kowalski,1985-03-22,Passport,PP-1,2030-06-15,XYZ\n" +
+                    "Zara,Kowalski,1985-03-22,Identity card,ID-2,2031-01-01,ABC",
+            ),
+            emptyList(),
+        )
+        assertEquals(1, plan.imported)
+        assertEquals(1, plan.documentsAdded)
+        assertEquals(0, plan.skipped)
+        assertEquals(1, plan.newPeople.size)
+        assertEquals(setOf("PP-1", "ID-2"), plan.newPeople[0].documents.map { it.docNumber }.toSet())
+    }
+
+    @Test
+    fun `re-import adds new documents to an existing person and skips known ones`() {
+        val plan = PeopleCsv.plan(
+            PeopleCsv.parse(
+                "$importHeader\n" +
+                    "Zara,Kowalski,1985-03-22,Passport,PP-1,,\n" +
+                    "Zara,Kowalski,1985-03-22,Passport,PP-3,,",
+            ),
+            listOf(known("Zara", "Kowalski", LocalDate.of(1985, 3, 22), "PP-1")),
+        )
+        assertEquals(0, plan.imported)
+        assertEquals(1, plan.documentsAdded)
+        assertEquals(1, plan.skipped)
+        assertEquals(listOf("PP-3"), plan.documentsForExisting.map { it.row.docNumber })
+        assertEquals("id-Kowalski", plan.documentsForExisting[0].personId)
+    }
+
+    @Test
+    fun `a document repeated in the file is added once`() {
+        val plan = PeopleCsv.plan(
+            PeopleCsv.parse(
+                "$importHeader\n" +
+                    "Zara,Kowalski,1985-03-22,Passport,PP-1,,\n" +
+                    "Zara,Kowalski,1985-03-22,Passport,PP-1,,",
+            ),
+            emptyList(),
+        )
+        assertEquals(1, plan.imported)
+        assertEquals(0, plan.documentsAdded)
+        assertEquals(1, plan.skipped)
+        assertEquals(1, plan.newPeople[0].documents.size)
+    }
+
+    @Test
+    fun `summary reads like iOS`() {
+        val plan = PeopleCsv.ImportPlan(emptyList(), emptyList(), imported = 2, documentsAdded = 1, skipped = 3)
+        assertEquals("2 imported, 1 document added, 3 already existed.", plan.summary)
+    }
+
+    @Test
+    fun `export round-trips through parse, one row per document`() {
+        val csv = PeopleCsv.export(
+            listOf(
+                PeopleCsv.ExportPerson(
+                    "Anna", "Eriksson, Jr", "Female", LocalDate.of(1974, 8, 12), isCrew = true,
+                    documents = listOf(
+                        PeopleCsv.ExportDocument("Passport", "P1", LocalDate.of(2031, 6, 30), "FRA"),
+                        PeopleCsv.ExportDocument("Identity card", "I2", null, "DEU"),
+                    ),
+                ),
+                PeopleCsv.ExportPerson("Bo", "Lind\"qvist", null, null, isCrew = false, documents = emptyList()),
+            ),
+        )
+        val rows = PeopleCsv.parse(csv)
+        assertEquals(3, rows.size)
+        assertEquals("Eriksson, Jr", rows[0].lastName)
+        assertEquals(listOf("P1", "I2"), rows.take(2).map { it.docNumber })
+        assertEquals("DEU", rows[1].nationality)
+        assertTrue(rows[0].isCrew)
+        assertEquals("Lind\"qvist", rows[2].lastName)
+        assertNull(rows[2].docNumber)
+
+        val plan = PeopleCsv.plan(rows, emptyList())
+        assertEquals(2, plan.imported)
+        assertEquals(1, plan.documentsAdded)
+    }
+
+    @Test
+    fun `sex from the template's letters becomes the editor's words`() {
+        assertEquals("Male", PeopleCsv.normaliseSex("M"))
+        assertEquals("Female", PeopleCsv.normaliseSex(" female "))
+        assertNull(PeopleCsv.normaliseSex(""))
+        assertEquals("X", PeopleCsv.normaliseSex("X"))
     }
 }

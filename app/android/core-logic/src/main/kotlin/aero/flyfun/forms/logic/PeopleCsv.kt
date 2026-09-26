@@ -105,27 +105,160 @@ object PeopleCsv {
         "${firstName.lowercase()}|${lastName.lowercase()}|${dateOfBirth?.toString() ?: "nil"}"
 
     /**
-     * Split parsed rows into those to import and those already present.
+     * What an import will do, worked out before anything is written.
      *
-     * Pure, so the dedup rule is testable without a database. [existingKeys] comes
-     * from [dedupKey] over what storage already holds.
+     * Port of iOS `PeopleCSVImporter.importInto` (`1173620`). Rows are matched
+     * by [dedupKey] against the people already stored and against earlier rows
+     * of the same file, so someone listed once per passport becomes one person
+     * with several documents. A matched row adds its document unless that
+     * person already holds the number; otherwise it is skipped.
+     *
+     * Pure, so the rule is testable without a database; the app writes the plan.
      */
-    fun plan(parsed: List<CsvPerson>, existingKeys: Set<String>): ImportPlan {
-        val seen = existingKeys.toMutableSet()
-        val toImport = mutableListOf<CsvPerson>()
-        var skipped = 0
-        for (p in parsed) {
-            val key = dedupKey(p.firstName, p.lastName, p.dateOfBirth)
-            if (!seen.add(key)) {
-                skipped++
-            } else {
-                toImport += p
-            }
+    fun plan(parsed: List<CsvPerson>, existing: List<KnownPerson>): ImportPlan {
+        // The first stored person under a key takes the documents, as on iOS.
+        val existingByKey = mutableMapOf<String, String>()
+        val docNumbers = mutableMapOf<String, MutableSet<String>>()
+        for (person in existing) {
+            val key = dedupKey(person.firstName, person.lastName, person.dateOfBirth)
+            existingByKey.putIfAbsent(key, person.id)
+            docNumbers.getOrPut(key) { mutableSetOf() } += person.docNumbers
         }
-        return ImportPlan(toImport = toImport, skipped = skipped)
+
+        val newPeople = linkedMapOf<String, NewPerson>()
+        val forExisting = mutableListOf<ExistingDocument>()
+        var imported = 0
+        var documentsAdded = 0
+        var skipped = 0
+
+        for (row in parsed) {
+            val key = dedupKey(row.firstName, row.lastName, row.dateOfBirth)
+            val number = row.docNumber.orEmpty()
+            val hasNewDocument = number.isNotEmpty() && number !in docNumbers[key].orEmpty()
+            val existingId = existingByKey[key]
+            val earlier = newPeople[key]
+            when {
+                existingId == null && earlier == null -> {
+                    newPeople[key] = NewPerson(row, if (hasNewDocument) listOf(row) else emptyList())
+                    imported++
+                }
+                !hasNewDocument -> {
+                    skipped++
+                    continue
+                }
+                existingId != null -> {
+                    forExisting += ExistingDocument(existingId, row)
+                    documentsAdded++
+                }
+                else -> {
+                    newPeople[key] = earlier!!.copy(documents = earlier.documents + row)
+                    documentsAdded++
+                }
+            }
+            if (hasNewDocument) docNumbers.getOrPut(key) { mutableSetOf() } += number
+        }
+        return ImportPlan(newPeople.values.toList(), forExisting, imported, documentsAdded, skipped)
     }
 
-    data class ImportPlan(val toImport: List<CsvPerson>, val skipped: Int)
+    /** A stored person, as far as matching an import is concerned. */
+    data class KnownPerson(
+        val id: String,
+        val firstName: String,
+        val lastName: String,
+        val dateOfBirth: LocalDate?,
+        val docNumbers: Set<String>,
+    )
+
+    /** A person to create from the row that introduced them, with the rows whose documents they get. */
+    data class NewPerson(val person: CsvPerson, val documents: List<CsvPerson>)
+
+    /** A row's document for a person already stored. */
+    data class ExistingDocument(val personId: String, val row: CsvPerson)
+
+    data class ImportPlan(
+        val newPeople: List<NewPerson>,
+        val documentsForExisting: List<ExistingDocument>,
+        val imported: Int,
+        val documentsAdded: Int,
+        val skipped: Int,
+    ) {
+        /** "2 imported, 1 document added, 3 already existed." - what iOS says after an import. */
+        val summary: String
+            get() = buildList {
+                if (imported > 0) add("$imported imported")
+                if (documentsAdded > 0) add("$documentsAdded document${if (documentsAdded == 1) "" else "s"} added")
+                if (skipped > 0) add("$skipped already existed")
+            }.joinToString(", ").ifEmpty { "Nothing to import" }.replaceFirstChar { it.uppercase() } + "."
+    }
+
+    /**
+     * The app's own vocabulary for sex: the CSV template says M/F, the person
+     * editor stores Male/Female. Anything else is kept as written.
+     */
+    fun normaliseSex(value: String?): String? = when (value?.trim()?.uppercase()) {
+        null, "" -> null
+        "M", "MALE" -> "Male"
+        "F", "FEMALE" -> "Female"
+        else -> value.trim()
+    }
+
+    /** A person to write out, one row per document. */
+    data class ExportPerson(
+        val firstName: String,
+        val lastName: String,
+        val sex: String?,
+        val dateOfBirth: LocalDate?,
+        val isCrew: Boolean,
+        val documents: List<ExportDocument>,
+    )
+
+    data class ExportDocument(
+        val docType: String,
+        val docNumber: String,
+        val expiryDate: LocalDate?,
+        val issuingCountry: String?,
+    )
+
+    val EXPORT_HEADER = listOf(
+        "First Name", "Last Name", "Gender", "DoB", "Nationality",
+        "Doc Type", "Doc Number", "Doc Expiry", "Doc Issuing State", "Type",
+    )
+
+    /**
+     * The people as CSV in the same columns [parse] reads, one row per
+     * document so a round trip keeps every document. Port of iOS
+     * `CSVExportDocument`. Nationality is the document's issuing country: on
+     * Android it derives from the document, never the person.
+     */
+    fun export(people: List<ExportPerson>): String {
+        val rows = mutableListOf(EXPORT_HEADER)
+        for (person in people) {
+            val base = listOf(person.firstName, person.lastName, person.sex.orEmpty(), person.dateOfBirth?.toString().orEmpty())
+            val type = if (person.isCrew) "Crew" else ""
+            if (person.documents.isEmpty()) {
+                rows += base + listOf("", "", "", "", "", type)
+            } else {
+                person.documents.forEach { doc ->
+                    rows += base + listOf(
+                        doc.issuingCountry.orEmpty(),
+                        doc.docType,
+                        doc.docNumber,
+                        doc.expiryDate?.toString().orEmpty(),
+                        doc.issuingCountry.orEmpty(),
+                        type,
+                    )
+                }
+            }
+        }
+        return rows.joinToString("\n") { row -> row.joinToString(",") { escape(it) } }
+    }
+
+    private fun escape(field: String): String =
+        if (field.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) {
+            "\"" + field.replace("\"", "\"\"") + "\""
+        } else {
+            field
+        }
 
     /**
      * One CSV row, per RFC 4180: quoted fields may contain commas, and a doubled

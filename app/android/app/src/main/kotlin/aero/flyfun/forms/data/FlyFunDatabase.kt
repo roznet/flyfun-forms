@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -15,7 +17,7 @@ import androidx.room.TypeConverters
         FlightEntity::class,
         FlightPersonCrossRef::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -45,6 +47,14 @@ abstract class FlyFunDatabase : RoomDatabase() {
                 // copy - there is no CloudKit behind it. Losing it to a schema
                 // bump is not an acceptable failure mode, so a missing migration
                 // must fail loudly in development instead.
+                .addMigrations(MIGRATION_1_2)
                 .build()
+
+        /** Per-flight document choice (`FlightEntity.chosenDocNumbers`): one nullable column. */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `flight` ADD COLUMN `chosenDocNumbers` TEXT")
+            }
+        }
     }
 }

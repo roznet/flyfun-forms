@@ -1,6 +1,7 @@
 package aero.flyfun.forms.data
 
 import aero.flyfun.forms.logic.DocumentResolver
+import aero.flyfun.forms.logic.PeopleCsv
 import aero.flyfun.forms.logic.ResolvableDocument
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
@@ -22,8 +23,21 @@ interface PeopleRepository {
     suspend fun restorePerson(id: String)
     suspend fun deleteDocument(id: String)
 
-    /** The document to use for this person at this airport. */
-    suspend fun resolveDocument(personId: String, airport: String): TravelDocumentEntity?
+    /**
+     * The document to use for this person at this airport: the one picked for
+     * the flight among [chosenDocNumbers], else the automatic choice.
+     */
+    suspend fun resolveDocument(
+        personId: String,
+        airport: String,
+        chosenDocNumbers: List<String> = emptyList(),
+    ): TravelDocumentEntity?
+
+    /** Import a people CSV; throws [aero.flyfun.forms.logic.CsvImportException] on a bad file. */
+    suspend fun importCsv(content: String): PeopleCsv.ImportPlan
+
+    /** Everyone, one row per active document, in the columns [importCsv] reads. */
+    suspend fun exportCsv(): String
 }
 
 class RoomPeopleRepository(
@@ -47,21 +61,87 @@ class RoomPeopleRepository(
 
     override suspend fun deleteDocument(id: String) = documents.softDelete(id, Instant.now())
 
-    override suspend fun resolveDocument(personId: String, airport: String): TravelDocumentEntity? {
+    override suspend fun resolveDocument(
+        personId: String,
+        airport: String,
+        chosenDocNumbers: List<String>,
+    ): TravelDocumentEntity? {
         val held = documents.forPerson(personId)
-        // Map onto the pure-logic shape; :core-logic knows nothing about Room.
-        val resolvable = held.map {
-            ResolvableDocument(
-                id = it.id,
-                docType = it.docType,
-                docNumber = it.docNumber,
-                issuingCountry = it.issuingCountry,
-                expiryDate = it.expiryDate,
-                isActive = it.isActive,
-            )
-        }
-        // TODO(S8+): pass the remembered per-airport override once preferences exist.
-        val chosen = DocumentResolver.resolve(resolvable, airport) ?: return null
+        val chosen = DocumentResolver.resolve(held.map { it.toResolvable() }, airport, chosenDocNumbers) ?: return null
         return held.firstOrNull { it.id == chosen.id }
     }
+
+    override suspend fun importCsv(content: String): PeopleCsv.ImportPlan {
+        val parsed = PeopleCsv.parse(content)
+        val stored = people.observeAllOnce()
+        val known = stored.map { person ->
+            PeopleCsv.KnownPerson(
+                id = person.id,
+                firstName = person.firstName,
+                lastName = person.lastName,
+                dateOfBirth = person.dateOfBirth,
+                docNumbers = documents.forPerson(person.id).map { it.docNumber }.toSet(),
+            )
+        }
+        val plan = PeopleCsv.plan(parsed, known)
+        val now = Instant.now()
+        val newPeople = plan.newPeople.map { planned ->
+            val row = planned.person
+            val person = PersonEntity(
+                firstName = row.firstName,
+                lastName = row.lastName,
+                sex = PeopleCsv.normaliseSex(row.sex),
+                dateOfBirth = row.dateOfBirth,
+                isUsualCrew = row.isCrew,
+                updatedAt = now,
+            )
+            person to planned.documents.map { it.toDocument(person.id, now) }
+        }
+        people.importPeople(
+            people = newPeople.map { it.first },
+            documents = newPeople.flatMap { it.second } +
+                plan.documentsForExisting.map { it.row.toDocument(it.personId, now) },
+        )
+        return plan
+    }
+
+    override suspend fun exportCsv(): String {
+        val everyone = people.observeAllOnce().sortedWith(
+            compareBy(String.CASE_INSENSITIVE_ORDER, PersonEntity::lastName)
+                .thenBy(String.CASE_INSENSITIVE_ORDER, PersonEntity::firstName),
+        )
+        return PeopleCsv.export(
+            everyone.map { person ->
+                PeopleCsv.ExportPerson(
+                    firstName = person.firstName,
+                    lastName = person.lastName,
+                    sex = person.sex,
+                    dateOfBirth = person.dateOfBirth,
+                    isCrew = person.isUsualCrew,
+                    documents = documents.forPerson(person.id).filter { it.isActive }.map {
+                        PeopleCsv.ExportDocument(it.docType, it.docNumber, it.expiryDate, it.issuingCountry)
+                    },
+                )
+            },
+        )
+    }
 }
+
+/** The pure-logic shape; :core-logic knows nothing about Room. */
+fun TravelDocumentEntity.toResolvable() = ResolvableDocument(
+    id = id,
+    docType = docType,
+    docNumber = docNumber,
+    issuingCountry = issuingCountry,
+    expiryDate = expiryDate,
+    isActive = isActive,
+)
+
+private fun aero.flyfun.forms.logic.CsvPerson.toDocument(personId: String, now: Instant) = TravelDocumentEntity(
+    personId = personId,
+    docType = docType ?: "Passport",
+    docNumber = docNumber.orEmpty(),
+    issuingCountry = (docIssuingCountry ?: nationality)?.uppercase(),
+    expiryDate = docExpiry,
+    updatedAt = now,
+)

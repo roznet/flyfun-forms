@@ -3,6 +3,10 @@ package aero.flyfun.forms.ui.flights
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
+import aero.flyfun.forms.data.TravelDocumentEntity
+import aero.flyfun.forms.data.toResolvable
+import aero.flyfun.forms.logic.DocumentResolver
+import aero.flyfun.forms.ui.people.CrewPill
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.displayField
 import aero.flyfun.forms.data.FormRequestBuilder
@@ -14,9 +18,8 @@ import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,8 +37,13 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -190,6 +198,8 @@ fun FlightEditScreen(
     hasUnsavedChanges: Boolean,
     aircraftOptions: List<AircraftEntity>,
     people: List<PersonEntity>,
+    /** Each person's active documents, by id: a per-flight choice is offered when there are several. */
+    documents: Map<String, List<TravelDocumentEntity>>,
     airportForms: List<AirportForms>,
     generateState: GenerateState,
     onEditFlight: ((FlightEntity) -> FlightEntity) -> Unit,
@@ -198,6 +208,8 @@ fun FlightEditScreen(
     onSetCrew: (List<PersonEntity>) -> Unit,
     onSetPassengers: (List<PersonEntity>) -> Unit,
     onSetResponsiblePerson: (PersonEntity?) -> Unit,
+    onChooseDocument: (PersonEntity, TravelDocumentEntity?) -> Unit,
+    onOpenPeoplePicker: () -> Unit,
     extraValues: Map<String, Map<String, ExtraFieldValue>>,
     onSetExtra: (airport: String, formId: String, key: String, value: ExtraFieldValue?) -> Unit,
     onSave: () -> Unit,
@@ -334,8 +346,14 @@ fun FlightEditScreen(
                 person.address?.takeIf { it.isNotBlank() }?.let { DetailLine("Address", it) }
             }
 
-            PeoplePicker("Crew", people, detail.crew, onSetCrew)
-            PeoplePicker("Passengers", people, detail.passengers, onSetPassengers)
+            PeopleOnBoard(
+                detail = detail,
+                documents = documents,
+                onRemoveCrew = { person -> onSetCrew(detail.crew - person) },
+                onRemovePassenger = { person -> onSetPassengers(detail.passengers - person) },
+                onChooseDocument = onChooseDocument,
+                onOpenPicker = onOpenPeoplePicker,
+            )
 
             OutlinedTextField(
                 observations,
@@ -410,36 +428,80 @@ private fun DetailLine(label: String, value: String) {
 }
 
 /**
- * Chips for everyone, wrapping onto as many lines as they need rather than one
- * chip per line. The full picker (search, crew/passenger toggle) is PR 2.
+ * Crew and passengers, each a row: the name, "PIC" on the first crew member
+ * (sent as the pilot on every form), and for someone with several active
+ * documents a menu to pick the one for this flight. Port of iOS
+ * `FlightEditView.personLabel` (`1173620`, `20065ae`). Who is on board is
+ * chosen in [aero.flyfun.forms.ui.people.PeoplePickerScreen].
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PeoplePicker(
-    title: String,
-    all: List<PersonEntity>,
-    selected: List<PersonEntity>,
-    onChange: (List<PersonEntity>) -> Unit,
+private fun PeopleOnBoard(
+    detail: FlightDetail,
+    documents: Map<String, List<TravelDocumentEntity>>,
+    onRemoveCrew: (PersonEntity) -> Unit,
+    onRemovePassenger: (PersonEntity) -> Unit,
+    onChooseDocument: (PersonEntity, TravelDocumentEntity?) -> Unit,
+    onOpenPicker: () -> Unit,
 ) {
-    Text(title, style = MaterialTheme.typography.titleMedium)
-    if (all.isEmpty()) {
-        Text("Add people first.", style = MaterialTheme.typography.bodySmall)
-        return
+    val chosen = detail.flight.chosenDocNumbers.orEmpty()
+    Text("Crew", style = MaterialTheme.typography.titleMedium)
+    if (detail.crew.isEmpty()) Text("No crew yet.", style = MaterialTheme.typography.bodySmall)
+    detail.crew.forEachIndexed { index, person ->
+        OnBoardRow(person, if (index == 0) "PIC" else null, documents[person.id].orEmpty(), chosen,
+            { onChooseDocument(person, it) }, { onRemoveCrew(person) })
     }
-    val selectedIds = selected.map { it.id }.toSet()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        all.forEach { person ->
-            val isSelected = person.id in selectedIds
-            FilterChip(
-                selected = isSelected,
-                onClick = {
-                    onChange(if (isSelected) selected.filterNot { it.id == person.id } else selected + person)
-                },
-                label = { Text(person.displayName.ifBlank { "Unnamed" }) },
-            )
-        }
+    Text("Passengers", style = MaterialTheme.typography.titleMedium)
+    if (detail.passengers.isEmpty()) Text("No passengers.", style = MaterialTheme.typography.bodySmall)
+    detail.passengers.forEach { person ->
+        OnBoardRow(person, null, documents[person.id].orEmpty(), chosen,
+            { onChooseDocument(person, it) }, { onRemovePassenger(person) })
+    }
+    OutlinedButton(onClick = onOpenPicker) {
+        Icon(Icons.Default.Groups, contentDescription = null)
+        Text("Choose Crew & Passengers", Modifier.padding(start = 8.dp))
     }
 }
+
+@Composable
+private fun OnBoardRow(
+    person: PersonEntity,
+    tag: String?,
+    documents: List<TravelDocumentEntity>,
+    chosenDocNumbers: List<String>,
+    onChoose: (TravelDocumentEntity?) -> Unit,
+    onRemove: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(person.displayName.ifBlank { "Unnamed" }, style = MaterialTheme.typography.bodyLarge)
+                tag?.let { CrewPill(it) }
+            }
+            if (documents.size > 1) {
+                val chosen = DocumentResolver.chosen(documents.map { it.toResolvable() }, chosenDocNumbers)
+                    ?.let { c -> documents.first { it.id == c.id } }
+                var open by remember { mutableStateOf(false) }
+                Box {
+                    TextButton(onClick = { open = true }) {
+                        Icon(Icons.Default.Badge, contentDescription = null)
+                        Text(chosen?.let(::documentLabel) ?: "Document: Automatic", Modifier.padding(start = 4.dp))
+                    }
+                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        DropdownMenuItem(text = { Text("Automatic") }, onClick = { open = false; onChoose(null) })
+                        documents.filter { it.docNumber.isNotEmpty() }.forEach { doc ->
+                            DropdownMenuItem(text = { Text(documentLabel(doc)) }, onClick = { open = false; onChoose(doc) })
+                        }
+                    }
+                }
+            }
+        }
+        IconButton(onClick = onRemove) { Icon(Icons.Default.Close, contentDescription = "Remove from flight") }
+    }
+}
+
+/** "Passport (FRA) — 123456", as iOS `TravelDocument.displayLabel`. */
+private fun documentLabel(doc: TravelDocumentEntity): String =
+    "${doc.docType} (${doc.issuingCountry ?: "?"})" + if (doc.docNumber.isEmpty()) "" else " — ${doc.docNumber.takeLast(6)}"
 
 /**
  * What a form row needs from the flight screen, bundled so each row does not

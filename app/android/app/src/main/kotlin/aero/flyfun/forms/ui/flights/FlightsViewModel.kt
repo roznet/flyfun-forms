@@ -7,6 +7,10 @@ import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.data.FormRequestBuilder
 import aero.flyfun.forms.data.PeopleRepository
 import aero.flyfun.forms.data.PersonEntity
+import aero.flyfun.forms.data.TravelDocumentEntity
+import aero.flyfun.forms.data.toResolvable
+import aero.flyfun.forms.logic.DocumentResolver
+import aero.flyfun.forms.logic.PeopleRanking
 import aero.flyfun.forms.logic.EmailText
 import aero.flyfun.forms.logic.FlightLegs
 import aero.flyfun.forms.logic.FormSides
@@ -224,9 +228,54 @@ class FlightsViewModel(
         )
     }
 
-    fun setCrew(crew: List<PersonEntity>) = edit { it.copy(crew = crew) }
+    fun setCrew(crew: List<PersonEntity>) = setPeople(crew, _detail.value?.passengers.orEmpty())
 
-    fun setPassengers(passengers: List<PersonEntity>) = edit { it.copy(passengers = passengers) }
+    fun setPassengers(passengers: List<PersonEntity>) = setPeople(_detail.value?.crew.orEmpty(), passengers)
+
+    /** Crew in seat order (PIC first) and passengers; someone in both stays crew. */
+    fun setPeople(crew: List<PersonEntity>, passengers: List<PersonEntity>) = edit { detail ->
+        val byId = (crew + passengers).associateBy { it.id }
+        val (crewIds, passengerIds) = PeopleRanking.withoutDuplicates(crew.map { it.id }, passengers.map { it.id })
+        detail.copy(crew = crewIds.map { byId.getValue(it) }, passengers = passengerIds.map { byId.getValue(it) })
+    }
+
+    /** Put someone on board as the picker would: usual crew as crew, everyone else as a passenger. */
+    fun addPerson(person: PersonEntity) {
+        val current = _detail.value ?: return
+        if ((current.crew + current.passengers).any { it.id == person.id }) return
+        if (person.isUsualCrew) setPeople(current.crew + person, current.passengers)
+        else setPeople(current.crew, current.passengers + person)
+    }
+
+    /**
+     * Use [document] for [person] on this flight, or go back to the automatic
+     * choice with null. Port of the iOS document menu under a crew or
+     * passenger row (`1173620`).
+     */
+    fun chooseDocument(person: PersonEntity, personDocuments: List<TravelDocumentEntity>, document: TravelDocumentEntity?) =
+        editFlight { flight ->
+            val updated = DocumentResolver.choosing(
+                document?.toResolvable(),
+                personDocuments.map { it.toResolvable() },
+                flight.chosenDocNumbers.orEmpty(),
+            )
+            flight.copy(chosenDocNumbers = updated.ifEmpty { null })
+        }
+
+    /**
+     * Swap in the stored copies of the people on the draft, after an edit
+     * elsewhere (a person opened from the picker, say): forms are built from
+     * these. Applied to the baseline as well, so it is not an unsaved change.
+     */
+    fun refreshPeople(stored: Map<String, PersonEntity>) {
+        fun FlightDetail.refreshed() = copy(
+            crew = crew.map { stored[it.id] ?: it },
+            passengers = passengers.map { stored[it.id] ?: it },
+            responsiblePerson = responsiblePerson?.let { stored[it.id] ?: it },
+        )
+        baseline.value = baseline.value?.refreshed()
+        _detail.update { it?.refreshed() }
+    }
 
     /** Also keeps `contact` in step, as iOS `setResponsiblePerson` does for older builds reading it. */
     fun setResponsiblePerson(person: PersonEntity?) = edit {
@@ -318,6 +367,7 @@ class FlightsViewModel(
             contact = from.contact,
             reasonForVisit = from.reasonForVisit,
             responsiblePersonId = from.responsiblePersonId,
+            chosenDocNumbers = from.chosenDocNumbers,
         )
         show(current.copy(flight = shape(from, common), isNew = true), unsaved = true)
     }
@@ -367,7 +417,7 @@ class FlightsViewModel(
 
         // Resolve each person's document once, against this airport.
         val documents = (current.crew + current.passengers).associate { person ->
-            person.id to people.resolveDocument(person.id, airport)
+            person.id to people.resolveDocument(person.id, airport, current.flight.chosenDocNumbers.orEmpty())
         }
 
         val entered = _extraValues.value[formKey(airport, form.id)].orEmpty()

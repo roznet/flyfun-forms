@@ -22,13 +22,13 @@ data class ResolvableDocument(
  *
  * Port of `Services/DocumentResolver.swift`. Resolution order:
  *  0. Active filter - inactive documents are never considered
- *  1. User override - a remembered choice for this person + airport prefix
+ *  1. The document chosen by hand for this flight (`chosenDocNumbers`)
  *  2. Region match - prefer a document issued by a country in the airport's region
  *  3. Tiebreak by latest expiry
  *  4. Fallback to the whole set by latest expiry
  *
- * The override is passed in rather than read from storage, because this module
- * has no Android dependencies. The app layer supplies it.
+ * The flight's choices are passed in rather than read from storage, because
+ * this module has no Android dependencies. The app layer supplies them.
  */
 object DocumentResolver {
 
@@ -80,23 +80,22 @@ object DocumentResolver {
     /**
      * @param documents every document held for the person, active or not
      * @param airport target airport ICAO; only the first two characters matter
-     * @param overrideDocumentId a previously remembered choice for this person
-     *   and airport prefix, if any
+     * @param chosenDocNumbers the documents picked by hand for the flight
+     *   (iOS `Flight.chosenDocNumbers`); one of this person's active documents
+     *   in that set wins over the automatic choice
      */
     fun resolve(
         documents: List<ResolvableDocument>,
         airport: String,
-        overrideDocumentId: String? = null,
+        chosenDocNumbers: Collection<String> = emptyList(),
     ): ResolvableDocument? {
         val docs = documents.filter { it.isActive }
         if (docs.isEmpty()) return null
         // Matches Swift: a single active document short-circuits before the
-        // override is consulted.
+        // flight's choice is consulted.
         if (docs.size == 1) return docs[0]
 
-        if (overrideDocumentId != null) {
-            docs.firstOrNull { it.id == overrideDocumentId }?.let { return it }
-        }
+        chosen(docs, chosenDocNumbers)?.let { return it }
 
         val prefix = airport.take(2)
         val region = prefixRegions[prefix] ?: Region.OTHER
@@ -110,5 +109,32 @@ object DocumentResolver {
         val candidates = regionMatches.ifEmpty { docs }
         // A missing expiry sorts last, matching Swift's `.distantPast` default.
         return candidates.maxByOrNull { it.expiryDate ?: LocalDate.MIN }
+    }
+
+    /**
+     * The person's active document picked by hand for the flight, if any.
+     *
+     * Keyed by document number, as on iOS: unlike a row id it is the same on
+     * every device the flight travels to.
+     */
+    fun chosen(documents: List<ResolvableDocument>, chosenDocNumbers: Collection<String>): ResolvableDocument? {
+        if (chosenDocNumbers.isEmpty()) return null
+        return documents.firstOrNull { it.isActive && it.docNumber.isNotEmpty() && it.docNumber in chosenDocNumbers }
+    }
+
+    /**
+     * [chosenDocNumbers] with this person's choice set to [document], or
+     * cleared back to automatic when [document] is null. Other people's
+     * choices on the same flight are kept.
+     */
+    fun choosing(
+        document: ResolvableDocument?,
+        personDocuments: List<ResolvableDocument>,
+        chosenDocNumbers: List<String>,
+    ): List<String> {
+        val personNumbers = personDocuments.map { it.docNumber }.toSet()
+        val result = chosenDocNumbers.filterNot { it in personNumbers }.toMutableList()
+        if (document != null && document.docNumber.isNotEmpty()) result += document.docNumber
+        return result
     }
 }

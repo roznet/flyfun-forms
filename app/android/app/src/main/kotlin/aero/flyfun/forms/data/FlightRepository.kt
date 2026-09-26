@@ -1,6 +1,9 @@
 package aero.flyfun.forms.data
 
+import aero.flyfun.forms.logic.FlightPeople
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 
 /** Aircraft, flights and the people on them. */
@@ -29,6 +32,12 @@ interface FlightRepository {
 
     /** Matched the way FPL import normalises: dashes stripped, uppercased. */
     suspend fun aircraftByRegistration(registration: String): AircraftEntity?
+
+    /** Each person's most recent live flight, by person id. */
+    fun observeLastFlights(): Flow<Map<String, Instant>>
+
+    /** Who was on each live flight, crew in seat order: suggestions and co-traveller groups. */
+    fun observeFlightPeople(): Flow<List<FlightPeople>>
 }
 
 class RoomFlightRepository(
@@ -72,4 +81,22 @@ class RoomFlightRepository(
 
     override suspend fun aircraftByRegistration(registration: String): AircraftEntity? =
         aircraftDao.byNormalisedRegistration(registration.replace("-", "").uppercase())
+
+    override fun observeLastFlights(): Flow<Map<String, Instant>> =
+        flights.observeLastFlights().map { rows -> rows.associate { it.personId to it.lastFlight } }
+
+    override fun observeFlightPeople(): Flow<List<FlightPeople>> =
+        combine(flights.observeAll(), flights.observeMemberships()) { all, memberships ->
+            val byFlight = memberships.groupBy { it.flightId }
+            all.map { flight ->
+                val onBoard = byFlight[flight.id].orEmpty().sortedBy { it.seatOrder }
+                FlightPeople(
+                    flightId = flight.id,
+                    departure = flight.departureInstant,
+                    aircraftId = flight.aircraftId,
+                    crew = onBoard.filter { it.role == FlightRole.CREW }.map { it.personId },
+                    passengers = onBoard.filter { it.role == FlightRole.PASSENGER }.map { it.personId },
+                )
+            }
+        }
 }

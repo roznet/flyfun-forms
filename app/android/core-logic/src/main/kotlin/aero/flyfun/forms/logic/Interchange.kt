@@ -119,6 +119,8 @@ data class FlightRecord(
     val responsiblePersonId: String? = null,
     val tripId: String? = null,
     val legOrder: Int = 0,
+    /** Documents picked by hand for this flight, by number. Absent in files from before it existed. */
+    val chosenDocNumbers: List<String>? = null,
     override val updatedAt: String,
     override val deletedAt: String? = null,
 ) : InterchangeRecord
