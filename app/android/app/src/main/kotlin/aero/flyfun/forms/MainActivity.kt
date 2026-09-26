@@ -21,6 +21,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var api: ApiClient
     private lateinit var auth: AuthService
 
+    /** The redirect already handled, so a recreated activity does not handle it twice. */
+    private var handledCallback: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tokens = TokenStore(this)
@@ -39,9 +42,13 @@ class MainActivity : ComponentActivity() {
                 FlyFunApp(auth = auth, tokens = tokens, api = api)
             }
         }
-        // Not again on rotation: the nonce is spent, and a second pass would
-        // report a sign-in that just worked as failed.
-        if (savedInstanceState == null) handleAuthRedirect(intent)
+        handledCallback = savedInstanceState?.getString(KEY_HANDLED_CALLBACK)
+        handleAuthRedirect(intent)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(KEY_HANDLED_CALLBACK, handledCallback)
     }
 
     override fun onResume() {
@@ -62,11 +69,16 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         var purgedThisProcess = false
+        const val KEY_HANDLED_CALLBACK = "handled_auth_callback"
     }
 
     private fun handleAuthRedirect(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme != ApiConfig.CALLBACK_SCHEME) return
+        // Not again on rotation: the nonce is spent, and a second pass would
+        // report a sign-in that just worked as failed.
+        if (uri.toString() == handledCallback) return
+        handledCallback = uri.toString()
         lifecycleScope.launch {
             // Success needs nothing here: the UI observes TokenStore.signedIn.
             auth.handleCallback(uri)

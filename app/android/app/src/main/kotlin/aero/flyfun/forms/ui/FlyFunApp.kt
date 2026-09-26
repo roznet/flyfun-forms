@@ -188,8 +188,9 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
     // quietly on every form.
     androidx.compose.runtime.LaunchedEffect(signedIn) { if (signedIn) skippedSignIn = false }
 
-    // Above the sign-in screen, so an expired token mid-edit keeps the back
-    // stack, and with it the flight draft, for after signing in again.
+    // Above the sign-in screen, so the controller - and the back stack whose
+    // entries own the flight draft's ViewModel - outlives a detour to sign in
+    // after a token expires mid-edit.
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val appScope = rememberCoroutineScope()
