@@ -28,6 +28,7 @@ import aero.flyfun.forms.ui.flights.NewFlightScreen
 import aero.flyfun.forms.ui.flights.NewFlightStep
 import aero.flyfun.forms.ui.flights.PastFlightPickerScreen
 import aero.flyfun.forms.ui.flights.PastFlightRow
+import aero.flyfun.forms.ui.flights.WeatherFlightPickerScreen
 import aero.flyfun.forms.ui.flights.SuggestionChoice
 import aero.flyfun.forms.logic.PeopleSuggestion
 import aero.flyfun.forms.ui.flights.FlightListScreen
@@ -314,7 +315,7 @@ fun FlyFunApp(
                 enterTransition = { if (twoPane) EnterTransition.None else fadeIn(tween(700)) },
                 exitTransition = { if (twoPane) ExitTransition.None else fadeOut(tween(700)) },
             ) {
-                flightRoutes(navController, factory, context, deletions)
+                flightRoutes(navController, factory, context, deletions, tokens)
                 peopleRoutes(navController, factory, deletions)
                 aircraftRoutes(navController, factory, deletions)
                 settingsRoute(factory, context, tokens, auth, preferences)
@@ -372,6 +373,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
     factory: ViewModelProvider.Factory,
     context: Context,
     deletions: Deletions,
+    tokens: TokenStore,
 ) {
     composable(Tab.FLIGHTS.route) {
         val vm: FlightsViewModel = viewModel(factory = factory)
@@ -390,7 +392,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
     ) { entry ->
         val flightId = entry.arguments?.getString("flightId").orEmpty()
         if (!openedFrom(nav, entry, Tab.FLIGHTS)) {
-            FlightRoute(entry, flightId, nav, factory, context, deletions)
+            FlightRoute(entry, flightId, nav, factory, context, deletions, tokens)
             return@composable
         }
         val vm: FlightsViewModel = viewModel(factory = factory)
@@ -407,7 +409,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                     if (unsaved) pendingOpen = id else nav.openFromList("flight/$id", Tab.FLIGHTS)
                 })
             },
-            detail = { FlightRoute(entry, flightId, nav, factory, context, deletions) },
+            detail = { FlightRoute(entry, flightId, nav, factory, context, deletions, tokens) },
         )
         pendingOpen?.let { next ->
             androidx.compose.material3.AlertDialog(
@@ -464,8 +466,11 @@ private fun FlightRoute(
     factory: ViewModelProvider.Factory,
     context: Context,
     deletions: Deletions,
+    tokens: TokenStore,
 ) {
     val vm: FlightsViewModel = viewModel(viewModelStoreOwner = entry, factory = factory)
+    val signedIn by tokens.signedIn.collectAsState()
+    val stagedAircraft by vm.stagedAircraft.collectAsState()
     val peopleVm: PeopleViewModel = viewModel(factory = factory)
     val detail by vm.detail.collectAsState()
     val unsaved by vm.hasUnsavedChanges.collectAsState()
@@ -487,6 +492,7 @@ private fun FlightRoute(
     var newFlow by rememberSaveable { mutableStateOf(flightId == FlightsViewModel.NEW_FLIGHT) }
     var newStep by rememberSaveable { mutableStateOf(NewFlightStep.ROUTE) }
     var pickingPrevious by rememberSaveable { mutableStateOf(false) }
+    var pickingWeather by rememberSaveable { mutableStateOf(false) }
     var pickingCrewSource by rememberSaveable { mutableStateOf(false) }
     val importSummary by vm.importSummary.collectAsState()
     val allFlights by vm.allFlights.collectAsState()
@@ -589,6 +595,15 @@ private fun FlightRoute(
             )
             return
         }
+        if (pickingWeather) {
+            WeatherFlightPickerScreen(
+                load = vm::weatherFlights,
+                export = vm::weatherFlight,
+                onImport = { vm.importWeather(it); pickingWeather = false },
+                onCancel = { pickingWeather = false },
+            )
+            return
+        }
         if (pickingCrewSource) {
             PastFlightPickerScreen(
                 title = "Copy Crew From",
@@ -626,13 +641,16 @@ private fun FlightRoute(
             NewFlightScreen(
                 step = newStep,
                 detail = current,
-                aircraftOptions = aircraft,
+                // With the aircraft an import named, until the flight stores it.
+                aircraftOptions = aircraft + listOfNotNull(stagedAircraft),
                 airportInfo = airportInfo,
                 importSummary = importSummary,
                 hasPreviousFlights = allFlights.any { it.id != current.flight.id },
+                signedIn = signedIn,
                 suggestion = suggestion,
                 hasCrewSources = others.any { it.everyone.isNotEmpty() },
                 onImportPrevious = { pickingPrevious = true },
+                onImportWeather = { pickingWeather = true },
                 onOpenRoutePicker = { pickingRoute = true },
                 onSetDeparture = { vm.setDeparture(it) },
                 onSetArrival = { t -> vm.editFlight { it.copy(arrivalInstant = t) } },

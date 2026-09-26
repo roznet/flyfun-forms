@@ -20,6 +20,9 @@ object ApiConfig {
     /** Airport notices; see [NotificationsApi]. */
     const val MAPS_URL = "https://maps.flyfun.aero/"
 
+    /** Flights planned in FlyFun Weather, for import; see [WeatherApi]. */
+    const val WEATHER_URL = "https://weather.flyfun.aero/"
+
     /** Reused from iOS: the allowlist already contains it, and the two platforms cannot collide on one device. */
     const val CALLBACK_SCHEME = "flyfunforms"
     const val CALLBACK_URL = "$CALLBACK_SCHEME://auth/callback"
@@ -47,7 +50,14 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
      * the UI, which observes [TokenStore.signedIn], goes back to sign-in -
      * rather than every later request failing with the same 401.
      */
-    private val authInterceptor = Interceptor { chain ->
+    private val authInterceptor = bearer(signOutOn401 = true)
+
+    /**
+     * The same account's token for another flyfun service. A 401 there says
+     * that service would not take it, not that the forms session is over, so
+     * it signs nothing out; renewals are still kept.
+     */
+    private fun bearer(signOutOn401: Boolean) = Interceptor { chain ->
         val token = tokens.token
         val request = if (token != null) {
             chain.request().newBuilder().addHeader("Authorization", "Bearer $token").build()
@@ -57,7 +67,7 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
         val response = chain.proceed(request)
         if (token != null) {
             if (response.code == 401) {
-                tokens.clearIfCurrent(token)
+                if (signOutOn401) tokens.clearIfCurrent(token)
             } else {
                 // Rolling sessions: a token near expiry comes back with its
                 // successor, so a pilot who keeps using the app stays signed in.
@@ -91,6 +101,22 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
         .create(NotificationsApi::class.java)
+
+    /**
+     * FlyFun Weather, signed in as the same account: the flyfun services
+     * share the account and its tokens, as on iOS (`RollingBearerSession`).
+     */
+    val weather: WeatherApi = Retrofit.Builder()
+        .baseUrl(ApiConfig.WEATHER_URL)
+        .client(
+            OkHttpClient.Builder()
+                .addInterceptor(bearer(signOutOn401 = false))
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build(),
+        )
+        .build()
+        .create(WeatherApi::class.java)
 
     /** Parses a 422 body into the structured errors the UI shows. */
     fun parseValidationErrors(body: String): List<ServerValidationError> = runCatching {

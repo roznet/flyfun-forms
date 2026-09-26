@@ -28,6 +28,11 @@ import aero.flyfun.forms.logic.AirportSummary
 import aero.flyfun.forms.logic.RecentRoute
 import aero.flyfun.forms.logic.RecentRoutes
 import aero.flyfun.forms.logic.NextOccurrence
+import aero.flyfun.forms.logic.FlightExchange
+import aero.flyfun.forms.logic.ImportedRoute
+import aero.flyfun.forms.logic.WeatherFlightSummary
+import aero.flyfun.forms.net.exportFlight
+import aero.flyfun.forms.net.listFlights
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -278,7 +283,7 @@ class FlightsViewModel(
     fun setAircraft(aircraftId: String?) = edit { detail ->
         detail.copy(
             flight = detail.flight.copy(aircraftId = aircraftId),
-            aircraft = aircraft.value.firstOrNull { it.id == aircraftId },
+            aircraft = (aircraft.value + listOfNotNull(_stagedAircraft.value)).firstOrNull { it.id == aircraftId },
         )
     }
 
@@ -288,6 +293,8 @@ class FlightsViewModel(
 
     /** Crew in seat order (PIC first) and passengers; someone in both stays crew. */
     fun setPeople(crew: List<PersonEntity>, passengers: List<PersonEntity>) = edit { detail ->
+        // Chosen, not imported: a later import leaves them alone.
+        peopleFromImport = false
         val byId = (crew + passengers).associateBy { it.id }
         val (crewIds, passengerIds) = PeopleRanking.withoutDuplicates(crew.map { it.id }, passengers.map { it.id })
         detail.copy(crew = crewIds.map { byId.getValue(it) }, passengers = passengerIds.map { byId.getValue(it) })
@@ -394,12 +401,100 @@ class FlightsViewModel(
                 responsiblePerson = source.responsiblePerson,
             )
         }
+        peopleFromImport = true
+        _stagedAircraft.value = null
         _importSummary.value = "Copied from ${from.originICAO.ifBlank { "????" }} → ${from.destinationICAO.ifBlank { "????" }}"
     }
 
+    /**
+     * Whether the draft's people came from an import rather than the pilot:
+     * the next import replaces those, and leaves a hand-picked crew alone.
+     * iOS `NewFlightFlow.peopleCameFromImport`.
+     */
+    private var peopleFromImport = false
+
+    private val _stagedAircraft = MutableStateFlow<AircraftEntity?>(null)
+
+    /**
+     * An aircraft an import named that is not on file yet. Offered with the
+     * others, and stored only when the flight is: a cancelled import leaves
+     * nothing behind (iOS `importedAircraft`).
+     */
+    val stagedAircraft: StateFlow<AircraftEntity?> = _stagedAircraft.asStateFlow()
+
+    /**
+     * A flight planned in FlyFun Weather: its route, schedule and aircraft.
+     * Port of iOS `NewFlightFlow.apply(_:)` for a `FlightExchange`.
+     *
+     * The exchange carries no people, so an earlier import's people are
+     * cleared (a customs form must not list a previous trip's crew), while a
+     * crew the pilot chose stays. The form-level settings, which have no
+     * editor in the new-flight flow, go back to a new flight's.
+     */
+    fun importWeather(exchange: FlightExchange) = viewModelScope.launch {
+        val draft = _detail.value ?: return@launch
+        val route = ImportedRoute.from(
+            exchange,
+            origin = draft.flight.originICAO,
+            destination = draft.flight.destinationICAO,
+            departure = draft.flight.departureInstant,
+            arrival = draft.flight.arrivalInstant,
+        )
+        val registration = route.registration
+        val onFile = registration?.let { flights.aircraftByRegistration(it) }
+        val staged = if (registration != null && onFile == null) {
+            _stagedAircraft.value?.takeIf { ImportedRoute.sameRegistration(it.registration, registration) }
+                ?: AircraftEntity(registration = registration.uppercase(), type = route.aircraftType.orEmpty())
+        } else {
+            null
+        }
+        _stagedAircraft.value = staged
+        val fresh = FlightEntity(departureInstant = route.departure, arrivalInstant = route.arrival)
+        val clearPeople = peopleFromImport
+        edit { current ->
+            val chosen = onFile ?: staged
+            current.copy(
+                flight = current.flight.copy(
+                    originICAO = route.origin,
+                    destinationICAO = route.destination,
+                    departureInstant = route.departure,
+                    arrivalInstant = route.arrival,
+                    aircraftId = if (registration != null) chosen?.id else current.flight.aircraftId,
+                    nature = fresh.nature,
+                    contact = fresh.contact,
+                    observations = fresh.observations,
+                    reasonForVisit = fresh.reasonForVisit,
+                    responsiblePersonId = null,
+                    chosenDocNumbers = null,
+                ),
+                aircraft = if (registration != null) chosen else current.aircraft,
+                crew = if (clearPeople) emptyList() else current.crew,
+                passengers = if (clearPeople) emptyList() else current.passengers,
+                responsiblePerson = null,
+            )
+        }
+        peopleFromImport = false
+        _importSummary.value = "Imported from FlyFun Weather"
+    }
+
+    /** The pilot's FlyFun Weather flights, newest first; throws with a message to show. */
+    suspend fun weatherFlights(): List<WeatherFlightSummary> = api.weather.listFlights()
+
+    /** One FlyFun Weather flight, ready for [importWeather]; throws with a message to show. */
+    suspend fun weatherFlight(id: String): FlightExchange = api.weather.exportFlight(id)
+
     /** Store the draft: the flight row, then who is on it. */
     fun save(): Job = viewModelScope.launch {
-        val draft = _detail.value ?: return@launch
+        var draft = _detail.value ?: return@launch
+        // An aircraft an import named becomes real with the flight - unless
+        // one with that registration was added meanwhile.
+        _stagedAircraft.value?.takeIf { it.id == draft.flight.aircraftId }?.let { staged ->
+            val stored = flights.aircraftByRegistration(staged.registration)
+                ?: staged.also { flights.saveAircraft(it) }
+            _stagedAircraft.value = null
+            val withAircraft = draft.copy(flight = draft.flight.copy(aircraftId = stored.id), aircraft = stored)
+            if (_detail.compareAndSet(draft, withAircraft)) draft = withAircraft
+        }
         val id = draft.flight.id
         flights.saveFlight(draft.flight)
         flights.setCrew(id, draft.crew.map { it.id })
