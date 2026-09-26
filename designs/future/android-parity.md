@@ -182,8 +182,8 @@ the other FlyFun services.
 
 ### 3c — Server-backed imports (M, Opus)
 
-- [ ] FlyFun Weather import (`WeatherImportService.swift`)
-- [ ] Autorouter import (`AutorouterImportService.swift`)
+- [x] FlyFun Weather import (`WeatherImportService.swift`)
+- [ ] ~~Autorouter import (`AutorouterImportService.swift`)~~ — skipped, moved to §7
 
 ### 3d — Localisation infrastructure (M, Sonnet)
 
@@ -194,6 +194,7 @@ the other FlyFun services.
 
 ## 7. Blocked follow-ups (outside the three PRs)
 
+- [ ] **Autorouter import** — the server lists routes (`GET /api/autorouter/routes`), but the route and times are in each row's raw ICAO `fplan`, which iOS parses on the device. Android has no parser and must not grow a third one (android-app.md §4), so this waits on G4 with the paste below. Skipped from PR 3 by decision (§8)
 - [ ] **ICAO flight-plan paste + share target** — blocked on gate G4 (`POST /flightplan/parse` on `main`; see [android-app.md §4](./android-app.md))
 - [ ] **Remaining translations** — ~33 strings need real aviation fr/de/es; blocked on a translator (execution plan §2b)
 - [ ] **Real-passport scan test** — needs a physical device; does not block merging PR 2 once photo scan works on the emulator
@@ -256,3 +257,6 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 3b — `TokenStore` keeps the JWT AES-GCM-encrypted under its own Android Keystore key, the ciphertext in plain app-private preferences, rather than moving to DataStore: one value needs a key, not a store, and it drops the deprecated `androidx.security:security-crypto` without adding a dependency. The old encrypted file is deleted, not migrated: the app was never released, so the cost is signing in once more. A token that no longer decrypts reads as signed out.
 - 2026-09-26 — 3b — Found on the way: Android ignored `X-Renewed-Token`, so a session ended at the JWT's expiry however often the app was used. The interceptor now takes the renewed token when the one it sent is still current, as iOS's `RollingBearerSession` does.
 - 2026-09-26 — 3b — Static shortcuts New flight and Scan passport are explicit intents with the app's own actions; MainActivity hands them to the UI, which opens `flight/new` or the standalone scan on top of whatever is open (so an unsaved flight underneath survives), after sign-in if the sign-in screen is showing.
+- 2026-09-26 — 3c — Autorouter import is skipped (decided with the owner): its rows carry the plan as raw ICAO text, and the only route to it without a third parser is the summary fields, which lose the arrival time. It waits on G4 (§7).
+- 2026-09-26 — 3c — FlyFun Weather import reads `weather.flyfun.aero` with the forms account's token, as iOS does: the flyfun services share accounts and JWTs. The weather client keeps renewed tokens but a 401 from it does not sign the pilot out of forms; it says to sign in to the same account instead. The `FlightExchange` format, its lenient times (no offset is UTC) and the mapping onto the draft are in `:core-logic` with tests; a newer `schema_version` is refused.
+- 2026-09-26 — 3c — A weather import applies as iOS's `apply(_:)`: route and times (an arrival-less departure moves the arrival onto its day), the aircraft matched by registration without dashes, or staged as a new aircraft that is stored only with the flight. People an earlier import brought are cleared, a hand-picked crew stays; the settings with no editor in the flow go back to a new flight's. The picker's calls run in its own scope, so leaving it mid-import cancels the import. The import list shows Weather greyed with "Sign in to import" when signed out.
