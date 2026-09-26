@@ -1,5 +1,7 @@
 package aero.flyfun.forms.ui.settings
 
+import aero.flyfun.forms.auth.SignInProvider
+import aero.flyfun.forms.ui.common.SignInButtons
 import aero.flyfun.forms.logic.SpokenLanguages
 import aero.flyfun.forms.net.ApiConfig
 import androidx.compose.foundation.layout.Arrangement
@@ -53,7 +55,7 @@ More: ${ApiConfig.PRIVACY_URL}#passengers"""
 fun SettingsScreen(
     state: TransferState,
     signedIn: Boolean,
-    onSignIn: () -> Unit,
+    onSignIn: (SignInProvider) -> Unit,
     onExportEncrypted: () -> Unit,
     onExportPlain: () -> Unit,
     onPickFile: () -> Unit,
@@ -202,7 +204,7 @@ fun SettingsScreen(
                                 "Your people, aircraft and flights stay on this device either way.",
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Button(onClick = onSignIn) { Text("Sign in with Google") }
+                        SignInButtons(onSignIn)
                     }
                 }
             }
