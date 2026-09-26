@@ -56,7 +56,7 @@ class ApiTypesTest {
     @Test
     fun `PersonPayload encodes every snake_case field`() {
         val p = PersonPayload(
-            function = "PIC",
+            function = "Pilot",
             firstName = "Anna",
             lastName = "Eriksson",
             dob = "1974-08-12",

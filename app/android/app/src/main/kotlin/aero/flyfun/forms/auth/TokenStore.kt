@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * The session JWT, in EncryptedSharedPreferences backed by a Keystore master
@@ -28,16 +31,33 @@ class TokenStore(context: Context) {
         )
     }
 
+    private val _signedIn = MutableStateFlow(prefs.getString(KEY_TOKEN, null) != null)
+
+    /** Observed by the UI, so a sign-out or an expired token shows the sign-in screen. */
+    val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
+
     var token: String?
         get() = prefs.getString(KEY_TOKEN, null)
-        set(value) = prefs.edit().apply {
-            if (value == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, value)
-        }.apply()
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) remove(KEY_TOKEN) else putString(KEY_TOKEN, value)
+            }.apply()
+            _signedIn.value = value != null
+        }
 
     val isSignedIn: Boolean get() = token != null
 
     fun clear() {
         token = null
+    }
+
+    /**
+     * Drop [rejected] after the server answered 401 to it - unless a newer
+     * token has replaced it meanwhile, which a late 401 must not throw away.
+     */
+    @Synchronized
+    fun clearIfCurrent(rejected: String) {
+        if (token == rejected) clear()
     }
 
     private companion object {

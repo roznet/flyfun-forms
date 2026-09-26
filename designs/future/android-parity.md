@@ -22,7 +22,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
-| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Not started |
+| 1 | #29 | Forms come out right and complete | §4 (1a–1e) | In progress |
 | 2 | #30 | Getting data in fast | §5 (2a–2e) | Not started — after PR 1 |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
@@ -77,17 +77,17 @@ and Settings, which is why it is one PR.
 
 ### 1a — Correctness fixes (S, Sonnet)
 
-- [ ] First crew member sent as function `"PIC"`; iOS sends `"Pilot"`, printed on gendec/LSGS. `data/FormRequestBuilder.kt:93` vs `Views/FlightEditView.swift:827`
-- [ ] Local flight (origin = destination) hides departure-side forms: `directionFor` returns arrival first and the airport list is `distinct()`. Android also filters *document* forms by direction; iOS filters only web forms (`FlightEditView.swift:421-422`)
-- [ ] Sign-in `pendingState` held in memory only (`auth/AuthService.kt:33`) — fails after process death while the Custom Tab is open. Persist with a short TTL
-- [ ] No way to sign in after "Enter data without signing in"; a 401 never clears the token or routes to sign-in
-- [ ] + saves a blank flight immediately; backing out leaves a "???? → ????" row. Create on first save instead
-- [ ] Flight edits lost on Back with no prompt; schedule/aircraft save immediately but route/observations only on Save. Make it consistent
-- [ ] `ui/webform/WebFormScreen.kt`: `BackHandler` (WebView history, then close); clear cookies on exit (iOS uses a non-persistent store)
-- [ ] Generated PDFs in `cacheDir/forms` carry passport data and are never deleted — clear after share and on start
-- [ ] Aircraft `FilterChip` row doesn't scroll; people chips grow unbounded
-- [ ] Move my data drops trip extra fields: `data/DataTransfer.kt:160-168` (`TripRecord.toEntity` / `toRecord`)
-- [ ] `ui/aircraft/AircraftScreens.kt` lacks `verticalScroll` — fields go under the keyboard
+- [x] First crew member sent as function `"PIC"`; iOS sends `"Pilot"`, printed on gendec/LSGS. `data/FormRequestBuilder.kt:93` vs `Views/FlightEditView.swift:827`
+- [x] Local flight (origin = destination) hides departure-side forms: `directionFor` returns arrival first and the airport list is `distinct()`. Android also filters *document* forms by direction; iOS filters only web forms (`FlightEditView.swift:421-422`)
+- [x] Sign-in `pendingState` held in memory only (`auth/AuthService.kt:33`) — fails after process death while the Custom Tab is open. Persist with a short TTL
+- [x] No way to sign in after "Enter data without signing in"; a 401 never clears the token or routes to sign-in
+- [x] + saves a blank flight immediately; backing out leaves a "???? → ????" row. Create on first save instead
+- [x] Flight edits lost on Back with no prompt; schedule/aircraft save immediately but route/observations only on Save. Make it consistent
+- [x] `ui/webform/WebFormScreen.kt`: `BackHandler` (WebView history, then close); clear cookies on exit (iOS uses a non-persistent store)
+- [x] Generated PDFs in `cacheDir/forms` carry passport data and are never deleted — clear after share and on start
+- [x] Aircraft `FilterChip` row doesn't scroll; people chips grow unbounded
+- [x] Move my data drops trip extra fields: `data/DataTransfer.kt:160-168` (`TripRecord.toEntity` / `toRecord`)
+- [x] `ui/aircraft/AircraftScreens.kt` lacks `verticalScroll` — fields go under the keyboard
 
 ### 1b — Delete account; delete with Undo (S, Sonnet)
 
@@ -203,3 +203,10 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — branches — `android-app` retired; parity work lands on `main` through per-PR branches.
 - 2026-09-26 — survey — iOS `1173620` (per-flight document choice, CSV name+DOB matching) added to 2a after the survey.
 - 2026-09-26 — pre-work — `PeopleViewModel.applyScan` upserts by document number on the same person only; cross-person duplicates are left to 2b.
+- 2026-09-26 — 1a — The flight editor edits a draft held by the ViewModel; Save stores the flight, crew and passengers together, and Back with unsaved changes asks Save / Discard. iOS autosaves through SwiftData; a draft is the Android idiom for a screen that already had a Save button, and it is what makes "create on first save" possible.
+- 2026-09-26 — 1a — + opens `flight/new`, a draft that exists only in the ViewModel until saved. Backing out of an untouched one asks nothing and stores nothing.
+- 2026-09-26 — 1a — Generated forms and data exports share `cacheDir/forms`, cleared on every cold start and, on returning to the app, of anything older than 15 minutes. Deleting right after the share intent would break mail apps that read the attachment later.
+- 2026-09-26 — 1a — The OAuth `state` nonce lives in app-private SharedPreferences with a 10-minute TTL. It is a one-use anti-forgery value, not a credential.
+- 2026-09-26 — 1a — A 401 to a request that carried a token clears it; the UI observes `TokenStore.signedIn` and returns to sign-in. The nav controller sits above the sign-in screen so a flight draft survives signing in again. Settings offers "Sign in" after "Enter data without signing in".
+- 2026-09-26 — 1a — Pure logic this PR needs (`FormSides`, `TripExtras`, and later sections' leg and e-mail helpers) goes in `:core-logic`, so it is tested on the JVM without the Android SDK.
+- 2026-09-26 — 1a — Built in a cloud session with no route to Google Maven (`dl.google.com`), so `./gradlew :app:…` could not run and nothing was driven on the emulator. Checked instead by compiling `app/src/main` against Compose Multiplatform 1.6 desktop plus stubs for the Android APIs, and running `app/src/test` and `:core-logic:test` on the JVM. Emulator runs are still owed before merge.

@@ -3,7 +3,6 @@ package aero.flyfun.forms.ui
 import aero.flyfun.forms.auth.AuthService
 import aero.flyfun.forms.auth.TokenStore
 import aero.flyfun.forms.data.AircraftEntity
-import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.FlightRepository
 import aero.flyfun.forms.data.FlyFunDatabase
 import aero.flyfun.forms.data.PeopleRepository
@@ -53,6 +52,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +70,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.launch
 import java.io.File
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 /**
  * Hand-rolled factory rather than a DI framework: the graph is one database,
@@ -128,20 +126,31 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             }.getOrDefault(""),
         )
     }
-    var signedIn by remember { mutableStateOf(tokens.isSignedIn) }
+    val signedIn by tokens.signedIn.collectAsState()
+    // Saveable so a process death while the Custom Tab is open does not drop a
+    // pilot who chose to carry on offline back onto the sign-in screen.
+    var skippedSignIn by rememberSaveable { mutableStateOf(false) }
+    // Signing in clears the skip, so a later sign-out or an expired token (a
+    // 401 clears it, see ApiClient) comes back here rather than failing
+    // quietly on every form.
+    androidx.compose.runtime.LaunchedEffect(signedIn) { if (signedIn) skippedSignIn = false }
 
-    if (!signedIn) {
+    // Above the sign-in screen, so an expired token mid-edit keeps the back
+    // stack, and with it the flight draft, for after signing in again.
+    val navController = rememberNavController()
+
+    if (!signedIn && !skippedSignIn) {
         SignInScreen(
             onSignIn = { auth.startSignIn() },
             // Form generation is the only thing that needs the server. Everything
             // else - people, aircraft, flights - is local, so let a pilot get on
             // with data entry rather than blocking the whole app behind a login.
-            onContinueOffline = { signedIn = true },
+            // Settings offers sign-in again.
+            onContinueOffline = { skippedSignIn = true },
         )
         return
     }
 
-    val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
 
@@ -175,7 +184,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
             flightRoutes(navController, factory, context)
             peopleRoutes(navController, factory)
             aircraftRoutes(navController, factory)
-            settingsRoute(factory, context, tokens, auth) { signedIn = false }
+            settingsRoute(factory, context, tokens, auth)
         }
     }
 }
@@ -188,25 +197,11 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
     composable(Tab.FLIGHTS.route) {
         val vm: FlightsViewModel = viewModel(factory = factory)
         val flights by vm.allFlights.collectAsState()
-        val scope = rememberCoroutineScope()
         FlightListScreen(
             flights = flights,
             onOpen = { nav.navigate("flight/$it") },
-            onAdd = {
-                scope.launch {
-                    val suggested = vm.newFlightDefaults()
-                    val now = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(1, ChronoUnit.DAYS)
-                    val flight = FlightEntity(
-                        departureInstant = now,
-                        arrivalInstant = now.plus(2, ChronoUnit.HOURS),
-                        aircraftId = suggested?.id,
-                        // Seed the route from where the aircraft usually lives.
-                        originICAO = suggested?.usualBase.orEmpty(),
-                    )
-                    vm.save(flight)
-                    nav.navigate("flight/${flight.id}")
-                }
-            },
+            // A draft, not a row: backing out of it leaves nothing behind.
+            onAdd = { nav.navigate("flight/${FlightsViewModel.NEW_FLIGHT}") },
         )
     }
 
@@ -218,12 +213,14 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         val vm: FlightsViewModel = viewModel(factory = factory)
         val peopleVm: PeopleViewModel = viewModel(factory = factory)
         val detail by vm.detail.collectAsState()
+        val unsaved by vm.hasUnsavedChanges.collectAsState()
         val aircraft by vm.aircraft.collectAsState()
         val people by peopleVm.people.collectAsState()
         val forms by vm.airportForms.collectAsState()
         val generate by vm.generate.collectAsState()
+        val scope = rememberCoroutineScope()
 
-        androidx.compose.runtime.LaunchedEffect(flightId) { vm.load(flightId) }
+        androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
 
         // A fetched fill plan takes over the screen until it is dismissed.
         (generate as? aero.flyfun.forms.ui.flights.GenerateState.WebPlan)?.let { web ->
@@ -233,13 +230,17 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
 
         FlightEditScreen(
             detail = detail,
+            hasUnsavedChanges = unsaved,
             aircraftOptions = aircraft,
             people = people.map { it.person },
             airportForms = forms,
             generateState = generate,
-            onSave = { vm.save(it) },
-            onSetCrew = { vm.setCrew(flightId, it) },
-            onSetPassengers = { vm.setPassengers(flightId, it) },
+            onEditFlight = { vm.editFlight(it) },
+            onSetAircraft = { vm.setAircraft(it) },
+            onSetCrew = { vm.setCrew(it) },
+            onSetPassengers = { vm.setPassengers(it) },
+            onSave = { vm.save() },
+            onSaveAndBack = { scope.launch { vm.save().join(); nav.popBackStack() } },
             onGenerate = { airport, form -> vm.generateForm(airport, form) },
             onOpenWebForm = { airport, form -> vm.prefillWebForm(airport, form) },
             onShare = { shareFile(context, it) },
@@ -417,6 +418,11 @@ private fun SignInScreen(onSignIn: () -> Unit, onContinueOffline: () -> Unit) {
  * FileUriExposedException since API 24, and this one is well above that.
  */
 private fun shareFile(context: Context, file: File) {
+    // Cleared after a while in the background (FormFiles); regenerating is one tap.
+    if (!file.exists()) {
+        android.widget.Toast.makeText(context, "That file has been cleared. Generate it again.", android.widget.Toast.LENGTH_LONG).show()
+        return
+    }
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = when (file.extension.lowercase()) {
@@ -437,11 +443,11 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
     context: Context,
     tokens: TokenStore,
     auth: AuthService,
-    onSignedOut: () -> Unit,
 ) {
     composable(Tab.SETTINGS.route) {
         val vm: DataTransferViewModel = viewModel(factory = factory)
         val state by vm.state.collectAsState()
+        val signedIn by tokens.signedIn.collectAsState()
         val scope = rememberCoroutineScope()
 
         // OpenDocument rather than GetContent: this reads one file the user
@@ -458,7 +464,8 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
 
         SettingsScreen(
             state = state,
-            signedIn = tokens.isSignedIn,
+            signedIn = signedIn,
+            onSignIn = { auth.startSignIn() },
             onExportEncrypted = { vm.exportEncrypted() },
             onExportPlain = { vm.exportPlain() },
             onPickFile = { picker.launch(arrayOf("*/*")) },
@@ -470,7 +477,8 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             },
             onConfirmImport = { vm.confirmImport() },
             onShare = { shareFile(context, it) },
-            onSignOut = { scope.launch { auth.signOut(); onSignedOut() } },
+            // The sign-in screen follows from the token going; see FlyFunApp.
+            onSignOut = { scope.launch { auth.signOut() } },
             onDismiss = { vm.reset() },
         )
     }

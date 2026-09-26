@@ -9,6 +9,7 @@ import aero.flyfun.forms.logic.InterchangeMerge
 import aero.flyfun.forms.logic.MergeSummary
 import aero.flyfun.forms.logic.PersonRecord
 import aero.flyfun.forms.logic.TravelDocumentRecord
+import aero.flyfun.forms.logic.TripExtras
 import aero.flyfun.forms.logic.TripRecord
 import androidx.room.withTransaction
 import java.time.Instant
@@ -159,12 +160,13 @@ private fun AircraftRecord.toEntity() = AircraftEntity(
 
 private fun TripEntity.toRecord() = TripRecord(
     id = id, name = name, createdAt = createdAt.toString(),
-    extraFields = emptyMap(),
+    extraFields = TripExtras.decode(extraFieldsJson),
     updatedAt = updatedAt.toString(), deletedAt = deletedAt?.toString(),
 )
 
 private fun TripRecord.toEntity() = TripEntity(
     id = id, name = name, createdAt = Instant.parse(createdAt),
+    extraFieldsJson = TripExtras.encode(extraFields),
     updatedAt = Instant.parse(updatedAt), deletedAt = deletedAt?.let(Instant::parse),
 )
 

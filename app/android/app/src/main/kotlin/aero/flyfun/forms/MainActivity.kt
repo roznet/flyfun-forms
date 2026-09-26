@@ -2,6 +2,7 @@ package aero.flyfun.forms
 
 import aero.flyfun.forms.auth.AuthService
 import aero.flyfun.forms.auth.TokenStore
+import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.net.ApiClient
 import aero.flyfun.forms.net.ApiConfig
 import aero.flyfun.forms.ui.FlyFunApp
@@ -26,12 +27,27 @@ class MainActivity : ComponentActivity() {
         api = ApiClient(tokens)
         auth = AuthService(this, api, tokens)
 
+        // Forms left from an earlier run carry passport data; nothing can
+        // still be reading them now. See FormFiles.
+        if (!purgedThisProcess) {
+            purgedThisProcess = true
+            FormFiles.purge(cacheDir)
+        }
+
         setContent {
             MaterialTheme {
                 FlyFunApp(auth = auth, tokens = tokens, api = api)
             }
         }
-        handleAuthRedirect(intent)
+        // Not again on rotation: the nonce is spent, and a second pass would
+        // report a sign-in that just worked as failed.
+        if (savedInstanceState == null) handleAuthRedirect(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Back from a share: whatever took the file has had time to read it.
+        FormFiles.purge(cacheDir, olderThan = FormFiles.SHARE_GRACE)
     }
 
     /**
@@ -44,12 +60,16 @@ class MainActivity : ComponentActivity() {
         handleAuthRedirect(intent)
     }
 
+    private companion object {
+        var purgedThisProcess = false
+    }
+
     private fun handleAuthRedirect(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme != ApiConfig.CALLBACK_SCHEME) return
         lifecycleScope.launch {
+            // Success needs nothing here: the UI observes TokenStore.signedIn.
             auth.handleCallback(uri)
-                .onSuccess { recreate() }
                 .onFailure {
                     Toast.makeText(
                         this@MainActivity,

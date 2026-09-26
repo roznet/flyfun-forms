@@ -1,6 +1,7 @@
 package aero.flyfun.forms.ui.settings
 
 import aero.flyfun.forms.data.DataTransfer
+import aero.flyfun.forms.data.FormFiles
 import aero.flyfun.forms.logic.DataFileCrypto
 import aero.flyfun.forms.logic.InterchangeMerge
 import aero.flyfun.forms.logic.MergeSummary
@@ -94,7 +95,8 @@ class DataTransferViewModel(
         _state.value = TransferState.Idle
     }
 
-    private fun outDir() = File(cacheDir, "forms").apply { mkdirs() }
+    // Same directory as generated forms, so the same purge clears exports.
+    private fun outDir() = FormFiles.dir(cacheDir)
 
     /** Kept so the import sheet can describe what it is about to do. */
     val mergeDescription: String? get() = pending?.describe()
