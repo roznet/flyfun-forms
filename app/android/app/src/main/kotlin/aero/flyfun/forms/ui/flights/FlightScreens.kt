@@ -5,7 +5,11 @@ import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.displayField
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -124,13 +128,18 @@ private fun FlightRow(flight: FlightEntity, onOpen: (String) -> Unit) {
 @Composable
 fun FlightEditScreen(
     detail: FlightDetail?,
+    hasUnsavedChanges: Boolean,
     aircraftOptions: List<AircraftEntity>,
     people: List<PersonEntity>,
     airportForms: List<AirportForms>,
     generateState: GenerateState,
-    onSave: (FlightEntity) -> Unit,
-    onSetCrew: (List<String>) -> Unit,
-    onSetPassengers: (List<String>) -> Unit,
+    onEditFlight: ((FlightEntity) -> FlightEntity) -> Unit,
+    onSetAircraft: (String?) -> Unit,
+    onSetCrew: (List<PersonEntity>) -> Unit,
+    onSetPassengers: (List<PersonEntity>) -> Unit,
+    onSave: () -> Unit,
+    /** Save, and leave once it is stored: leaving first would cancel the write. */
+    onSaveAndBack: () -> Unit,
     onGenerate: (String, FormInfo) -> Unit,
     onOpenWebForm: (String, FormInfo) -> Unit,
     onShare: (java.io.File) -> Unit,
@@ -146,29 +155,33 @@ fun FlightEditScreen(
         return
     }
     val flight = detail.flight
+    // Local text state so typing does not round-trip through the ViewModel;
+    // keyed on the flight so a different leg starts from its own values.
     var origin by remember(flight.id) { mutableStateOf(flight.originICAO) }
     var destination by remember(flight.id) { mutableStateOf(flight.destinationICAO) }
     var observations by remember(flight.id) { mutableStateOf(flight.observations.orEmpty()) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+
+    // Back with edits asks first, whether it came from the arrow or the system.
+    val leave = { if (hasUnsavedChanges) confirmDiscard = true else onBack() }
+    BackHandler(enabled = hasUnsavedChanges) { confirmDiscard = true }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("${flight.originICAO} → ${flight.destinationICAO}") },
+                title = {
+                    Text(
+                        if (detail.isNew && origin.isBlank() && destination.isBlank()) "New Flight"
+                        else "${origin.ifBlank { "????" }} → ${destination.ifBlank { "????" }}",
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = leave) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    TextButton(onClick = {
-                        onSave(
-                            flight.copy(
-                                originICAO = origin.trim().uppercase(),
-                                destinationICAO = destination.trim().uppercase(),
-                                observations = observations.trim().ifBlank { null },
-                            ),
-                        )
-                    }) { Text("Save") }
+                    TextButton(onClick = onSave, enabled = hasUnsavedChanges) { Text("Save") }
                 },
             )
         },
@@ -178,14 +191,30 @@ fun FlightEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(origin, { if (it.length <= 4) origin = it.uppercase() },
-                    label = { Text("From (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f))
-                OutlinedTextField(destination, { if (it.length <= 4) destination = it.uppercase() },
-                    label = { Text("To (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f))
+                OutlinedTextField(
+                    origin,
+                    { value ->
+                        if (value.length <= 4) {
+                            origin = value.uppercase()
+                            onEditFlight { it.copy(originICAO = origin.trim()) }
+                        }
+                    },
+                    label = { Text("From (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    destination,
+                    { value ->
+                        if (value.length <= 4) {
+                            destination = value.uppercase()
+                            onEditFlight { it.copy(destinationICAO = destination.trim()) }
+                        }
+                    },
+                    label = { Text("To (ICAO)") }, singleLine = true, modifier = Modifier.weight(1f),
+                )
             }
 
-            ScheduleField("Departure", flight.departureInstant) { onSave(flight.copy(departureInstant = it)) }
-            ScheduleField("Arrival", flight.arrivalInstant) { onSave(flight.copy(arrivalInstant = it)) }
+            ScheduleField("Departure", flight.departureInstant) { t -> onEditFlight { it.copy(departureInstant = t) } }
+            ScheduleField("Arrival", flight.arrivalInstant) { t -> onEditFlight { it.copy(arrivalInstant = t) } }
             if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
                 Text(
                     "Arrival is before departure.",
@@ -195,11 +224,12 @@ fun FlightEditScreen(
             }
 
             Text("Aircraft", style = MaterialTheme.typography.titleMedium)
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+            // Scrolls sideways: a fleet does not fit across a phone.
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
                 aircraftOptions.forEach { a ->
                     FilterChip(
                         selected = detail.aircraft?.id == a.id,
-                        onClick = { onSave(flight.copy(aircraftId = a.id)) },
+                        onClick = { onSetAircraft(a.id) },
                         label = { Text(a.registration) },
                     )
                 }
@@ -208,11 +238,17 @@ fun FlightEditScreen(
                 Text("Add an aircraft first.", style = MaterialTheme.typography.bodySmall)
             }
 
-            PeoplePicker("Crew", people, detail.crew.map { it.id }, onSetCrew)
-            PeoplePicker("Passengers", people, detail.passengers.map { it.id }, onSetPassengers)
+            PeoplePicker("Crew", people, detail.crew, onSetCrew)
+            PeoplePicker("Passengers", people, detail.passengers, onSetPassengers)
 
-            OutlinedTextField(observations, { observations = it },
-                label = { Text("Observations") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                observations,
+                { value ->
+                    observations = value
+                    onEditFlight { it.copy(observations = value.trim().ifBlank { null }) }
+                },
+                label = { Text("Observations") }, modifier = Modifier.fillMaxWidth(),
+            )
 
             Text("Forms", style = MaterialTheme.typography.titleMedium)
             airportForms.forEach { airport ->
@@ -220,35 +256,55 @@ fun FlightEditScreen(
             }
             if (airportForms.isEmpty()) {
                 Text(
-                    "Save the route to see which forms these airports need.",
+                    "Enter the route to see which forms these airports need.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
     }
 
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(if (detail.isNew) "Save this flight?" else "Save your changes?") },
+            text = { Text("Leaving now discards what you have not saved.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; onSaveAndBack() }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard") }
+            },
+        )
+    }
+
     GenerateFeedback(generateState, onShare, onDismissGenerate)
 }
 
+/**
+ * Chips for everyone, wrapping onto as many lines as they need rather than one
+ * chip per line. The full picker (search, crew/passenger toggle) is PR 2.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PeoplePicker(
     title: String,
     all: List<PersonEntity>,
-    selected: List<String>,
-    onChange: (List<String>) -> Unit,
+    selected: List<PersonEntity>,
+    onChange: (List<PersonEntity>) -> Unit,
 ) {
     Text(title, style = MaterialTheme.typography.titleMedium)
     if (all.isEmpty()) {
         Text("Add people first.", style = MaterialTheme.typography.bodySmall)
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val selectedIds = selected.map { it.id }.toSet()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         all.forEach { person ->
-            val isSelected = person.id in selected
+            val isSelected = person.id in selectedIds
             FilterChip(
                 selected = isSelected,
                 onClick = {
-                    onChange(if (isSelected) selected - person.id else selected + person.id)
+                    onChange(if (isSelected) selected.filterNot { it.id == person.id } else selected + person)
                 },
                 label = { Text(person.displayName.ifBlank { "Unnamed" }) },
             )
@@ -269,11 +325,12 @@ private fun AirportFormsCard(
                 buildString {
                     append(airport.icao)
                     if (airport.name.isNotBlank()) append(" · ${airport.name}")
-                    airport.direction?.let { append(" · $it") }
+                    append(" · ${airport.direction}")
                 },
                 style = MaterialTheme.typography.titleSmall,
             )
             when {
+                airport.loading -> CircularProgressIndicator(Modifier.padding(4.dp))
                 airport.error != null ->
                     Text(airport.error, style = MaterialTheme.typography.bodySmall)
                 airport.forms.isEmpty() ->

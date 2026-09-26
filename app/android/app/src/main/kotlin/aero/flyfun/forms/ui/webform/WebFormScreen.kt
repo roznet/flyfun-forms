@@ -2,7 +2,10 @@ package aero.flyfun.forms.ui.webform
 
 import aero.flyfun.forms.net.FillPlan
 import android.annotation.SuppressLint
+import android.webkit.CookieManager
+import android.webkit.WebStorage
 import android.webkit.WebView
+import androidx.activity.compose.BackHandler
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +48,31 @@ import kotlinx.serialization.json.Json
 fun WebFormScreen(plan: FillPlan, onBack: () -> Unit) {
     var status by remember { mutableStateOf<String?>(null) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+
+    // Back walks the page's own history first (a multi-step form, its
+    // confirmation page), and only leaves once there is nothing to go back to.
+    BackHandler {
+        val view = webView
+        if (view != null && view.canGoBack()) view.goBack() else onBack()
+    }
+
+    // iOS gives each web form a non-persistent store. The WebView's cookie jar
+    // and storage are app-wide and on disk, so clear them on the way out:
+    // these pages hold the pilot's name, passport and phone number.
+    DisposableEffect(Unit) {
+        onDispose {
+            webView?.apply {
+                stopLoading()
+                clearHistory()
+                clearCache(true)
+            }
+            CookieManager.getInstance().apply {
+                removeAllCookies(null)
+                flush()
+            }
+            WebStorage.getInstance().deleteAllData()
+        }
+    }
 
     Scaffold(
         topBar = {

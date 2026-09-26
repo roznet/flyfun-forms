@@ -84,6 +84,24 @@ class DataTransferTest {
     }
 
     @Test
+    fun trip_extra_fields_survive_the_round_trip() = runTest {
+        val trip = TripEntity(name = "Alps", extraFieldsJson = """{"reason_for_visit":"Maintenance"}""")
+        source.tripDao().upsert(trip)
+        val password = "golf-hotel-india-juliet-kilo".toCharArray()
+
+        val bytes = DataTransfer(source).exportEncrypted("test", password)
+        val incoming = DataTransfer(target)
+        incoming.preview(bytes, password.copyOf()).let { incoming.apply(it.second) }
+
+        val stored = target.tripDao().byId(trip.id)
+        assertNotNull(stored)
+        assertEquals(
+            mapOf("reason_for_visit" to "Maintenance"),
+            aero.flyfun.forms.logic.TripExtras.decode(stored!!.extraFieldsJson),
+        )
+    }
+
+    @Test
     fun re_importing_the_same_file_changes_nothing() = runTest {
         populate(source)
         val password = "one-two-three-four-five-six".toCharArray()

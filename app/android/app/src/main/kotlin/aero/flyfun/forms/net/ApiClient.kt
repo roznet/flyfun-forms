@@ -30,7 +30,15 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
         encodeDefaults = true
     }
 
-    /** Attaches the bearer token when there is one; requests before sign-in go out bare. */
+    /**
+     * Attaches the bearer token when there is one; requests before sign-in go
+     * out bare.
+     *
+     * A 401 to a request that carried a token means the session is over
+     * (expired, revoked, account deleted elsewhere). The token is dropped, and
+     * the UI, which observes [TokenStore.signedIn], goes back to sign-in -
+     * rather than every later request failing with the same 401.
+     */
     private val authInterceptor = Interceptor { chain ->
         val token = tokens.token
         val request = if (token != null) {
@@ -38,7 +46,9 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
         } else {
             chain.request()
         }
-        chain.proceed(request)
+        val response = chain.proceed(request)
+        if (response.code == 401 && token != null) tokens.clearIfCurrent(token)
+        response
     }
 
     private val http = OkHttpClient.Builder()

@@ -29,8 +29,34 @@ class AuthService(
     private val tokens: TokenStore,
 ) {
 
-    /** Held between launching the tab and handling the redirect. */
-    private var pendingState: String? = null
+    /**
+     * The `state` nonce, held between launching the tab and handling the
+     * redirect.
+     *
+     * On disk rather than in a field: while the Custom Tab is in front, this
+     * process is in the background and may be killed, and the redirect then
+     * starts a fresh one that would refuse the callback. It is a one-use
+     * anti-forgery nonce, not a credential, so plain app-private preferences
+     * are enough; it expires after [PENDING_TTL_MILLIS] so an abandoned
+     * sign-in cannot be completed much later.
+     */
+    private val pending = context.getSharedPreferences("flyfun-auth-pending", Context.MODE_PRIVATE)
+
+    private var pendingState: String?
+        get() {
+            val state = pending.getString(KEY_STATE, null) ?: return null
+            val age = System.currentTimeMillis() - pending.getLong(KEY_STARTED, 0)
+            return state.takeIf { age in 0..PENDING_TTL_MILLIS }
+        }
+        set(value) {
+            pending.edit().apply {
+                if (value == null) {
+                    remove(KEY_STATE); remove(KEY_STARTED)
+                } else {
+                    putString(KEY_STATE, value); putLong(KEY_STARTED, System.currentTimeMillis())
+                }
+            }.commit()
+        }
 
     fun startSignIn(provider: String = "google") {
         val state = newState().also { pendingState = it }
@@ -90,6 +116,12 @@ class AuthService(
     }
 
     val isSignedIn: Boolean get() = tokens.isSignedIn
+
+    private companion object {
+        const val KEY_STATE = "state"
+        const val KEY_STARTED = "started_at"
+        const val PENDING_TTL_MILLIS = 10 * 60 * 1000L
+    }
 
     private fun newState(): String {
         val bytes = ByteArray(24)

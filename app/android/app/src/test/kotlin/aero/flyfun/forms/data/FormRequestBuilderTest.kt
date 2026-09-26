@@ -76,7 +76,7 @@ class FormRequestBuilderTest {
     }
 
     @Test
-    fun `first crew member is PIC and the rest are crew`() {
+    fun `first crew member is Pilot and the rest are crew`() {
         val req = FormRequestBuilder.build(
             airport = "lfrm",
             formId = "customs",
@@ -87,7 +87,7 @@ class FormRequestBuilderTest {
             documentFor = { doc("FRA") },
         )
         assertEquals("LFRM", req.airport)
-        assertEquals(listOf("PIC", "Crew"), req.crew.map { it.function })
+        assertEquals(listOf("Pilot", "Crew"), req.crew.map { it.function })
         assertNull(req.passengers.single().function)
         assertEquals("Marchand", req.passengers.single().lastName)
     }
@@ -98,20 +98,5 @@ class FormRequestBuilderTest {
         val p = FormRequestBuilder.aircraftPayload(bare)
         assertNull(p.owner)
         assertNull(p.usualBase)
-    }
-
-    @Test
-    fun `direction is derived from which end the airport is`() {
-        assertEquals("departure", FormRequestBuilder.directionFor("EGTF", flight))
-        assertEquals("arrival", FormRequestBuilder.directionFor("lfrm", flight))
-        assertNull(FormRequestBuilder.directionFor("LSGS", flight))
-    }
-
-    @Test
-    fun `a local flight counts as arrival at its own airport`() {
-        // origin == destination: the destination branch wins, matching the
-        // server's own ordering.
-        val local = flight.copy(destinationICAO = "EGTF")
-        assertEquals("arrival", FormRequestBuilder.directionFor("EGTF", local))
     }
 }

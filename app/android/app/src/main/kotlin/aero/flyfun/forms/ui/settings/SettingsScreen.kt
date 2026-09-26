@@ -34,6 +34,7 @@ import java.io.File
 fun SettingsScreen(
     state: TransferState,
     signedIn: Boolean,
+    onSignIn: () -> Unit,
     onExportEncrypted: () -> Unit,
     onExportPlain: () -> Unit,
     onPickFile: () -> Unit,
@@ -83,6 +84,20 @@ fun SettingsScreen(
 
             if (signedIn) {
                 OutlinedButton(onClick = onSignOut) { Text("Sign out") }
+            } else {
+                // The way back for a pilot who chose "Enter data without
+                // signing in": generating forms needs an account.
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+                        Text("Not signed in", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Sign in to load each airport's forms and generate them. " +
+                                "Your people, aircraft and flights stay on this device either way.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Button(onClick = onSignIn) { Text("Sign in with Google") }
+                    }
+                }
             }
 
             if (state is TransferState.Working) CircularProgressIndicator()

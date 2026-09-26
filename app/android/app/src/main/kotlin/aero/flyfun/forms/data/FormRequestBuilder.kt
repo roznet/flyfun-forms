@@ -87,25 +87,13 @@ object FormRequestBuilder {
         form = formId,
         flight = flightPayload(flight),
         aircraft = aircraftPayload(aircraft),
-        // The first crew member is the one in command, which is what the
-        // forms mean by "function".
+        // The first crew member is the one in command. "Pilot", not "PIC":
+        // the word is printed as-is on the gendec and LSGS forms, and it is
+        // what iOS sends.
         crew = crew.mapIndexed { i, p ->
-            personPayload(p, documentFor(p), function = if (i == 0) "PIC" else "Crew")
+            personPayload(p, documentFor(p), function = if (i == 0) "Pilot" else "Crew")
         },
         passengers = passengers.map { personPayload(it, documentFor(it)) },
         observations = flight.observations?.takeIf { it.isNotBlank() },
     )
-
-    /**
-     * Which side of the flight this airport is on.
-     *
-     * The server derives this itself by comparing the form's airport against
-     * origin and destination; this mirrors it so the UI can label the form and
-     * hide ones that only apply the other way.
-     */
-    fun directionFor(airport: String, flight: FlightEntity): String? = when (airport.uppercase()) {
-        flight.destinationICAO.uppercase() -> "arrival"
-        flight.originICAO.uppercase() -> "departure"
-        else -> null
-    }
 }
