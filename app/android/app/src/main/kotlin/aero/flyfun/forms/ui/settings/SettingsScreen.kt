@@ -2,6 +2,7 @@ package aero.flyfun.forms.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -43,7 +46,12 @@ fun SettingsScreen(
     onShare: (File) -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit,
+    deletingAccount: Boolean,
+    deleteAccountError: String?,
+    onDeleteAccount: () -> Unit,
 ) {
+    var confirmDeleteAccount by remember { mutableStateOf(false) }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
@@ -84,6 +92,30 @@ fun SettingsScreen(
 
             if (signedIn) {
                 OutlinedButton(onClick = onSignOut) { Text("Sign out") }
+
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
+                        Text("Delete account", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            deleteAccountError
+                                ?: "Permanently deletes your account and all server data. " +
+                                "People, aircraft and flights on this device are kept.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (deleteAccountError != null) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(
+                                onClick = { confirmDeleteAccount = true },
+                                enabled = !deletingAccount,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                            ) { Text("Delete account") }
+                            if (deletingAccount) CircularProgressIndicator(Modifier.padding(start = 12.dp))
+                        }
+                    }
+                }
             } else {
                 // The way back for a pilot who chose "Enter data without
                 // signing in": generating forms needs an account.
@@ -102,6 +134,21 @@ fun SettingsScreen(
 
             if (state is TransferState.Working) CircularProgressIndicator()
         }
+    }
+
+    if (confirmDeleteAccount) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteAccount = false },
+            title = { Text("Delete account") },
+            text = { Text("This will permanently delete your account. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { confirmDeleteAccount = false; onDeleteAccount() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete my account") }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text("Cancel") } },
+        )
     }
 
     when (state) {

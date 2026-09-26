@@ -5,6 +5,8 @@ import aero.flyfun.forms.data.FlightEntity
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.net.FormInfo
 import aero.flyfun.forms.net.displayField
+import aero.flyfun.forms.ui.common.DeleteOverflowMenu
+import aero.flyfun.forms.ui.common.SwipeToDelete
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,6 +63,7 @@ fun FlightListScreen(
     flights: List<FlightEntity>,
     onOpen: (String) -> Unit,
     onAdd: () -> Unit,
+    onDelete: (FlightEntity) -> Unit,
 ) {
     val now = Instant.now()
     val upcoming = flights.filter { !it.departureInstant.isBefore(now) }.sortedBy { it.departureInstant }
@@ -90,11 +93,11 @@ fun FlightListScreen(
             LazyColumn(Modifier.fillMaxSize().padding(padding)) {
                 if (upcoming.isNotEmpty()) {
                     item { SectionHeader("Upcoming") }
-                    items(upcoming, key = { it.id }) { FlightRow(it, onOpen) }
+                    items(upcoming, key = { "${it.id}:${it.updatedAt}" }) { FlightRow(it, onOpen, onDelete) }
                 }
                 if (past.isNotEmpty()) {
                     item { SectionHeader("Past") }
-                    items(past, key = { it.id }) { FlightRow(it, onOpen) }
+                    items(past, key = { "${it.id}:${it.updatedAt}" }) { FlightRow(it, onOpen, onDelete) }
                 }
             }
         }
@@ -111,16 +114,18 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun FlightRow(flight: FlightEntity, onOpen: (String) -> Unit) {
-    ListItem(
-        headlineContent = {
-            Text("${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}")
-        },
-        supportingContent = {
-            Text("${DAY.format(flight.departureInstant)} · ${HHMM.format(flight.departureInstant)}Z")
-        },
-        modifier = Modifier.clickable { onOpen(flight.id) },
-    )
+private fun FlightRow(flight: FlightEntity, onOpen: (String) -> Unit, onDelete: (FlightEntity) -> Unit) {
+    SwipeToDelete(onDelete = { onDelete(flight) }) {
+        ListItem(
+            headlineContent = {
+                Text("${flight.originICAO.ifBlank { "????" }} → ${flight.destinationICAO.ifBlank { "????" }}")
+            },
+            supportingContent = {
+                Text("${DAY.format(flight.departureInstant)} · ${HHMM.format(flight.departureInstant)}Z")
+            },
+            modifier = Modifier.clickable { onOpen(flight.id) },
+        )
+    }
     HorizontalDivider()
 }
 
@@ -145,6 +150,7 @@ fun FlightEditScreen(
     onShare: (java.io.File) -> Unit,
     onDismissGenerate: () -> Unit,
     onBack: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     if (detail == null) {
         Scaffold(topBar = { TopAppBar(title = { Text("Flight") }) }) { p ->
@@ -182,6 +188,8 @@ fun FlightEditScreen(
                 },
                 actions = {
                     TextButton(onClick = onSave, enabled = hasUnsavedChanges) { Text("Save") }
+                    // A draft has nothing stored to delete; Back discards it.
+                    if (!detail.isNew) DeleteOverflowMenu(onDelete = onDelete)
                 },
             )
         },

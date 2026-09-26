@@ -55,6 +55,10 @@ interface PersonDao {
     @Query("UPDATE person SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
 
+    /** Undo a [softDelete]. The newer `updatedAt` makes the restore win a later merge. */
+    @Query("UPDATE person SET deletedAt = NULL, updatedAt = :at WHERE id = :id")
+    suspend fun restore(id: String, at: Instant = Instant.now())
+
     @Delete
     suspend fun hardDelete(person: PersonEntity)
 }
@@ -99,6 +103,9 @@ interface AircraftDao {
 
     @Query("UPDATE aircraft SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("UPDATE aircraft SET deletedAt = NULL, updatedAt = :at WHERE id = :id")
+    suspend fun restore(id: String, at: Instant = Instant.now())
 
     @Query("SELECT * FROM aircraft")
     suspend fun allIncludingDeleted(): List<AircraftEntity>
@@ -170,6 +177,9 @@ interface FlightDao {
 
     @Query("UPDATE flight SET deletedAt = :at, updatedAt = :at WHERE id = :id")
     suspend fun softDelete(id: String, at: Instant = Instant.now())
+
+    @Query("UPDATE flight SET deletedAt = NULL, updatedAt = :at WHERE id = :id")
+    suspend fun restore(id: String, at: Instant = Instant.now())
 
     @Query("SELECT * FROM flight")
     suspend fun allIncludingDeleted(): List<FlightEntity>

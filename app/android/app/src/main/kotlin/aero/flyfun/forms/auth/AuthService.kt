@@ -115,6 +115,18 @@ class AuthService(
         tokens.clear()
     }
 
+    /**
+     * Delete the account on the server, then sign out here.
+     *
+     * People, aircraft and flights stay on the device: they were never on the
+     * server, and the pilot may want to keep using the app offline.
+     */
+    suspend fun deleteAccount(): Result<Unit> = runCatching {
+        val response = api.auth.deleteAccount()
+        if (!response.isSuccessful) error("The server returned ${response.code()}. Your account was not deleted.")
+        tokens.clear()
+    }
+
     val isSignedIn: Boolean get() = tokens.isSignedIn
 
     private companion object {

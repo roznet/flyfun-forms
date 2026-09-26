@@ -16,6 +16,8 @@ interface FlightRepository {
     suspend fun saveAircraft(aircraft: AircraftEntity)
     suspend fun deleteFlight(id: String)
     suspend fun deleteAircraft(id: String)
+    suspend fun restoreFlight(id: String)
+    suspend fun restoreAircraft(id: String)
 
     suspend fun crew(flightId: String): List<PersonEntity>
     suspend fun passengers(flightId: String): List<PersonEntity>
@@ -49,6 +51,9 @@ class RoomFlightRepository(
 
     override suspend fun deleteFlight(id: String) = flights.softDelete(id, Instant.now())
     override suspend fun deleteAircraft(id: String) = aircraftDao.softDelete(id, Instant.now())
+
+    override suspend fun restoreFlight(id: String) = flights.restore(id, Instant.now())
+    override suspend fun restoreAircraft(id: String) = aircraftDao.restore(id, Instant.now())
 
     override suspend fun crew(flightId: String) = flights.crewOn(flightId)
     override suspend fun passengers(flightId: String) = flights.passengersOn(flightId)
