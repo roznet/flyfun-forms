@@ -34,6 +34,8 @@ import aero.flyfun.forms.ui.people.AddPersonActions
 import aero.flyfun.forms.ui.people.PeopleListScreen
 import aero.flyfun.forms.ui.people.PeoplePickerScreen
 import aero.flyfun.forms.ui.people.ScanResultSheet
+import aero.flyfun.forms.ui.people.ContactResolveScreen
+import aero.flyfun.forms.contacts.ContactReader
 import aero.flyfun.forms.logic.ScanContext
 import aero.flyfun.forms.ui.people.PeopleViewModel
 import aero.flyfun.forms.scan.ScanScreen
@@ -166,6 +168,9 @@ private class Deletions(
  * person just created, so a flight's picker can put them on board.
  */
 private const val ADDED_PERSON = "addedPersonId"
+
+/** A person from the address book. */
+private const val CONTACT_IMPORT = "people/contact"
 
 /** A scan that is not for anyone yet. */
 private const val STANDALONE_SCAN = "people/scan"
@@ -382,6 +387,7 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                     add = AddPersonActions(
                         onAdd = { nav.navigate("person/new") },
                         onScan = { nav.navigate(STANDALONE_SCAN) },
+                        onFromContact = { nav.navigate(CONTACT_IMPORT) },
                     ),
                     onAddNamed = { name ->
                         scope.launch {
@@ -574,6 +580,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             add = AddPersonActions(
                 onAdd = { nav.navigate("person/new") },
                 onScan = { nav.navigate(STANDALONE_SCAN) },
+                onFromContact = { nav.navigate(CONTACT_IMPORT) },
                 onImportCsv = { importCsv.launch(arrayOf("text/*", "application/csv")) },
             ),
             onExportCsv = { exportCsv.launch("people.csv") },
@@ -611,6 +618,54 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             onBack = { nav.popBackStack() },
             onScan = { person -> persistThen(person, "person/${person.id}/scan") },
         )
+    }
+    // A contact from the address book: the system picker first, then create or merge.
+    composable(CONTACT_IMPORT) {
+        val vm: PeopleViewModel = viewModel(factory = factory)
+        val people by vm.people.collectAsState()
+        val contact by vm.pickedContact.collectAsState()
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var launched by rememberSaveable { mutableStateOf(false) }
+        val pick = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.PickContact(),
+        ) { uri ->
+            if (uri == null) {
+                nav.popBackStack()
+                return@rememberLauncherForActivityResult
+            }
+            scope.launch {
+                val read = ContactReader.read(context, uri)
+                if (read == null) {
+                    android.widget.Toast.makeText(context, "That contact has no name to import.", android.widget.Toast.LENGTH_LONG).show()
+                    nav.popBackStack()
+                } else {
+                    vm.setPickedContact(read)
+                }
+            }
+        }
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            if (!launched) {
+                launched = true
+                pick.launch(null)
+            }
+        }
+        contact?.let { picked ->
+            ContactResolveScreen(
+                contact = picked,
+                people = people.map { it.person },
+                onResult = { person ->
+                    scope.launch {
+                        vm.save(person).join()
+                        vm.setPickedContact(null)
+                        // A flight's picker puts them on board.
+                        nav.previousBackStackEntry?.savedStateHandle?.set(ADDED_PERSON, person.id)
+                        nav.navigate("person/${person.id}") { popUpTo(CONTACT_IMPORT) { inclusive = true } }
+                    }
+                },
+                onCancel = { vm.setPickedContact(null); nav.popBackStack() },
+            )
+        }
     }
     // A scan from the People list or a flight's picker: whose document it is
     // is the question, and the person it ends with is opened.
