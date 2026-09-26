@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Flight list -->
+    <string name="flights_title">Flights</string>
+    <string name="flights_add_flight">Add flight</string>
+    <string name="flights_no_flights_yet">No flights yet</string>
+    <string name="flights_empty_message">Add a flight to generate its customs and immigration forms.</string>
+    <string name="flights_upcoming">Upcoming</string>
+    <string name="flights_no_upcoming">No upcoming flights</string>
+    <string name="flights_past_flights_count">Past Flights (%1$d)</string>
+    <string name="flights_hide_past">Hide past flights</string>
+    <string name="flights_show_past">Show past flights</string>
+
+    <!-- Flight editor -->
+    <string name="flights_flight">Flight</string>
+    <string name="flights_new_flight">New Flight</string>
+    <string name="flights_back">Back</string>
+    <string name="flights_save">Save</string>
+    <string name="flights_departure">Departure</string>
+    <string name="flights_arrival">Arrival</string>
+    <string name="flights_arrival_before_departure">Arrival is before departure.</string>
+    <string name="flights_aircraft">Aircraft</string>
+    <string name="flights_add_aircraft_first">Add an aircraft first.</string>
+    <string name="flights_nature">Nature</string>
+    <string name="flights_commercial">Commercial</string>
+    <string name="flights_private">Private</string>
+    <string name="flights_reason_for_visit">Reason for Visit</string>
+    <string name="flights_responsible_person">Responsible Person</string>
+    <string name="flights_unnamed">Unnamed</string>
+    <string name="flights_phone">Phone</string>
+    <string name="flights_address">Address</string>
+    <string name="flights_observations">Observations</string>
+    <string name="flights_forms">Forms</string>
+    <string name="flights_enter_route_for_forms">Enter the route to see which forms these airports need.</string>
+    <string name="flights_actions">Actions</string>
+    <string name="flights_create_return">Create Return Flight</string>
+    <string name="flights_create_next_leg">Create Next Leg</string>
+    <string name="flights_duplicate">Duplicate Flight</string>
+    <string name="flights_save_this_flight">Save this flight?</string>
+    <string name="flights_save_your_changes">Save your changes?</string>
+    <string name="flights_leaving_discards">Leaving now discards what you have not saved.</string>
+    <string name="flights_discard">Discard</string>
+    <string name="flights_from">From</string>
+    <string name="flights_to">To</string>
+    <string name="flights_change_route">Change route</string>
+    <string name="flights_less">Less</string>
+    <string name="flights_more">More</string>
+    <string name="flights_crew">Crew</string>
+    <string name="flights_no_crew_yet">No crew yet.</string>
+    <string name="flights_pic">PIC</string>
+    <string name="flights_passengers">Passengers</string>
+    <string name="flights_no_passengers">No passengers.</string>
+    <string name="flights_choose_crew_passengers">Choose Crew &amp; Passengers</string>
+    <string name="flights_document_automatic">Document: Automatic</string>
+    <string name="flights_automatic">Automatic</string>
+    <string name="flights_remove_from_flight">Remove from flight</string>
+
+    <!-- Forms -->
+    <string name="flights_no_forms_needed">No forms needed here.</string>
+    <string name="flights_other_forms_count">Other forms (%1$d)</string>
+    <string name="flights_email">Email</string>
+    <string name="flights_generate">Generate</string>
+    <string name="flights_official_web_form">Official web form</string>
+    <string name="flights_open_prefilled">Open prefilled</string>
+    <string name="flights_pick_responsible_for_phone_email">Pick a responsible person to fill in phone and email</string>
+    <string name="flights_pick_responsible">Pick a responsible person</string>
+    <string name="flights_set_field_on_person">Set %1$s on %2$s</string>
+    <string name="flights_file_ready">%1$s is ready.</string>
+    <string name="flights_share">Share</string>
+    <string name="flights_close">Close</string>
+    <string name="flights_missing_information">Missing information</string>
+    <string name="flights_ok">OK</string>
+    <string name="flights_could_not_generate">Could not generate</string>
+
+    <!-- New flight -->
+    <string name="flights_add_people">Add People</string>
+    <string name="flights_cancel">Cancel</string>
+    <string name="flights_next">Next</string>
+    <string name="flights_create_flight">Create Flight</string>
+    <string name="flights_import">Import</string>
+    <string name="flights_previous_flight">Previous Flight</string>
+    <string name="flights_previous_flight_subtitle">Repeat a flight with the same crew, rescheduled</string>
+    <string name="flights_no_earlier_flights">No earlier flights yet</string>
+    <string name="flights_flyfun_weather">FlyFun Weather</string>
+    <string name="flights_weather_subtitle">A flight you planned in FlyFun Weather</string>
+    <string name="flights_sign_in_to_import">Sign in to import</string>
+    <string name="flights_route">Route</string>
+    <string name="flights_tap_to_select">Tap to select</string>
+    <string name="flights_schedule">Schedule</string>
+    <string name="flights_none">None</string>
+    <string name="flights_suggestion">Suggestion</string>
+    <string name="flights_choose_another_flight">Choose another flight…</string>
+    <string name="flights_no_crew_selected">No crew selected</string>
+    <string name="flights_no_passengers_selected">No passengers selected</string>
+    <string name="flights_select_people">Select People</string>
+
+    <!-- Airport pickers -->
+    <string name="flights_done">Done</string>
+    <string name="flights_route_from">FROM</string>
+    <string name="flights_route_to">TO</string>
+    <string name="flights_search_airport">Search airport name or ICAO</string>
+    <string name="flights_recent_routes">Recent Routes</string>
+    <string name="flights_clear">Clear</string>
+    <string name="flights_airports">Airports</string>
+    <string name="flights_selected">Selected</string>
+    <string name="flights_use_code">Use %1$s</string>
+    <string name="flights_not_in_database">Not in the airport database</string>
+
+    <!-- Schedule field -->
+    <string name="flights_zone_label">%1$s zone</string>
+    <string name="flights_time_title">%1$s time (%2$s)</string>
+
+    <!-- FlyFun Weather import -->
+    <string name="flights_could_not_reach_weather">Could not reach FlyFun Weather.</string>
+    <string name="flights_import_from_weather">Import from Weather</string>
+    <string name="flights_couldnt_load">Couldn\'t load flights</string>
+    <string name="flights_retry">Retry</string>
+    <string name="flights_loading_your_flights">Loading your flights…</string>
+    <string name="flights_no_flights">No flights</string>
+    <string name="flights_weather_empty">Flights you plan in FlyFun Weather appear here.</string>
+    <string name="flights_could_not_import">That flight could not be imported.</string>
+    <string name="flights_import_failed">Import Failed</string>
+
+    <!-- FlightsViewModel messages -->
+    <string name="flights_copied_from">Copied from %1$s → %2$s</string>
+    <string name="flights_imported_from_weather">Imported from FlyFun Weather</string>
+    <string name="flights_pick_aircraft_first">Pick an aircraft for this flight first.</string>
+    <string name="flights_empty_file">The server returned an empty file.</string>
+    <string name="flights_server_returned_code">Server returned %1$d.</string>
+    <string name="flights_error_no_connection">No connection. Loading forms needs the server.</string>
+    <string name="flights_error_timeout">The server took too long to respond.</string>
+    <string name="flights_error_sign_in">Sign in to load the forms for this airport.</string>
+    <string name="flights_error_no_forms">This airport has no forms on file.</string>
+    <string name="flights_error_server_trouble">The forms server is having trouble. Try again shortly.</string>
+    <string name="flights_error_server_returned">The server returned %1$d.</string>
+    <string name="flights_error_network">Network problem: %1$s</string>
+    <string name="flights_error_connection_failed">connection failed</string>
+</resources>
