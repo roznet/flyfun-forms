@@ -176,9 +176,9 @@ the other FlyFun services.
 
 ### 3b — Auth and platform (S–M, Sonnet)
 
-- [ ] Apple sign-in through the web flow (`provider="apple"` in `AuthService.startSignIn`) if the server path supports it
-- [ ] `TokenStore` off deprecated `EncryptedSharedPreferences` to Keystore-wrapped DataStore
-- [ ] Static app shortcuts (New flight, Scan passport)
+- [x] Apple sign-in through the web flow (`provider="apple"` in `AuthService.startSignIn`) if the server path supports it
+- [x] `TokenStore` off deprecated `EncryptedSharedPreferences` to Keystore-wrapped DataStore
+- [x] Static app shortcuts (New flight, Scan passport)
 
 ### 3c — Server-backed imports (M, Opus)
 
@@ -252,3 +252,7 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 3a — Dynamic colour only, no fallback palette: it needs API 31 and the app's minimum is 33, and the app has no brand colour beyond its icon.
 - 2026-09-26 — 3a — `ListDetailPaneScaffold` lays out the navigation back stack rather than driving its own navigator: a tab's list route shows the list (and a placeholder beside it when there is room), an item's route shows the item (and the list beside it). On a phone that is one screen per route, as before; ViewModels stay scoped to routes, and Back, pickers and the unsaved-changes prompt work unchanged. The list shows beside an item only when the item was opened from that list: a person opened from a flight's picker shows alone. Picking another flight from the side list while the open one has edits asks Save / Discard, as Back does; the person and aircraft editors do not ask on Back either, so neither does switching.
 - 2026-09-26 — 3a — `NavigationSuiteScaffold` gives a bar on a phone (on the lists only, as before) and a rail on a tablet, where it stays beside open items since the list does. Route changes do not fade when two panes show, so the list does not flash.
+- 2026-09-26 — 3b — Apple sign-in is the web flow: `/auth/login/apple` with the same `platform`, `scheme` and `state` as Google; the server's callback takes Apple's `form_post` and redirects with an auth code, so the app needs nothing Apple-specific. Offered on the sign-in screen and in Settings, under Google.
+- 2026-09-26 — 3b — `TokenStore` keeps the JWT AES-GCM-encrypted under its own Android Keystore key, the ciphertext in plain app-private preferences, rather than moving to DataStore: one value needs a key, not a store, and it drops the deprecated `androidx.security:security-crypto` without adding a dependency. The old encrypted file is deleted, not migrated: the app was never released, so the cost is signing in once more. A token that no longer decrypts reads as signed out.
+- 2026-09-26 — 3b — Found on the way: Android ignored `X-Renewed-Token`, so a session ended at the JWT's expiry however often the app was used. The interceptor now takes the renewed token when the one it sent is still current, as iOS's `RollingBearerSession` does.
+- 2026-09-26 — 3b — Static shortcuts New flight and Scan passport are explicit intents with the app's own actions; MainActivity hands them to the UI, which opens `flight/new` or the standalone scan on top of whatever is open (so an unsaved flight underneath survives), after sign-in if the sign-in screen is showing.

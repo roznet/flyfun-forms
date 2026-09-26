@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">FlyFun Forms</string>
+    <string name="shortcut_new_flight">New flight</string>
+    <string name="shortcut_scan_passport">Scan passport</string>
 </resources>

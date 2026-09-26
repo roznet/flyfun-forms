@@ -1,6 +1,8 @@
 package aero.flyfun.forms.ui
 
 import aero.flyfun.forms.auth.AuthService
+import aero.flyfun.forms.auth.SignInProvider
+import aero.flyfun.forms.ui.common.SignInButtons
 import aero.flyfun.forms.auth.TokenStore
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.FlightEntity
@@ -104,6 +106,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -202,7 +206,13 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 @Composable
-fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
+fun FlyFunApp(
+    auth: AuthService,
+    tokens: TokenStore,
+    api: ApiClient,
+    /** Set when the app is opened from a launcher shortcut; cleared once acted on. */
+    shortcut: MutableStateFlow<AppShortcut?>,
+) {
     val context = LocalContext.current
     val repositories = remember {
         val db = FlyFunDatabase.get(context)
@@ -250,7 +260,7 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
     if (!signedIn && !skippedSignIn) {
         SignInScreen(
             notice = signInNotice,
-            onSignIn = { auth.startSignIn() },
+            onSignIn = { auth.startSignIn(it) },
             // Form generation is the only thing that needs the server. Everything
             // else - people, aircraft, flights - is local, so let a pilot get on
             // with data entry rather than blocking the whole app behind a login.
@@ -316,6 +326,29 @@ fun FlyFunApp(auth: AuthService, tokens: TokenStore, api: ApiClient) {
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
             )
         }
+    }
+
+    // Once the NavHost has set its graph. On top of whatever is open, so
+    // an unsaved flight underneath is still there on Back.
+    val pendingShortcut by shortcut.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(pendingShortcut) {
+        val target = pendingShortcut ?: return@LaunchedEffect
+        navController.currentBackStackEntryFlow.first()
+        when (target) {
+            AppShortcut.NEW_FLIGHT -> navController.navigate("flight/${FlightsViewModel.NEW_FLIGHT}")
+            AppShortcut.SCAN_DOCUMENT -> navController.navigate(STANDALONE_SCAN)
+        }
+        shortcut.value = null
+    }
+}
+
+/** The launcher's long-press shortcuts (res/xml/shortcuts.xml), by intent action. */
+enum class AppShortcut(val action: String) {
+    NEW_FLIGHT("aero.flyfun.forms.action.NEW_FLIGHT"),
+    SCAN_DOCUMENT("aero.flyfun.forms.action.SCAN_DOCUMENT");
+
+    companion object {
+        fun from(action: String?): AppShortcut? = entries.firstOrNull { it.action == action }
     }
 }
 
@@ -1048,7 +1081,7 @@ private fun airportLookup(context: Context): AirportLookup {
 }
 
 @Composable
-private fun SignInScreen(notice: String?, onSignIn: () -> Unit, onContinueOffline: () -> Unit) {
+private fun SignInScreen(notice: String?, onSignIn: (SignInProvider) -> Unit, onContinueOffline: () -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
@@ -1069,7 +1102,7 @@ private fun SignInScreen(notice: String?, onSignIn: () -> Unit, onContinueOfflin
                 modifier = Modifier.padding(bottom = 12.dp),
             )
         }
-        Button(onClick = onSignIn) { Text("Sign in with Google") }
+        SignInButtons(onSignIn)
         androidx.compose.material3.TextButton(onClick = onContinueOffline) {
             Text("Enter data without signing in")
         }
@@ -1167,7 +1200,7 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
         SettingsScreen(
             state = state,
             signedIn = signedIn,
-            onSignIn = { auth.startSignIn() },
+            onSignIn = { auth.startSignIn(it) },
             onExportEncrypted = { vm.exportEncrypted() },
             onExportPlain = { vm.exportPlain() },
             onPickFile = { picker.launch(arrayOf("*/*")) },

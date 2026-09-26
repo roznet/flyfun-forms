@@ -27,6 +27,11 @@ object ApiConfig {
 
 class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE_URL) {
 
+    private companion object {
+        /** flyfun-common `SlidingSessionMiddleware`: the renewed JWT for a Bearer request. */
+        const val RENEWED_TOKEN_HEADER = "X-Renewed-Token"
+    }
+
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -50,7 +55,15 @@ class ApiClient(private val tokens: TokenStore, baseUrl: String = ApiConfig.BASE
             chain.request()
         }
         val response = chain.proceed(request)
-        if (response.code == 401 && token != null) tokens.clearIfCurrent(token)
+        if (token != null) {
+            if (response.code == 401) {
+                tokens.clearIfCurrent(token)
+            } else {
+                // Rolling sessions: a token near expiry comes back with its
+                // successor, so a pilot who keeps using the app stays signed in.
+                response.header(RENEWED_TOKEN_HEADER)?.let { tokens.replaceIfCurrent(token, it) }
+            }
+        }
         response
     }
 

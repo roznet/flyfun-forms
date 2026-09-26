@@ -12,6 +12,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.security.SecureRandom
 import android.util.Base64
 
+/** The sign-in providers the flyfun server offers, by their path segment in `/auth/login/{provider}`. */
+enum class SignInProvider(val path: String) {
+    GOOGLE("google"),
+
+    /**
+     * Sign in with Apple through the same web flow as Google: Apple posts back
+     * to the server (`response_mode=form_post`), which then redirects to the
+     * app with the auth code, so nothing Apple-specific happens on Android.
+     * The native `POST /auth/apple/token` route needs the iOS SDK.
+     */
+    APPLE("apple"),
+}
+
 /**
  * Google / Apple sign-in through a Chrome Custom Tab.
  *
@@ -69,12 +82,12 @@ class AuthService(
             }.commit()
         }
 
-    fun startSignIn(provider: String = "google") {
+    fun startSignIn(provider: SignInProvider) {
         val state = newState().also { pendingState = it }
         val url = Uri.parse(ApiConfig.BASE_URL).buildUpon()
             .appendPath("auth")
             .appendPath("login")
-            .appendPath(provider)
+            .appendPath(provider.path)
             // The server's native branch keys off `platform=ios`. That name is
             // historical - it means "native app", not the OS - and it is what
             // selects the custom-scheme redirect instead of a web session

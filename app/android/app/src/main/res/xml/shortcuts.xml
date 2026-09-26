@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Long-press on the launcher icon. Explicit intents with the app's own actions,
+  handled by MainActivity.openShortcut; the package is the applicationId.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_flight"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new_flight"
+        android:shortcutShortLabel="@string/shortcut_new_flight"
+        android:shortcutLongLabel="@string/shortcut_new_flight">
+        <intent
+            android:action="aero.flyfun.forms.action.NEW_FLIGHT"
+            android:targetPackage="aero.flyfun.forms"
+            android:targetClass="aero.flyfun.forms.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="scan_passport"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutShortLabel="@string/shortcut_scan_passport"
+        android:shortcutLongLabel="@string/shortcut_scan_passport">
+        <intent
+            android:action="aero.flyfun.forms.action.SCAN_DOCUMENT"
+            android:targetPackage="aero.flyfun.forms"
+            android:targetClass="aero.flyfun.forms.MainActivity" />
+    </shortcut>
+</shortcuts>
