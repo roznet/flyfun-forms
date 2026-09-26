@@ -34,7 +34,7 @@ app/flyfun-forms/flyfun-forms/
 │   ├── FlightDateTimeField.swift # Date/time/timezone entry for one end of a flight
 │   ├── SinglePersonPickerView.swift # Searchable single-select person picker
 │   ├── ContactImportView.swift   # iOS/macOS contact import with fuzzy merge
-│   └── ValidationErrorsView.swift
+│   └── ValidationErrorsView.swift  # Errors sheet: edit each field in place, Try Again
 └── Services/
     ├── AppState.swift         # @Observable: JWT auth state, token storage
     ├── Environment.swift      # APIConfig (base URL, simulator vs device)
@@ -42,6 +42,7 @@ app/flyfun-forms/flyfun-forms/
     ├── FormService.swift      # API client for /airports, /generate, /prefill, /validate, /email-text; parses 422 into structured errors
     ├── PeopleCSVImporter.swift # CSV parser + SwiftData importer for bulk people entry
     ├── DocumentResolver.swift # Picks best document per person + airport region (active only)
+    ├── ValidationFix.swift    # Maps a server validation error path to what to edit on device
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
     └── APITypes.swift         # Codable request/response models
 ```
@@ -83,6 +84,8 @@ Uses [flyfun-common OAuth](../../flyfun-common/designs/auth.md):
 - `POST /email-text` — fetches localized email subject/body for pre-populating mail composer
 
 **Validation error handling:** 422 responses are parsed into `ServerValidationError` structs (field, error, value). `FormError.validationErrors` carries the structured list. `ServerValidationError.displayField` converts API field paths like `crew[0].id_number` into human-readable labels ("Crew 1 — ID Number"). `ValidationErrorsView` presents them in a sheet.
+
+**Fixing errors in place:** each row of that sheet carries the control that fixes it, and **Try Again** repeats the rejected action (Share, Email or Open Prefilled) without leaving the sheet; the result is presented once the sheet has closed. `ValidationFixContext` (`Services/ValidationFix.swift`) maps an API path to where the value lives on device, which is often not the path itself: `extra_fields.email` / `telephone` are the responsible person's, `nationality` / `id_*` are the document `DocumentResolver` picks for that airport (or **Add Document** when there is none), `flight.contact` is the responsible person, and aircraft owner / base open `AircraftEditView`. `crew[i]` indexes the lists the request was built from. Edits write straight to the SwiftData models, so they persist for later flights. Schedule, route, direction and count errors, and `person`-type extra fields other than the responsible person, map to `.none` and stay read-only rows; add a case to the resolver to make one editable.
 
 ### SwiftData Models
 

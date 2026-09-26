@@ -272,6 +272,31 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Crew 1 — ID Number"].exists,
                       "crew[0].id_number should read as Crew 1 — ID Number")
         XCTAssertTrue(app.staticTexts["Field required"].exists, "the server's reason should be shown")
+        XCTAssertTrue(element(app, "validationFix-documentNumber").exists,
+                      "a missing ID number should be editable on the passport the form uses")
+    }
+
+    /// Journey 6b: a missing value is filled in on the errors sheet and the
+    /// form goes out from there, without going back to the flight.
+    @MainActor
+    func testFixValidationErrorInPlace() throws {
+        let app = launchApp(environment: ["FLYFUN_MOCK_REQUIRE_REASON": "1"])
+        openLeg(app, "flightRow-EGTF-LFRM")
+        focusSection(app, "form-arrival")
+        let share = element(app, "shareForm-LFRM-lfrm")
+        XCTAssertTrue(share.waitForExistence(timeout: Self.uiTimeout), "LFRM's arrival form should be offered")
+        share.tap()
+
+        XCTAssertTrue(element(app, "validationError-extra_fields.reason_for_visit").waitForExistence(timeout: Self.uiTimeout),
+                      "the missing reason for visit should be listed")
+        selectFromMenuPicker(app, identifier: "validationFix-reasonForVisit", value: "Maintenance")
+        element(app, "validationRetryButton").tap()
+
+        XCTAssertTrue(waitForShareSheet(app), "the form should be shared once the reason is filled in")
+        let request = try capturedRequest(named: "POST-generate")
+        let extras = try XCTUnwrap(request["extra_fields"] as? [String: Any])
+        XCTAssertEqual(extras["reason_for_visit"] as? String, "Maintenance",
+                       "the reason picked on the errors sheet should be sent")
     }
 
     /// Journey 7: a person is added with a passport, and the passport's expiry

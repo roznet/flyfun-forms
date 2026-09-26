@@ -34,7 +34,7 @@ nonisolated final class UITestURLProtocol: URLProtocol {
         let body = Self.body(of: request)
         Self.capture(request, body: body)
 
-        guard let stub = Self.stub(for: request, url: url) else {
+        guard let stub = Self.stub(for: request, url: url, body: body) else {
             Self.logger.error("No stub for \(self.request.httpMethod ?? "GET") \(url)")
             Self.appendUnstubbed("\(request.httpMethod ?? "GET") \(url.absoluteString)")
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
@@ -58,7 +58,7 @@ nonisolated final class UITestURLProtocol: URLProtocol {
         var body: Data
     }
 
-    private static func stub(for request: URLRequest, url: URL) -> Stub? {
+    private static func stub(for request: URLRequest, url: URL, body: Data?) -> Stub? {
         let path = url.pathComponents.filter { $0 != "/" }
         let method = request.httpMethod ?? "GET"
 
@@ -78,7 +78,7 @@ nonisolated final class UITestURLProtocol: URLProtocol {
             }
             return json(detail)
         case ("POST", ["generate"]):
-            return generate(request)
+            return generate(body: body)
         case ("POST", ["email-text"]):
             return json(#"""
                 {"subject_en":"UI test","body_en":"UI test","subject_local":"UI test","body_local":"UI test","local_language":null}
@@ -90,11 +90,20 @@ nonisolated final class UITestURLProtocol: URLProtocol {
         }
     }
 
-    private static func generate(_ request: URLRequest) -> Stub {
+    private static func generate(body: Data?) -> Stub {
         if UITestMode.generateStatus == 422 {
             return json(#"""
                 {"detail":[{"field":"crew[0].id_number","error":"Field required","value":""}]}
                 """#, status: 422)
+        }
+        if UITestMode.requireReasonForVisit {
+            let request = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let extras = request?["extra_fields"] as? [String: Any]
+            if (extras?["reason_for_visit"] as? String ?? "").isEmpty {
+                return json(#"""
+                    {"detail":[{"field":"extra_fields.reason_for_visit","error":"required for this form"}]}
+                    """#, status: 422)
+            }
         }
         let pdf = Data("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n".utf8)
         return Stub(

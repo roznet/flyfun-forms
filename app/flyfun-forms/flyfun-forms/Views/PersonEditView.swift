@@ -15,7 +15,7 @@ struct PersonEditView: View {
     @State private var imageOCR = ImageOCRManager()
     @State private var showScanError = false
 
-    private static let dateRange: ClosedRange<Date> = {
+    static let dateRange: ClosedRange<Date> = {
         let calendar = Calendar.current
         let earliest = calendar.date(byAdding: .year, value: -120, to: Date())!
         return earliest...Date()

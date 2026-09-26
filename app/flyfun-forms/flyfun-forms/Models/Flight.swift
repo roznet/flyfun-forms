@@ -245,6 +245,22 @@ final class Flight {
 
     init() {}
 
+    /// The GAR's reasons for visit, used when the form does not list its own.
+    static let reasonForVisitOptions = [
+        "Based",
+        "Short Term Visit",
+        "Maintenance",
+        "Permanent Import",
+        "Repair",
+    ]
+
+    /// Sets the responsible person, keeping `contact` in step for older builds
+    /// that still read it.
+    func setResponsiblePerson(_ person: Person?) {
+        responsiblePerson = person
+        contact = person?.phone
+    }
+
     /// Create a new flight copying shared properties (aircraft, crew, passengers, nature, etc.)
     func copyCommon(to newFlight: Flight) {
         newFlight.aircraft = aircraft
