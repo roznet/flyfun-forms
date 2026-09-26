@@ -1,5 +1,6 @@
 package aero.flyfun.forms.scan
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.logic.MRZScanResult
 import android.Manifest
 import android.content.pm.PackageManager
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -97,20 +99,20 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scan document") },
+                title = { Text(stringResource(R.string.scan_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.people_back))
                     }
                 },
                 actions = {
                     Box {
                         IconButton(onClick = { sourceMenu = true }, enabled = !reading) {
-                            Icon(Icons.Default.PhotoLibrary, contentDescription = "Scan from a photo or PDF")
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = stringResource(R.string.scan_from_photo_or_pdf))
                         }
                         DropdownMenu(expanded = sourceMenu, onDismissRequest = { sourceMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Choose Photo") },
+                                text = { Text(stringResource(R.string.scan_choose_photo)) },
                                 leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
                                 onClick = {
                                     sourceMenu = false
@@ -118,7 +120,7 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("Choose PDF") },
+                                text = { Text(stringResource(R.string.scan_choose_pdf)) },
                                 leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
                                 onClick = { sourceMenu = false; pdf.launch(arrayOf("application/pdf")) },
                             )
@@ -135,21 +137,20 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
                     Arrangement.Center,
                     Alignment.CenterHorizontally,
                 ) {
-                    Text("Camera access", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.scan_camera_access), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Used only to read the two lines at the bottom of a passport. " +
-                            "No image is saved.",
+                        stringResource(R.string.scan_camera_rationale),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Button(
                         onClick = { request.launch(Manifest.permission.CAMERA) },
                         modifier = Modifier.padding(top = 12.dp),
-                    ) { Text("Allow camera") }
+                    ) { Text(stringResource(R.string.scan_allow_camera)) }
                 }
             } else {
                 CameraPreview(onScanned)
                 Text(
-                    "Line up the two lines at the bottom of the passport or ID card",
+                    stringResource(R.string.scan_line_up),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(24.dp),
                 )
@@ -161,14 +162,11 @@ fun ScanScreen(onScanned: (MRZScanResult) -> Unit, onBack: () -> Unit) {
     if (notFound) {
         AlertDialog(
             onDismissRequest = { notFound = false },
-            title = { Text("No Document Found") },
+            title = { Text(stringResource(R.string.scan_no_document_found)) },
             text = {
-                Text(
-                    "No machine-readable zone (MRZ) was found in the file. " +
-                        "Try a clearer image or PDF of the passport page.",
-                )
+                Text(stringResource(R.string.scan_no_mrz_found))
             },
-            confirmButton = { TextButton(onClick = { notFound = false }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = { notFound = false }) { Text(stringResource(R.string.people_ok)) } },
         )
     }
 

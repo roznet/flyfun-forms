@@ -1,7 +1,10 @@
 package aero.flyfun.forms.net
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.logic.FlightExchange
 import aero.flyfun.forms.logic.WeatherFlightSummary
+import android.content.res.Resources
+import androidx.annotation.StringRes
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
@@ -22,8 +25,10 @@ interface WeatherApi {
     suspend fun export(@Path("id") id: String): Response<ResponseBody>
 }
 
-/** A failed weather call, with what to tell the pilot. */
-class WeatherImportException(message: String) : Exception(message)
+/** A failed weather call, with what to tell the pilot as a string resource. */
+class WeatherImportException(@StringRes val text: Int, private vararg val args: Any) : Exception() {
+    fun message(resources: Resources): String = resources.getString(text, *args)
+}
 
 /** The pilot's weather flights, newest departure first. */
 suspend fun WeatherApi.listFlights(): List<WeatherFlightSummary> {
@@ -34,20 +39,18 @@ suspend fun WeatherApi.listFlights(): List<WeatherFlightSummary> {
 /** One weather flight as a `FlightExchange`. */
 suspend fun WeatherApi.exportFlight(id: String): FlightExchange {
     val response = export(id)
-    if (response.code() == 422) throw WeatherImportException("This flight has no route to import.")
-    return runCatching { FlightExchange.decode(response.bodyOrThrow()) }.getOrElse {
-        if (it is WeatherImportException) throw it
-        throw WeatherImportException(it.message ?: "That flight could not be read.")
+    if (response.code() == 422) throw WeatherImportException(R.string.app_weather_no_route)
+    val body = response.bodyOrThrow()
+    return runCatching { FlightExchange.decode(body) }.getOrElse {
+        throw WeatherImportException(R.string.app_weather_unreadable, it.message.orEmpty())
     }
 }
 
 private fun Response<ResponseBody>.bodyOrThrow(): String {
-    if (code() == 401) {
-        throw WeatherImportException("Sign in to the same FlyFun account to import your weather flights.")
-    }
+    if (code() == 401) throw WeatherImportException(R.string.app_weather_sign_in)
     if (!isSuccessful) {
         val detail = errorBody()?.string()?.take(200)?.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()
-        throw WeatherImportException("Weather server error (${code()})$detail")
+        throw WeatherImportException(R.string.app_weather_server_error, code(), detail)
     }
-    return body()?.string() ?: throw WeatherImportException("Weather server sent nothing back.")
+    return body()?.string() ?: throw WeatherImportException(R.string.app_weather_empty)
 }

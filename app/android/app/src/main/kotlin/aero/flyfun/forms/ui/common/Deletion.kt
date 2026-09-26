@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.common
 
+import aero.flyfun.forms.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 /**
@@ -52,7 +54,7 @@ fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
             ) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete",
+                    contentDescription = stringResource(R.string.common_delete),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
@@ -66,11 +68,11 @@ fun DeleteOverflowMenu(onDelete: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More")
+            Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.common_more))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
-                text = { Text("Delete") },
+                text = { Text(stringResource(R.string.common_delete)) },
                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                 onClick = { open = false; onDelete() },
             )

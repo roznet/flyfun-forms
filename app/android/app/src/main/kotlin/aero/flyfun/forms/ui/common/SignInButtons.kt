@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.common
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.auth.SignInProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
 /**
@@ -18,7 +20,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SignInButtons(onSignIn: (SignInProvider) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Button(onClick = { onSignIn(SignInProvider.GOOGLE) }) { Text("Sign in with Google") }
-        OutlinedButton(onClick = { onSignIn(SignInProvider.APPLE) }) { Text("Sign in with Apple") }
+        Button(onClick = { onSignIn(SignInProvider.GOOGLE) }) { Text(stringResource(R.string.common_sign_in_with_google)) }
+        OutlinedButton(onClick = { onSignIn(SignInProvider.APPLE) }) { Text(stringResource(R.string.common_sign_in_with_apple)) }
     }
 }
