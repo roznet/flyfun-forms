@@ -12,6 +12,7 @@ from ..fillers.web_form import build_fill_plan
 from ..registry import MappingRegistry
 from ..validation import validate_request
 from .models import FillPlan, GenerateRequest
+from .rate_limit import enforce_fill_rate
 
 router = APIRouter()
 
@@ -36,6 +37,8 @@ def prefill_web_form(
     The client opens the page and applies the plan; the pilot then submits
     it on the airport's own site.
     """
+    enforce_fill_rate(db, user_id)
+
     mapping = _registry.get_form(request.airport, request.form)
     if not mapping:
         raise HTTPException(status_code=404, detail=f"No form '{request.form}' for airport {request.airport}")

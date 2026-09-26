@@ -4,6 +4,227 @@
     "" : {
 
     },
+    "Delete All Data" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Alle Daten löschen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eliminar todos los datos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer toutes les données"
+          }
+        }
+      }
+    },
+    "Deletes all people, documents, aircraft, flights and trips from this device and from your iCloud, so from all your devices signed into this Apple ID. This cannot be undone. Your FlightForms account is not affected." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Löscht alle Personen, Dokumente, Luftfahrzeuge, Flüge und Reisen von diesem Gerät und aus Ihrer iCloud, also von allen Ihren Geräten, die mit dieser Apple-ID angemeldet sind. Dies kann nicht rückgängig gemacht werden. Ihr FlightForms-Konto ist davon nicht betroffen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elimina todas las personas, documentos, aeronaves, vuelos y viajes de este dispositivo y de su iCloud, es decir, de todos sus dispositivos con sesión iniciada con este ID de Apple. No se puede deshacer. Su cuenta de FlightForms no se ve afectada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprime toutes les personnes, documents, aéronefs, vols et voyages de cet appareil et de votre iCloud, donc de tous vos appareils connectés à cet identifiant Apple. Cette action est irréversible. Votre compte FlightForms n'est pas concerné."
+          }
+        }
+      }
+    },
+    "Deletes your FlightForms account and its usage records on the server. People, aircraft, flights and trips stay on this device and in iCloud." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Löscht Ihr FlightForms-Konto und seine Nutzungsdaten auf dem Server. Personen, Luftfahrzeuge, Flüge und Reisen bleiben auf diesem Gerät und in iCloud."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elimina su cuenta de FlightForms y sus registros de uso en el servidor. Las personas, aeronaves, vuelos y viajes permanecen en este dispositivo y en iCloud."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprime votre compte FlightForms et ses données d'utilisation sur le serveur. Les personnes, aéronefs, vols et voyages restent sur cet appareil et dans iCloud."
+          }
+        }
+      }
+    },
+    "How I use your details for this flight\n\nI keep your name and travel-document details in the FlightForms app on my own devices, synced through my private iCloud account. I use them only to fill in the customs, immigration and airport forms this flight requires, and I send those forms to the authorities that ask for them. The FlightForms server fills each form and keeps no copy. Ask me any time to see, correct or delete your details.\n\nMore: %@" : {
+      "comment" : "Text a pilot shares with passengers about how their details are used. The argument is the privacy policy URL.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wie ich Ihre Daten für diesen Flug verwende\n\nIch speichere Ihren Namen und die Angaben Ihres Reisedokuments in der FlightForms-App auf meinen eigenen Geräten, synchronisiert über mein privates iCloud-Konto. Ich verwende sie nur, um die Zoll-, Einreise- und Flughafenformulare auszufüllen, die dieser Flug erfordert, und sende diese Formulare an die Behörden, die sie anfordern. Der FlightForms-Server füllt jedes Formular aus und behält keine Kopie. Sie können mich jederzeit bitten, Ihre Daten einzusehen, zu berichtigen oder zu löschen.\n\nMehr dazu: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cómo uso sus datos para este vuelo\n\nGuardo su nombre y los datos de su documento de viaje en la app FlightForms en mis propios dispositivos, sincronizados a través de mi cuenta privada de iCloud. Solo los uso para rellenar los formularios de aduanas, inmigración y aeropuerto que exige este vuelo, y envío esos formularios a las autoridades que los solicitan. El servidor de FlightForms rellena cada formulario y no guarda ninguna copia. Puede pedirme en cualquier momento ver, corregir o eliminar sus datos.\n\nMás información: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Comment j'utilise vos informations pour ce vol\n\nJe conserve votre nom et les informations de votre document de voyage dans l'application FlightForms sur mes propres appareils, synchronisés via mon compte iCloud privé. Je les utilise uniquement pour remplir les formulaires de douane, d'immigration et d'aéroport exigés pour ce vol, et j'envoie ces formulaires aux autorités qui les demandent. Le serveur FlightForms remplit chaque formulaire et n'en conserve aucune copie. Vous pouvez me demander à tout moment de consulter, corriger ou supprimer vos informations.\n\nEn savoir plus : %@"
+          }
+        }
+      }
+    },
+    "Passengers' details come from you, not them — share this so they know how they're used." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Daten der Passagiere stammen von Ihnen, nicht von ihnen selbst – teilen Sie dies, damit sie wissen, wie sie verwendet werden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Los datos de los pasajeros los aporta usted, no ellos: comparta esto para que sepan cómo se usan."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Les informations des passagers viennent de vous, pas d'eux — partagez ceci pour qu'ils sachent comment elles sont utilisées."
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Datenschutz"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Privacidad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Confidentialité"
+          }
+        }
+      }
+    },
+    "Privacy Note for Passengers" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Datenschutzhinweis für Passagiere"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aviso de privacidad para pasajeros"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Note de confidentialité pour les passagers"
+          }
+        }
+      }
+    },
+    "Privacy Policy" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Datenschutzerklärung"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Política de privacidad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Politique de confidentialité"
+          }
+        }
+      }
+    },
+    "Removes people, documents, aircraft, flights and trips from all your devices. You stay signed in." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Entfernt Personen, Dokumente, Luftfahrzeuge, Flüge und Reisen von allen Ihren Geräten. Sie bleiben angemeldet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Elimina personas, documentos, aeronaves, vuelos y viajes de todos sus dispositivos. Su sesión sigue iniciada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprime les personnes, documents, aéronefs, vols et voyages de tous vos appareils. Vous restez connecté."
+          }
+        }
+      }
+    },
+    "This permanently deletes your FlightForms account and its usage records on the server. It cannot be undone. People, aircraft, flights and trips stay on this device and in iCloud: use Delete All Data to remove them." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Damit werden Ihr FlightForms-Konto und seine Nutzungsdaten auf dem Server endgültig gelöscht. Dies kann nicht rückgängig gemacht werden. Personen, Luftfahrzeuge, Flüge und Reisen bleiben auf diesem Gerät und in iCloud: Verwenden Sie „Alle Daten löschen“, um sie zu entfernen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esto elimina definitivamente su cuenta de FlightForms y sus registros de uso en el servidor. No se puede deshacer. Las personas, aeronaves, vuelos y viajes permanecen en este dispositivo y en iCloud: use Eliminar todos los datos para borrarlos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cette action supprime définitivement votre compte FlightForms et ses données d'utilisation sur le serveur. Elle est irréversible. Les personnes, aéronefs, vols et voyages restent sur cet appareil et dans iCloud : utilisez Supprimer toutes les données pour les effacer."
+          }
+        }
+      }
+    },
     "—" : {
 
     },
@@ -2891,10 +3112,6 @@
         }
       }
     },
-    "Permanently deletes your account and all server data." : {
-      "comment" : "A message displayed below the \"Delete Account\" button in the settings view, explaining that deleting the account cannot be undone.",
-      "isCommentAutoGenerated" : true
-    },
     "Phone" : {
       "localizations" : {
         "de" : {
@@ -3834,10 +4051,6 @@
     },
     "This flight has no route to import." : {
       "comment" : "Error message when a weather flight has no route to import.",
-      "isCommentAutoGenerated" : true
-    },
-    "This will permanently delete your account. This action cannot be undone." : {
-      "comment" : "A message displayed in the confirmation dialog for deleting an account.",
       "isCommentAutoGenerated" : true
     },
     "TO" : {

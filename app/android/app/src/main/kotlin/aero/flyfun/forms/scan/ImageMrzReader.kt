@@ -26,8 +26,10 @@ import kotlin.coroutines.resume
 object ImageMrzReader {
 
     /** The first MRZ found, or null when there is none to read. */
-    suspend fun read(context: Context, uri: Uri, isPdf: Boolean): MRZScanResult? =
-        if (isPdf) readPdf(context, uri) else readImage(context, uri)
+    suspend fun read(context: Context, uri: Uri, isPdf: Boolean): MRZScanResult? {
+        startMlKit(context)
+        return if (isPdf) readPdf(context, uri) else readImage(context, uri)
+    }
 
     private suspend fun readImage(context: Context, uri: Uri): MRZScanResult? {
         // fromFilePath applies the photo's EXIF rotation, which a passport

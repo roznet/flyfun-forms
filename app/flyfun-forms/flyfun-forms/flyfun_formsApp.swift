@@ -12,16 +12,15 @@ struct flyfun_formsApp: App {
             UITestURLProtocol.install()
         }
         #endif
+        // A filled form is removed once its share sheet or mail composer is
+        // done with it, but one handed to another app (or left by a crash, or
+        // by a build before the cleanup) can outlive that: nothing from a
+        // previous run is still in use.
+        GeneratedFormFiles.standard.removeAll()
     }
 
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Person.self,
-            TravelDocument.self,
-            Aircraft.self,
-            Flight.self,
-            Trip.self,
-        ])
+        let schema = AppSchema.schema
         #if DEBUG
         if UITestMode.isActive {
             return UITestFixtures.makeContainer(schema: schema)
@@ -45,6 +44,7 @@ struct flyfun_formsApp: App {
             Group {
                 if appState.isAuthenticated {
                     ContentView()
+                        .id(appState.localDataEpoch)
                         .environment(\.airportCatalog, catalog)
                         .task(id: appState.jwt) {
                             catalog.jwt = appState.jwt

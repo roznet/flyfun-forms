@@ -11,6 +11,11 @@ enum APIConfig {
     static let weatherProductionURL = URL(string: "https://weather.flyfun.aero")!
     static let weatherDevURL = URL(string: "https://localhost.ro-z.me:8443")!
 
+    /// The privacy policy, and its section written for passengers. Always the
+    /// production site, whichever server the app is talking to.
+    static let privacyPolicyURL = URL(string: "https://forms.flyfun.aero/privacy")!
+    static let passengerPrivacyURL = URL(string: "https://forms.flyfun.aero/privacy#passengers")!
+
     /// Whether the server toggle is available (DEBUG builds or simulator)
     static var canToggleServer: Bool {
         #if DEBUG

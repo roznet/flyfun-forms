@@ -1,6 +1,6 @@
 # FlightForms — GDPR Considerations
 
-*Last updated: 2026-09-17*
+*Last updated: 2026-09-26*
 
 ## Statement
 
@@ -37,21 +37,22 @@ That inverts the two hardest questions. Weather's answer to "does anyone need a 
 
 | Area | Status |
 |------|--------|
-| Privacy notice / transparency (Art. 13–14) | 🟡 `PRIVACY.md` is thorough but is not linked in-app or served at a URL |
+| Privacy notice / transparency (Art. 13–14) | ✅ Served at `forms.flyfun.aero/privacy`, linked from Settings on every platform; passenger note for Art. 14 |
 | Data minimization (Art. 5) | ✅ Implemented — server persists no manifest data at all |
 | Lawful basis (Art. 6) | ✅ Believe fine |
 | Special-category data & ID numbers (Art. 9, Art. 87) | ✅ Believe fine — no Art. 9 data; passport numbers handled as national ID numbers |
 | **Our role: processor for manifest data, controller for the account** | 🟡 Position documented here; [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md) drafted, not yet in force |
 | On-device & iCloud storage (the real data store) | ✅ Sound, with two hardening items (§6) |
-| Right to erasure (Art. 17) | ✅ Server-side; 🟡 in-app wording for on-device data |
+| Android client (on-device only) | ✅ No cloud backup or transfer; 🟡 ML Kit sends Google diagnostics (§6a) |
+| Right to erasure (Art. 17) | ✅ Server-side, plus **Delete All Data** on-device (iOS/macOS, Android) |
 | Right to data portability (Art. 20) | 🟡 CSV export of people on device ✅; no server-side account export |
-| Security of processing (Art. 32) | 🟡 Strong overall; one regression (temp files, §9) |
-| Retention / storage limitation (Art. 5(1)(e)) | 🟡 Usage rows and temp files are never pruned |
+| Security of processing (Art. 32) | ✅ Temp-file regression fixed, `/generate` rate-limited; iOS hardening items remain (§6) |
+| Retention / storage limitation (Art. 5(1)(e)) | 🟡 Usage rows never pruned; temp files now deleted (§9) |
 | Data residency (UK, EU-adequate) | ✅ Implemented |
-| International transfers (Art. 44–49) | ✅ No manifest data leaves the server; sign-in only |
-| Processor agreements / DPAs (Art. 28) | ✅ DigitalOcean + Google in force; Apple as independent controller |
+| International transfers (Art. 44–49) | ✅ No manifest data leaves the server; sign-in, and ML Kit diagnostics on Android (§12) |
+| Processor agreements / DPAs (Art. 28) | ✅ DigitalOcean + Google in force; Apple as independent controller; 🟡 Google ML Kit role (§13) |
 | Onward transfer to airports & authorities | ✅ User-initiated, from the user's own device |
-| Breach notification (Art. 33–34) | ❌ No runbook — weather has `SECURITY.md`, forms does not |
+| Breach notification (Art. 33–34) | ✅ [`SECURITY.md`](../SECURITY.md) runbook; GitHub private vulnerability reporting enabled |
 | Records of processing (Art. 30) | 🟡 The small-scale exemption probably does **not** apply here — this doc is the record |
 | DPIA (Art. 35) | 🟡 Considered; believe not required, reasoning recorded |
 | DPO / EU representative | 🟡 Believe not required (small scale) |
@@ -77,8 +78,10 @@ Everything below hangs off this inventory, so it comes first.
 |------|----------------|-----------------|
 | Crew/passenger names, DOB, nationality, sex, place of birth, address, phone, email | The pilot's device (SwiftData) + **their** iCloud private database | The pilot only |
 | Passport / ID numbers, issuing country, expiry | Same | The pilot only |
+| The same data, on Android | The phone only (Room database); excluded from Android backup and device transfer | The pilot only |
 | The same data, in flight | HTTPS request body to `forms.flyfun.aero`, in memory, for one request | Nobody — discarded when the response is written |
-| The filled PDF/DOCX/XLSX | Returned to the device; written to the app's temp directory | The pilot (and whoever they send it to) |
+| The filled PDF/DOCX/XLSX | Returned to the device; held in the app's temp storage until shared, then deleted | The pilot (and whoever they send it to) |
+| ML Kit usage metrics (Android) | Google — device model/OS, app version, per-installation id, latency, image size/format, error codes; **no image or text** | Google |
 | Account: email, display name, OAuth provider + `sub` | Our MySQL on the droplet (`users`, shared with weather) | Us |
 | Usage: `user_id`, endpoint, airport ICAO, form id, timestamp | Our MySQL (`usage`) | Us |
 | Cost ledger: `user_id`, service, action, `{airport, form}` | Our MySQL (`cost_ledger`, shared) | Us |
@@ -96,8 +99,13 @@ airport/form, return bytes; nothing else touches the request body).
 
 - [`PRIVACY.md`](../PRIVACY.md) is a detailed, plain-language notice: what is stored where,
   why the server exists at all, what it does and doesn't keep.
-- **Gaps we know about:**
-  1. It is only in the repository. Unlike weather (`web/privacy.html`, linked from the app),
+- **Resolved 2026-09-26:** `PRIVACY.md` is served at `https://forms.flyfun.aero/privacy`
+  (`src/flightforms/api/privacy.py` renders the repo file, so there is one source), linked
+  from Settings on iOS/macOS and Android. It has a **Passengers** section, and both apps
+  have *Settings → Privacy note for passengers*, a share sheet with a short note that links
+  `/privacy#passengers` — the Art. 14 point below.
+- **Gaps we knew about (kept for the record):**
+  1. It was only in the repository. Unlike weather (`web/privacy.html`, linked from the app),
      the forms backend serves **no web pages at all**, and the iOS/macOS app contains **no
      link to a privacy policy** — `Settings` offers Sign Out and Delete Account and nothing
      else (`ContentView.swift`). The App Store listing carries the required privacy-policy
@@ -241,6 +249,40 @@ require us to publish a document.
   does not explicitly set `NSFileProtectionComplete`, so data may be readable before first
   unlock after a reboot. Still open.
 
+### 6a. The Android client — ✅ (with one disclosure)
+
+The Android app (merged after the first version of this record) keeps the same shape as
+iOS — manifest data on the device, the server for filling only — with two differences.
+
+- **No cloud copy at all.** Data lives in a Room database on the phone. The manifest sets
+  `allowBackup="false"`, `fullBackupContent="false"` and `data_extraction_rules.xml`, which
+  excludes every domain from both `<cloud-backup>` and `<device-transfer>`; with `minSdk` 33
+  the rules always apply. So passport data never reaches the user's Google account. Moving
+  to another device is the user-initiated **move my data** file, encrypted with a generated
+  passphrase; a plain JSON export exists for Art. 20.
+- **At rest:** Android file-based encryption (when a screen lock is set). The Room database
+  is not additionally encrypted (no SQLCipher). The sign-in token is in
+  `EncryptedSharedPreferences` backed by the Keystore.
+- **Passport scanning uses Google ML Kit**, bundled model, on-device. Images and recognised
+  text are not sent anywhere ([ML Kit terms](https://developers.google.com/ml-kit/terms)).
+  **But ML Kit sends Google usage metrics** — device model and OS, app version, a
+  per-installation identifier, latency, image format/size, error codes
+  ([data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)) — through
+  the bundled `datatransport` components. Google documents **no opt-out** (open request
+  googlesamples/mlkit#593 since 2022). Its terms put disclosure on us: *"You are responsible
+  for informing users of your app about Google's processing of ML Kit metrics data."* Done
+  in `PRIVACY.md` (Passport Scanning). This is **pilot device data, not passenger data** —
+  the passenger note stays accurate. The iOS path (Vision) has no equivalent.
+- **Started only on first scan (2026-09-26).** ML Kit's own `MlKitInitProvider` would start it
+  at app launch; the manifest removes it (`tools:node="remove"`) and both scan paths — the
+  camera (`MrzScanner`) and photo/PDF (`ImageMrzReader`) — call `startMlKit()` (once-only: `MlKit.initialize` throws if called twice)
+  first. A pilot who never scans never runs ML Kit, so sends nothing. `MlKitLazyInitTest`
+  (instrumented) asserts ML Kit is uninitialised after app start and started by a scan — and
+  was checked to fail with the provider restored, so a dependency bump that re-adds it is
+  caught. Any new ML Kit caller must call `startMlKit()` or it fails at runtime.
+- **Worth revisiting:** a non-Google OCR would remove the disclosure entirely — not needed for
+  compliance.
+
 ### 7. Right to erasure (Art. 17) — ✅ server-side, 🟡 wording
 
 - **Delete Account** in the app (`ContentView.swift`) calls `DELETE /auth/account`. The
@@ -253,11 +295,14 @@ require us to publish a document.
   residue is effectively anonymous, not pseudonymous. That is why we consider erasure complete.
 - **On-device and iCloud data is not ours to erase**, and deleting the account does not
   remove it. The app is honest about this ("Permanently deletes your account and all server
-  data") but a pilot may still read "delete account" as "delete everything". Two small
-  improvements: say explicitly that flights and people stay on the device, and offer a
-  **"Delete all local data"** action (the app already has the model context to do it) so
-  handing a device on, or responding to a passenger's erasure request, is a single tap
-  instead of a per-record deletion.
+  data") but a pilot may still read "delete account" as "delete everything".
+- **Resolved 2026-09-26:** the Delete Account confirmation now says the account and usage
+  records go, and that people, aircraft, flights and trips stay on the device. A separate
+  **Delete All Data** action (iOS/macOS and Android) removes every on-device record and
+  generated file in one step, without signing out. On Apple platforms the confirmation says
+  plainly that the deletion propagates through iCloud to all the user's devices; on Android
+  it also clears the web-form WebView's storage and runs Room's `clearAllTables` (which
+  VACUUMs, so rows do not linger in free pages).
 
 ### 8. Right to data portability (Art. 20) — 🟡
 
@@ -284,7 +329,14 @@ resolved). Points that bear on GDPR specifically:
 - **JWT in the Keychain**, rolling sessions, and the OAuth deep-link hardening (audit H8)
   that removed the token from the callback URL.
 - **No PII in logs or error messages** — verified above (§2).
-- **Regression: generated forms are left in the temp directory.** `generateForm(...)` writes
+- **Resolved 2026-09-26** — kept below for the history. Generated forms now live in
+  `tmp/forms/` (`Services/GeneratedFormFiles.swift`): on iOS the file is deleted when the share
+  sheet closes, and straight after the mail composer has copied the attachment; on macOS it is
+  deleted on Done/close/Save, but kept after Open, Reveal, a sharing service or Mail (those
+  keep reading it) until the next form sweeps files over 15 minutes old, or the next launch;
+  `SECURITY_AUDIT.md` §16 and `PRIVACY.md` describe the new behaviour. Android already
+  purged its `cacheDir/forms` folder.
+- **Regression (as found): generated forms are left in the temp directory.** `generateForm(...)` writes
   the filled file to `FileManager.default.temporaryDirectory`
   (`Views/FlightEditView.swift`) and **nothing ever deletes it**. The cleanup that
   `SECURITY_AUDIT.md` §16 records as FIXED was removed on 2026-03-14 in commit `6d5d0cc`,
@@ -295,8 +347,9 @@ resolved). Points that bear on GDPR specifically:
   as fixed in `SECURITY_AUDIT.md` §16** (`PRIVACY.md` was corrected 2026-09-21). Fix: delete
   the file when the share sheet or mail composer dismisses (`shareFileURL` is already the
   single lifetime anchor), then correct the audit and restore the stronger `PRIVACY.md` wording.
-- **No rate limiting on `/generate`** (audit §17) — a stolen token could be used freely. Not a
-  confidentiality breach of stored data (there is none), but it belongs on the list.
+- **Rate limiting on `/generate` and `/prefill`** (audit §17, resolved 2026-09-26) — 100 fills
+  per user per rolling hour, counted over the `usage` log (`src/flightforms/api/rate_limit.py`),
+  bounding what a stolen token can be used for.
 
 ### 10. Retention / storage limitation (Art. 5(1)(e)) — 🟡
 
@@ -309,7 +362,7 @@ resolved). Points that bear on GDPR specifically:
   log), which are personal data. Basis: legitimate interest in security and diagnostics.
   Retention is currently whatever journald/Docker rotation gives us, which should be stated
   rather than inherited silently.
-- **Temp files on device** — see §9.
+- **Temp files on device** — deleted after sharing since 2026-09-26, see §9.
 
 ### 11. Data residency — ✅
 
@@ -332,11 +385,15 @@ resolved). Points that bear on GDPR specifically:
   (§13). **Apple** acts as an **independent controller** for the authentication it performs
   and handles its own transfer mechanisms; the native Sign in with Apple path verifies the
   identity token locally against Apple's public keys and sends Apple no user data.
+- **ML Kit metrics (Android only)** go to Google, a US provider, over HTTPS (§6a). They are
+  device and usage diagnostics about the pilot's phone, never manifest data. Google's transfer
+  mechanism is its own terms (see §13 on its role).
 - **iCloud/CloudKit** may store the user's data outside the UK/EEA, but that transfer arises
   from the **user's own relationship with Apple**, not from any instruction of ours — we have
   no access to the data and no contract governing it (§6).
 - **Why we think we're fine:** the only PII we cause to leave the country is an email address
-  in a sign-in exchange, to processors with SCC-backed terms already in force.
+  in a sign-in exchange, to processors with SCC-backed terms already in force — plus, on
+  Android, ML Kit's device diagnostics, disclosed in `PRIVACY.md`.
 
 ### 13. Processor agreements / DPAs (Art. 28) — ✅
 
@@ -360,8 +417,14 @@ Same suppliers as weather, minus everything weather needs for email and LLMs.
 - **Apple / iCloud (neither our processor nor our controller):** the CloudKit private database
   belongs to the user's Apple ID. We do not instruct Apple, cannot read the data, and there is
   no DPA to obtain — recorded in §6 and in `PRIVACY.md`. ✅
-- **No email processor, no LLM processor, no analytics processor** — there is nothing else to
-  list, which is itself the point. ✅
+- **Google ML Kit (Android) — 🟡 role to confirm:** governed by the
+  [ML Kit terms](https://developers.google.com/ml-kit/terms) under the Google APIs Terms of
+  Service we already accept. Google uses the metrics "to measure performance, debug, maintain
+  and improve the APIs, and detect misuse or abuse" — purposes of its own, which reads as an
+  **independent controller** for that data rather than our processor. Nothing to sign either
+  way; what the terms require of us is disclosure, which is done (§6a).
+- **No email processor, no LLM processor, no analytics processor** — ML Kit's metrics are
+  the one SDK telemetry in any client, and are about API performance, not user behaviour. ✅
 
 ### 14. Onward transfer to airports and authorities — ✅
 
@@ -390,15 +453,13 @@ is worth being explicit about who does the sending:
   days' notice if those terms are in force by then. To be designed deliberately, not drifted
   into: notifying on a status the pilot reports is very different from us transmitting the form.
 
-### 15. Breach notification (Art. 33–34) — ❌
+### 15. Breach notification (Art. 33–34) — ✅
 
-- Weather has a documented runbook in `SECURITY.md` (record → contain & assess → notify the
-  **ICO within 72 hours** → notify affected users if high risk) and a private vulnerability
-  reporting channel. **Forms has no `SECURITY.md` at all.**
-- The obligation does not care that our breach surface is small. The right fix is cheap:
-  a `SECURITY.md` in this repo pointing at the same process, plus GitHub's "Report a
-  vulnerability" enabled so a finder can reach us privately — time-to-awareness is when the
-  72-hour clock starts.
+- **Resolved 2026-09-26:** [`SECURITY.md`](../SECURITY.md) carries the runbook (record →
+  contain & assess → notify the **ICO within 72 hours** → notify affected users if high risk),
+  adds the processor duty to tell pilot-controllers when manifest data is involved (§5), and
+  GitHub's private "Report a vulnerability" channel is enabled on the repository — so a finder
+  can reach us privately, and time-to-awareness (when the 72-hour clock starts) is short.
 - Worth noting *what* a breach would look like here, because it shapes the runbook: our
   database cannot leak passport data (it has none). The realistic scenarios are (a) account
   data exposure — emails and usage rows, and (b) a compromise of the running server able to
@@ -449,28 +510,28 @@ is worth being explicit about who does the sending:
 
 Ordered by ratio of obligation to effort.
 
-1. ❌ **Add `SECURITY.md`** with the breach-notification runbook (Art. 33–34) and enable
-   GitHub private vulnerability reporting. Weather's can be copied nearly verbatim. *(§15)*
-2. ❌ **Delete the generated file when the share/mail sheet dismisses**, and correct the
-   now-false claims in `PRIVACY.md` and `SECURITY_AUDIT.md` §16. *(§9)*
-3. 🟡 **Make the privacy notice reachable from the app** — a link in Settings, and a served
-   copy at a URL rather than only in the repo. *(§1)*
-4. 🟡 **Add a passenger-facing paragraph** to `PRIVACY.md` that a pilot can show the people
-   whose passports they are entering (Art. 14 support), plus the plain-email caveat. *(§1, §14)*
+1. ✅ ~~Add `SECURITY.md` and enable private vulnerability reporting~~ — done 2026-09-26. *(§15)*
+2. ✅ ~~Delete the generated file when the share/mail sheet dismisses~~ — done 2026-09-26,
+   `SECURITY_AUDIT.md` §16 and `PRIVACY.md` corrected. *(§9)*
+3. ✅ ~~Make the privacy notice reachable from the app~~ — `/privacy`, linked from Settings. *(§1)*
+4. 🟡 **Passenger-facing paragraph** — done (`PRIVACY.md` Passengers, in-app share). Still to
+   add: the plain-email caveat from §14. *(§1, §14)*
 5. 🟡 **Put the processor terms in force** (Art. 28(3)) — [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md)
    is drafted; it needs a notice address, an incorporation decision, and the DRAFT banner
    removed. Then add the Art. 30(2) processor-side record. *(§5, §16)*
 6. 🟡 **Server-side account export** (Art. 20) — account + usage JSON; best built in
    `flyfun-common` and shared with weather. *(§8)*
-7. 🟡 **Clarify Delete Account, and add "Delete all local data"** so erasure of on-device and
-   iCloud records is one action. *(§7)*
+7. ✅ ~~Clarify Delete Account, and add "Delete all local data"~~ — done 2026-09-26. *(§7)*
 8. 🟡 **State a retention period** for `usage` and `cost_ledger` rows and for proxy access logs,
    and implement the prune. Shared with weather. *(§10)*
 9. 🟡 **Evaluate `@Attribute(.allowsCloudEncryption)`** for document number, ID number, DOB and
    place of birth — scoped as a schema migration, not a one-liner. *(§6)*
 10. 🟡 **Set `NSFileProtectionComplete`** on the SwiftData store (`SECURITY_AUDIT.md` §19). *(§6)*
 11. 🟡 **Confirm the App Store privacy "nutrition labels"** match this document — in particular
-    that passport/manifest data is declared as **not collected**, which is what the code does. *(§1)*
+    that passport/manifest data is declared as **not collected**, which is what the code does.
+    **And the Play Console Data safety form** for Android: manifest data not collected, but
+    **ML Kit's diagnostics and device identifier are collected (by Google, via an SDK)** and
+    must be declared. *(§1, §6a)*
 12. 🟡 **Document the push capability, and prepare for it.** The `aps-environment` entitlement
     is declared, but the app registers for no notifications and **collects no device token
     today** — recorded so the capability is explained rather than dangling. Push *is* planned
@@ -480,6 +541,8 @@ Ordered by ratio of obligation to effort.
     APNs payload passes through Apple, so "accepted for LFMD" is fine and "accepted for
     John Smith" is not. Weather's `device_tokens` handling is the pattern to copy. Separately,
     `flyfun_forms.entitlements` (underscore) is referenced by no build configuration and can go.
+13. 🟡 **Confirm Google's role for ML Kit metrics** (independent controller is our reading).
+    Lazy initialisation is done, so only pilots who scan are affected. *(§6a, §13)*
 
 ---
 
@@ -487,9 +550,11 @@ Ordered by ratio of obligation to effort.
 
 > FlightForms handles passport data the only way we think it should be handled: it never
 > touches our database. Crew and passenger details live on your device and in your own
-> iCloud, and reach our UK-hosted server only in memory, for the fraction of a second it
+> iCloud (on Android, on the phone alone), and reach our UK-hosted server only in memory, for the fraction of a second it
 > takes to fill a form field. Nothing is stored, nothing is logged, no analytics or AI
-> provider is anywhere in the path, and you send the finished form to the airport yourself,
+> provider is anywhere in the path (the one caveat: on Android, Google's ML Kit, which reads
+> the passport's machine-readable zone on the phone, sends Google performance metrics about
+> itself once you use the scanner — never the image or the text), and you send the finished form to the airport yourself,
 > from your own mail app. We have not undergone a formal legal review, but we have written
 > down everything we understand GDPR to require — including the awkward question of whether
 > a flight school using FlightForms is entitled to a processor agreement from us — and we

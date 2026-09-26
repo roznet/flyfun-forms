@@ -19,6 +19,11 @@ final class AppState {
 
     var isAuthenticated: Bool { APIConfig.isDevMode || jwt != nil }
 
+    /// Bumped by Delete All Data. The signed-in UI is keyed on it, so an
+    /// editor still open on another tab is torn down with the records it
+    /// shows rather than left reading deleted models.
+    private(set) var localDataEpoch = 0
+
     init() {
         // A UI test run is signed in from launch, and never touches the
         // keychain the developer's own session lives in.
@@ -45,6 +50,10 @@ final class AppState {
     func logout() {
         Self.logger.info("Logging out")
         applyToken(nil)
+    }
+
+    func localDataErased() {
+        localDataEpoch += 1
     }
 
     /// Sync the observable mirror after the rolling session cleared the

@@ -2,6 +2,7 @@ package aero.flyfun.forms.ui.settings
 
 import aero.flyfun.forms.data.DataTransfer
 import aero.flyfun.forms.data.FormFiles
+import aero.flyfun.forms.data.LocalDataEraser
 import aero.flyfun.forms.logic.DataFileCrypto
 import aero.flyfun.forms.logic.InterchangeMerge
 import aero.flyfun.forms.logic.MergeSummary
@@ -27,10 +28,14 @@ sealed interface TransferState {
         override fun hashCode() = System.identityHashCode(this)
     }
     data class Failed(val message: String) : TransferState
+
+    /** "Delete all data" finished. The account is untouched. */
+    data object Erased : TransferState
 }
 
 class DataTransferViewModel(
     private val transfer: DataTransfer,
+    private val eraser: LocalDataEraser,
     private val cacheDir: File,
     private val appVersion: String,
 ) : ViewModel() {
@@ -88,6 +93,16 @@ class DataTransferViewModel(
             pending = null
             TransferState.Imported(summary)
         }.getOrElse { TransferState.Failed(it.message ?: "Import failed") }
+    }
+
+    /** GDPR Art. 17 on the device: every person, document, aircraft, flight and trip. */
+    fun eraseAll() = viewModelScope.launch {
+        pending = null
+        _state.value = TransferState.Working
+        _state.value = runCatching {
+            eraser.eraseAll()
+            TransferState.Erased
+        }.getOrElse { TransferState.Failed(it.message ?: "Could not delete the data") }
     }
 
     fun reset() {
