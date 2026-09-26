@@ -33,7 +33,8 @@ Use these values based on the selected platform:
 | Setting | iOS | macOS |
 |---------|-----|-------|
 | Destination | `generic/platform=iOS` | `generic/platform=macOS` |
-| Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | *(none — step 2b is skipped)* |
+| Test destination | `platform=iOS Simulator,name=iPhone 17 Pro` | `platform=macOS` |
+| Tests run (step 2b) | whole scheme (unit + XCUI journeys) | `-only-testing:flyfun-formsTests` (unit only) |
 | Tag prefix | `ios` | `macos` |
 | `asc.py --platform` | `ios` | `macos` |
 | Release notes file | `release-notes/ios-{version}.txt` | `release-notes/macos-{version}.txt` |
@@ -58,27 +59,35 @@ Verify that the Release/production build will NOT use localhost. Check `app/flyf
 - The localhost URL (`localhost.ro-z.me:8443`) must only appear inside `#if targetEnvironment(simulator)` or `#if DEBUG`
 - If localhost is in the production path, **stop and warn the user**
 
-### 2b — App tests (iOS only)
-
-**macOS: skip this step** and say so in the checklist. Tests are only kept green
-on iOS: the XCUI journeys are iOS-only, and the unit target crashes its Mac host
-app in the SwiftData test fixtures (pre-existing, not investigated).
+### 2b — App tests
 
 **iOS:** run the whole scheme — the unit target *and* the XCUI journeys
-(`flyfun-formsUITests`):
+(`flyfun-formsUITests`).
+
+**macOS:** run the unit target only (`-only-testing:flyfun-formsTests`). The XCUI
+journeys are iOS-only (their target builds for `iphoneos`), so the whole scheme
+has nothing to run them on here.
+
 ```bash
 rm -rf /tmp/archive-tests.xcresult
 xcodebuild test \
   -project app/flyfun-forms/flyfun-forms.xcodeproj \
   -scheme flyfun-forms \
   -destination "{test_destination}" \
+  {only_testing} \
   -resultBundlePath /tmp/archive-tests.xcresult \
   -quiet \
   2>&1 | tail -30
 xcrun xcresulttool get test-results summary --path /tmp/archive-tests.xcresult
 ```
 
-CI only runs the journeys nightly, so this is the one place a release is guaranteed to have passed them. Allow ~10 minutes: use a timeout of 900000ms, in the background if needed.
+`{only_testing}` is `-only-testing:flyfun-formsTests` on macOS; drop the line on iOS.
+
+On macOS the unit tests run inside the real app, which carries the iCloud
+entitlement: any test `ModelConfiguration` must pass `cloudKitDatabase: .none`,
+or the first SwiftData save aborts the host and fails every model-backed test.
+
+CI only runs the journeys nightly, so for iOS this is the one place a release is guaranteed to have passed them. Allow ~10 minutes for iOS (~2 for macOS): use a timeout of 900000ms, in the background if needed.
 
 Read `totalTestCount` / `failedTests` from the summary rather than trusting `** TEST SUCCEEDED **`: a filter that matches nothing prints that having run zero tests. If `failedTests` > 0 or `totalTestCount` is 0, stop and show the `testFailures`.
 
