@@ -171,8 +171,8 @@ the other FlyFun services.
 
 ### 3a — Look and layout (S–M, Sonnet)
 
-- [ ] Dark theme + dynamic colour; a real launcher icon (currently `sym_def_app_icon`)
-- [ ] Adaptive layout: `NavigationSuiteScaffold` + `ListDetailPaneScaffold`
+- [x] Dark theme + dynamic colour; a real launcher icon (currently `sym_def_app_icon`)
+- [x] Adaptive layout: `NavigationSuiteScaffold` + `ListDetailPaneScaffold`
 
 ### 3b — Auth and platform (S–M, Sonnet)
 
@@ -247,3 +247,8 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 2d — + opens the two-step flow on the same draft; Create Flight stores it and the editor takes over in place. Leg actions still open the editor directly. Only "Previous Flight" is offered as an import: FPL paste is blocked on G4, Weather and Autorouter are PR 3. Repeating a flight also carries reason for visit and the document choices, which iOS's draft leaves out.
 - 2026-09-26 — 2e — The contact is read through the picked contact's entity directory, with no READ_CONTACTS; the display name is read from the contact itself and is enough on its own. Merging is iOS's Fill Missing Only / Override All, in `ContactImport` with tests.
 - 2026-09-26 — PR 2 — Built in a cloud session with no route to Google Maven, as 1a was: `:core-logic` tests run on the JVM, and `app/src/main` was type-checked against Compose Multiplatform desktop plus stubs for the Android APIs. Room's generated code, the migration and every screen still need the emulator run (execution plan §1) before merge.
+- 2026-09-26 — PR 3 — Re-sync with iOS (`83e47fd..7595b4f`): only `8b2f018` (Flights first in the tab bar), which Android already does. No new gaps.
+- 2026-09-26 — 3a — The launcher icon is the iOS artwork, whole, as the adaptive icon's background layer, with a transparent foreground and a monochrome layer cut from its white parts for themed icons. `scripts/android_launcher_icon.py` writes it; re-run it when the iOS icon changes. Splitting the artwork into layers would have needed a redraw, and parallax would pull its parts apart.
+- 2026-09-26 — 3a — Dynamic colour only, no fallback palette: it needs API 31 and the app's minimum is 33, and the app has no brand colour beyond its icon.
+- 2026-09-26 — 3a — `ListDetailPaneScaffold` lays out the navigation back stack rather than driving its own navigator: a tab's list route shows the list (and a placeholder beside it when there is room), an item's route shows the item (and the list beside it). On a phone that is one screen per route, as before; ViewModels stay scoped to routes, and Back, pickers and the unsaved-changes prompt work unchanged. The list shows beside an item only when the item was opened from that list: a person opened from a flight's picker shows alone. Picking another flight from the side list while the open one has edits asks Save / Discard, as Back does; the person and aircraft editors do not ask on Back either, so neither does switching.
+- 2026-09-26 — 3a — `NavigationSuiteScaffold` gives a bar on a phone (on the lists only, as before) and a rail on a tablet, where it stays beside open items since the list does. Route changes do not fade when two panes show, so the list does not flash.
