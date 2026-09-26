@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.logic.ZonedWallClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneOffset
@@ -74,7 +76,7 @@ fun ScheduleField(
         val options = ZonedWallClock.timeZoneOptions(zones, instant)
         if (options.size > 1) {
             ChoiceField(
-                label = "$label zone",
+                label = stringResource(R.string.flights_zone_label, label),
                 selected = options.firstOrNull { it.identifier == zoneId } ?: options.first(),
                 options = options,
                 display = { it.label },
@@ -101,9 +103,9 @@ fun ScheduleField(
                         onChange(clock.settingDate(picked.year, picked.monthValue, picked.dayOfMonth).instant)
                     }
                     showDate = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.flights_ok)) }
             },
-            dismissButton = { TextButton(onClick = { showDate = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showDate = false }) { Text(stringResource(R.string.flights_cancel)) } },
         ) { DatePicker(state = state) }
     }
 
@@ -115,15 +117,15 @@ fun ScheduleField(
         )
         AlertDialog(
             onDismissRequest = { showTime = false },
-            title = { Text("$label time (${if (isUtc) "UTC" else clock.zoneId})") },
+            title = { Text(stringResource(R.string.flights_time_title, label, if (isUtc) "UTC" else clock.zoneId)) },
             text = { TimePicker(state = state) },
             confirmButton = {
                 TextButton(onClick = {
                     onChange(clock.settingHour(state.hour).settingMinute(state.minute).instant)
                     showTime = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.flights_ok)) }
             },
-            dismissButton = { TextButton(onClick = { showTime = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showTime = false }) { Text(stringResource(R.string.flights_cancel)) } },
         )
     }
 }

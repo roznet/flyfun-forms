@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.data.AircraftEntity
 import aero.flyfun.forms.data.Airports
 import aero.flyfun.forms.data.FlightEntity
@@ -31,8 +32,10 @@ import aero.flyfun.forms.logic.NextOccurrence
 import aero.flyfun.forms.logic.FlightExchange
 import aero.flyfun.forms.logic.ImportedRoute
 import aero.flyfun.forms.logic.WeatherFlightSummary
+import aero.flyfun.forms.net.WeatherImportException
 import aero.flyfun.forms.net.exportFlight
 import aero.flyfun.forms.net.listFlights
+import android.content.res.Resources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -121,6 +124,8 @@ class FlightsViewModel(
     private val spokenLanguages: () -> Set<String> = { emptySet() },
     /** The bundled airport database; null where there is none (tests). */
     private val airports: Airports? = null,
+    /** The app's (not an activity's) resources, for messages this shows; see strings.xml. */
+    private val resources: Resources,
 ) : ViewModel() {
 
     val allFlights: StateFlow<List<FlightEntity>> =
@@ -403,7 +408,11 @@ class FlightsViewModel(
         }
         peopleFromImport = true
         _stagedAircraft.value = null
-        _importSummary.value = "Copied from ${from.originICAO.ifBlank { "????" }} → ${from.destinationICAO.ifBlank { "????" }}"
+        _importSummary.value = resources.getString(
+            R.string.flights_copied_from,
+            from.originICAO.ifBlank { "????" },
+            from.destinationICAO.ifBlank { "????" },
+        )
     }
 
     /**
@@ -474,14 +483,23 @@ class FlightsViewModel(
             )
         }
         peopleFromImport = false
-        _importSummary.value = "Imported from FlyFun Weather"
+        _importSummary.value = resources.getString(R.string.flights_imported_from_weather)
     }
 
     /** The pilot's FlyFun Weather flights, newest first; throws with a message to show. */
-    suspend fun weatherFlights(): List<WeatherFlightSummary> = api.weather.listFlights()
+    suspend fun weatherFlights(): List<WeatherFlightSummary> = weatherCall { api.weather.listFlights() }
 
     /** One FlyFun Weather flight, ready for [importWeather]; throws with a message to show. */
-    suspend fun weatherFlight(id: String): FlightExchange = api.weather.exportFlight(id)
+    suspend fun weatherFlight(id: String): FlightExchange = weatherCall { api.weather.exportFlight(id) }
+
+    /** A weather call, its failure worded in the app's language; network failures as for forms. */
+    private suspend fun <T> weatherCall(call: suspend () -> T): T = try {
+        call()
+    } catch (e: WeatherImportException) {
+        throw Exception(e.message(resources))
+    } catch (e: java.io.IOException) {
+        throw Exception(e.friendlyMessage(resources))
+    }
 
     /** Store the draft: the flight row, then who is on it. */
     fun save(): Job = viewModelScope.launch {
@@ -585,7 +603,7 @@ class FlightsViewModel(
                 viewModelScope.launch {
                     val result: FetchedForms = runCatching { api.forms.airport(icao) }.fold(
                         onSuccess = { FetchedForms.Loaded(it.name, it.forms) },
-                        onFailure = { FetchedForms.Failed(it.friendlyMessage()) },
+                        onFailure = { FetchedForms.Failed(it.friendlyMessage(resources)) },
                     )
                     fetched.update { it + (icao to result) }
                 }
@@ -601,7 +619,7 @@ class FlightsViewModel(
         val current = _detail.value ?: return null
         val aircraft = current.aircraft
         if (aircraft == null) {
-            _generate.value = GenerateState.Failed("Pick an aircraft for this flight first.")
+            _generate.value = GenerateState.Failed(resources.getString(R.string.flights_pick_aircraft_first))
             return null
         }
         _generate.value = GenerateState.Working(form.id)
@@ -715,14 +733,14 @@ class FlightsViewModel(
     private suspend fun generateFile(airport: String, form: FormInfo): File? {
         val request = buildRequest(airport, form) ?: return null
         val response = runCatching { api.forms.generate(request) }.getOrElse {
-            _generate.value = GenerateState.Failed(it.friendlyMessage())
+            _generate.value = GenerateState.Failed(it.friendlyMessage(resources))
             return null
         }
         when {
             response.isSuccessful -> {
                 val bytes = response.body()?.bytes()
                 if (bytes == null) {
-                    _generate.value = GenerateState.Failed("The server returned an empty file.")
+                    _generate.value = GenerateState.Failed(resources.getString(R.string.flights_empty_file))
                     return null
                 }
                 val file = FormFiles.dir(cacheDir).resolve(response.suggestedFileName(airport, form.id))
@@ -733,7 +751,7 @@ class FlightsViewModel(
                 val body = response.errorBody()?.string().orEmpty()
                 _generate.value = GenerateState.Invalid(api.parseValidationErrors(body))
             }
-            else -> _generate.value = GenerateState.Failed("Server returned ${response.code()}.")
+            else -> _generate.value = GenerateState.Failed(resources.getString(R.string.flights_server_returned_code, response.code()))
         }
         return null
     }
@@ -747,7 +765,7 @@ class FlightsViewModel(
         val request = buildRequest(airport, form) ?: return@launch
         _generate.value = runCatching { api.forms.prefill(request) }.fold(
             onSuccess = { GenerateState.WebPlan(it) },
-            onFailure = { GenerateState.Failed(it.friendlyMessage()) },
+            onFailure = { GenerateState.Failed(it.friendlyMessage(resources)) },
         )
     }
 
@@ -766,18 +784,21 @@ class FlightsViewModel(
  * A pilot at an airfield can act on "sign in" or "no connection". They cannot
  * act on "HTTP 401", which is what Retrofit hands us.
  */
-private fun Throwable.friendlyMessage(): String = when {
+private fun Throwable.friendlyMessage(resources: Resources): String = when {
     this is java.net.UnknownHostException ->
-        "No connection. Loading forms needs the server."
+        resources.getString(R.string.flights_error_no_connection)
     this is java.net.SocketTimeoutException ->
-        "The server took too long to respond."
+        resources.getString(R.string.flights_error_timeout)
     this is retrofit2.HttpException -> when (code()) {
-        401, 403 -> "Sign in to load the forms for this airport."
-        404 -> "This airport has no forms on file."
-        in 500..599 -> "The forms server is having trouble. Try again shortly."
-        else -> "The server returned ${code()}."
+        401, 403 -> resources.getString(R.string.flights_error_sign_in)
+        404 -> resources.getString(R.string.flights_error_no_forms)
+        in 500..599 -> resources.getString(R.string.flights_error_server_trouble)
+        else -> resources.getString(R.string.flights_error_server_returned, code())
     }
-    this is java.io.IOException -> "Network problem: ${message ?: "connection failed"}"
+    this is java.io.IOException -> resources.getString(
+        R.string.flights_error_network,
+        message ?: resources.getString(R.string.flights_error_connection_failed),
+    )
     else -> message ?: this::class.simpleName.orEmpty()
 }
 

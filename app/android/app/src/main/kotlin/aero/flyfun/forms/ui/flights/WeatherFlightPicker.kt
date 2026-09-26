@@ -1,5 +1,6 @@
 package aero.flyfun.forms.ui.flights
 
+import aero.flyfun.forms.R
 import aero.flyfun.forms.logic.FlightExchange
 import aero.flyfun.forms.logic.WeatherFlightSummary
 import androidx.activity.compose.BackHandler
@@ -37,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,6 +70,8 @@ fun WeatherFlightPickerScreen(
     var importing by remember { mutableStateOf<String?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val couldNotReach = stringResource(R.string.flights_could_not_reach_weather)
+    val couldNotImport = stringResource(R.string.flights_could_not_import)
 
     LaunchedEffect(attempt) {
         loadError = null
@@ -77,7 +81,7 @@ fun WeatherFlightPickerScreen(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            loadError = e.message ?: "Could not reach FlyFun Weather."
+            loadError = e.message ?: couldNotReach
         }
     }
 
@@ -85,26 +89,26 @@ fun WeatherFlightPickerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Import from Weather") },
-                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = "Cancel") } },
+                title = { Text(stringResource(R.string.flights_import_from_weather)) },
+                navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.flights_cancel)) } },
             )
         },
     ) { padding ->
         val loaded = flights
         when {
             loadError != null -> Centered(padding) {
-                Text("Couldn't load flights", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.flights_couldnt_load), style = MaterialTheme.typography.titleMedium)
                 Text(loadError.orEmpty(), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                OutlinedButton(onClick = { attempt++ }) { Text("Retry") }
+                OutlinedButton(onClick = { attempt++ }) { Text(stringResource(R.string.flights_retry)) }
             }
             loaded == null -> Centered(padding) {
                 CircularProgressIndicator()
-                Text("Loading your flights…", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.flights_loading_your_flights), style = MaterialTheme.typography.bodyMedium)
             }
             loaded.isEmpty() -> Centered(padding) {
-                Text("No flights", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.flights_no_flights), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Flights you plan in FlyFun Weather appear here.",
+                    stringResource(R.string.flights_weather_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
@@ -129,7 +133,7 @@ fun WeatherFlightPickerScreen(
                                 } catch (e: CancellationException) {
                                     throw e
                                 } catch (e: Exception) {
-                                    importError = e.message ?: "That flight could not be imported."
+                                    importError = e.message ?: couldNotImport
                                 } finally {
                                     importing = null
                                 }
@@ -145,9 +149,9 @@ fun WeatherFlightPickerScreen(
     importError?.let { message ->
         AlertDialog(
             onDismissRequest = { importError = null },
-            title = { Text("Import Failed") },
+            title = { Text(stringResource(R.string.flights_import_failed)) },
             text = { Text(message) },
-            confirmButton = { TextButton(onClick = { importError = null }) { Text("OK") } },
+            confirmButton = { TextButton(onClick = { importError = null }) { Text(stringResource(R.string.flights_ok)) } },
         )
     }
 }

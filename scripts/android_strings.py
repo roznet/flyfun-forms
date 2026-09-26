@@ -3,7 +3,9 @@
 
 The iOS app is translated (``Localizable.xcstrings``, fr/de/es); Android's
 strings are English in ``res/values/strings*.xml``. A string whose English is
-the same as an iOS key, placeholders aside, takes that key's translations. The
+the same as an iOS key, placeholders aside, takes that key's translations;
+failing that, one that differs only in case or a trailing full stop or
+ellipsis ("First name" and iOS's "First Name"). The
 rest stay English: Android falls back to ``values/`` for anything a language
 folder lacks, so a partly translated language shows English for the gaps
 rather than failing.
@@ -55,6 +57,11 @@ def shape(text: str) -> str:
     return PLACEHOLDER.sub("\u0000", text)
 
 
+def loose(text: str) -> str:
+    """[shape] ignoring case and a trailing full stop or ellipsis: "First name" is iOS's "First Name"."""
+    return re.sub(r"(\.\.\.|…|\.)$", "", shape(text).strip()).casefold()
+
+
 def android_types(text: str) -> list[str]:
     """Android conversion of each placeholder, in order: s or d."""
     return ["d" if kind in ("d", "lld", "ld", "lu") else "s" for _, kind in PLACEHOLDER.findall(text)]
@@ -103,9 +110,14 @@ def load_android() -> tuple[dict[str, str], dict[str, dict[str, str]]]:
 def main() -> None:
     catalogue = json.loads(CATALOGUE.read_text(encoding="utf-8"))["strings"]
     by_shape: dict[str, dict] = {}
+    by_loose: dict[str, dict] = {}
     for key, entry in catalogue.items():
         if entry.get("localizations"):
             by_shape.setdefault(shape(key), entry)
+            by_loose.setdefault(loose(key), entry)
+
+    def lookup(english: str) -> dict | None:
+        return by_shape.get(shape(english)) or by_loose.get(loose(english))
 
     strings, plurals = load_android()
     for language in LANGUAGES:
@@ -116,7 +128,7 @@ def main() -> None:
         ]
         found = 0
         for name, english in strings.items():
-            entry = by_shape.get(shape(english))
+            entry = lookup(english)
             local = entry and entry["localizations"].get(language)
             value = local and unit(local)
             if value is None and local and "variations" in local:
@@ -128,7 +140,7 @@ def main() -> None:
                 found += 1
         for name, forms in plurals.items():
             english = forms.get("other", "")
-            entry = by_shape.get(shape(english))
+            entry = lookup(english)
             local = entry and entry["localizations"].get(language)
             if not local:
                 continue
