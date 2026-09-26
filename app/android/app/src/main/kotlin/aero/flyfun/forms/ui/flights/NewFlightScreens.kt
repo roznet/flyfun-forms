@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
@@ -37,6 +38,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import java.time.Instant
 import java.time.ZoneId
@@ -67,9 +70,12 @@ fun NewFlightScreen(
     airportInfo: Map<String, AirportDetails>,
     importSummary: String?,
     hasPreviousFlights: Boolean,
+    /** FlyFun Weather needs the account; offered greyed with the reason otherwise. */
+    signedIn: Boolean,
     suggestion: SuggestionChoice?,
     hasCrewSources: Boolean,
     onImportPrevious: () -> Unit,
+    onImportWeather: () -> Unit,
     onOpenRoutePicker: () -> Unit,
     onSetDeparture: (Instant) -> Unit,
     onSetArrival: (Instant) -> Unit,
@@ -117,15 +123,22 @@ fun NewFlightScreen(
             steps.SaveableStateProvider(step) {
                 when (step) {
                     NewFlightStep.ROUTE -> {
+                        // Every method listed, an unusable one greyed with its
+                        // reason, as iOS's import list (FlightImportMethod).
                         Text("Import", style = MaterialTheme.typography.titleMedium)
-                        OutlinedButton(onClick = onImportPrevious, enabled = hasPreviousFlights) {
-                            Icon(Icons.Default.History, contentDescription = null)
-                            Text("Previous Flight", Modifier.padding(start = 8.dp))
-                        }
-                        Text(
-                            if (hasPreviousFlights) "Repeat a flight with the same crew, rescheduled" else "No earlier flights yet",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ImportMethod(
+                            icon = Icons.Default.History,
+                            title = "Previous Flight",
+                            subtitle = if (hasPreviousFlights) "Repeat a flight with the same crew, rescheduled" else "No earlier flights yet",
+                            enabled = hasPreviousFlights,
+                            onClick = onImportPrevious,
+                        )
+                        ImportMethod(
+                            icon = Icons.Default.Cloud,
+                            title = "FlyFun Weather",
+                            subtitle = if (signedIn) "A flight you planned in FlyFun Weather" else "Sign in to import",
+                            enabled = signedIn,
+                            onClick = onImportWeather,
                         )
                         importSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
@@ -192,6 +205,17 @@ fun NewFlightScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ImportMethod(icon: ImageVector, title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {
+    val alpha = if (enabled) 1f else 0.38f
+    ListItem(
+        leadingContent = { Icon(icon, contentDescription = null, Modifier.alpha(alpha)) },
+        headlineContent = { Text(title, Modifier.alpha(alpha)) },
+        supportingContent = { Text(subtitle, Modifier.alpha(alpha)) },
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+    )
 }
 
 @Composable
