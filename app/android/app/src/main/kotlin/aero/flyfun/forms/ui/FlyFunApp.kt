@@ -22,6 +22,12 @@ import aero.flyfun.forms.data.AirportDatabase
 import aero.flyfun.forms.ui.flights.AirportLookup
 import aero.flyfun.forms.ui.flights.FlightEditScreen
 import aero.flyfun.forms.ui.flights.RoutePickerScreen
+import aero.flyfun.forms.ui.flights.NewFlightScreen
+import aero.flyfun.forms.ui.flights.NewFlightStep
+import aero.flyfun.forms.ui.flights.PastFlightPickerScreen
+import aero.flyfun.forms.ui.flights.PastFlightRow
+import aero.flyfun.forms.ui.flights.SuggestionChoice
+import aero.flyfun.forms.logic.PeopleSuggestion
 import aero.flyfun.forms.ui.flights.FlightListScreen
 import aero.flyfun.forms.ui.flights.FlightsViewModel
 import aero.flyfun.forms.ui.people.AddPersonActions
@@ -309,6 +315,13 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
         var pickingPeople by rememberSaveable { mutableStateOf(false) }
         var pickingRoute by rememberSaveable { mutableStateOf(false) }
         val airportInfo by vm.airportInfo.collectAsState()
+        // + opens the two-step flow; a leg made from another flight opens the editor.
+        var newFlow by rememberSaveable { mutableStateOf(flightId == FlightsViewModel.NEW_FLIGHT) }
+        var newStep by rememberSaveable { mutableStateOf(NewFlightStep.ROUTE) }
+        var pickingPrevious by rememberSaveable { mutableStateOf(false) }
+        var pickingCrewSource by rememberSaveable { mutableStateOf(false) }
+        val importSummary by vm.importSummary.collectAsState()
+        val allFlights by vm.allFlights.collectAsState()
 
         androidx.compose.runtime.LaunchedEffect(flightId) { vm.open(flightId) }
 
@@ -381,6 +394,88 @@ private fun androidx.navigation.NavGraphBuilder.flightRoutes(
                 )
                 return@composable
             }
+        }
+
+        val current = detail
+        if (newFlow && current != null) {
+            val peopleById = people.associate { it.person.id to it.person }
+            val flightsById = allFlights.associateBy { it.id }
+            val registrations = aircraft.associate { it.id to it.registration }
+            val others = flightPeople.filter { it.flightId != current.flight.id }
+            fun namesOn(id: String) = others.firstOrNull { it.flightId == id }?.everyone.orEmpty()
+                .mapNotNull { peopleById[it]?.displayName }
+            fun row(flight: FlightEntity) = PastFlightRow(flight, registrations[flight.aircraftId], namesOn(flight.id))
+
+            if (pickingPrevious) {
+                PastFlightPickerScreen(
+                    title = "Previous Flight",
+                    emptyText = "No earlier flights yet.",
+                    rows = allFlights
+                        .filter { it.id != current.flight.id && (it.originICAO.isNotBlank() || it.destinationICAO.isNotBlank()) }
+                        .sortedByDescending { it.departureInstant }
+                        .take(50)
+                        .map(::row),
+                    onPick = { vm.importPreviousFlight(it.id); pickingPrevious = false },
+                    onCancel = { pickingPrevious = false },
+                )
+                return@composable
+            }
+            if (pickingCrewSource) {
+                PastFlightPickerScreen(
+                    title = "Copy Crew From",
+                    emptyText = "Once a flight has crew or passengers, you can copy them here.",
+                    rows = PeopleSuggestion.crewSources(others).mapNotNull { flightsById[it.flightId] }.map(::row),
+                    onPick = { flight ->
+                        others.firstOrNull { it.flightId == flight.id }?.let { source ->
+                            vm.setPeople(source.crew.mapNotNull(peopleById::get), source.passengers.mapNotNull(peopleById::get))
+                        }
+                        pickingCrewSource = false
+                    },
+                    onCancel = { pickingCrewSource = false },
+                )
+                return@composable
+            }
+
+            val suggestion = PeopleSuggestion.suggest(
+                others,
+                current.flight.aircraftId,
+                people.filter { it.person.isUsualCrew }.map { it.person.id },
+            )?.let { s ->
+                val crew = s.crew.mapNotNull(peopleById::get)
+                val passengers = s.passengers.mapNotNull(peopleById::get)
+                if (crew.isEmpty() && passengers.isEmpty()) return@let null
+                SuggestionChoice(
+                    label = s.fromFlightId?.let(flightsById::get)
+                        ?.let { "Same as ${it.originICAO.ifBlank { "????" }} → ${it.destinationICAO.ifBlank { "????" }}" }
+                        ?: "Usual crew",
+                    summary = PeopleSuggestion.summary((crew + passengers).map { it.displayName }),
+                    crew = crew,
+                    passengers = passengers,
+                )
+            }
+            NewFlightScreen(
+                step = newStep,
+                detail = current,
+                aircraftOptions = aircraft,
+                airportInfo = airportInfo,
+                importSummary = importSummary,
+                hasPreviousFlights = allFlights.any { it.id != current.flight.id },
+                suggestion = suggestion,
+                hasCrewSources = others.any { it.everyone.isNotEmpty() },
+                onImportPrevious = { pickingPrevious = true },
+                onOpenRoutePicker = { pickingRoute = true },
+                onSetDeparture = { vm.setDeparture(it) },
+                onSetArrival = { t -> vm.editFlight { it.copy(arrivalInstant = t) } },
+                onSetAircraft = { vm.setAircraft(it) },
+                onApplySuggestion = { vm.setPeople(it.crew, it.passengers) },
+                onOpenCrewSources = { pickingCrewSource = true },
+                onOpenPeoplePicker = { pickingPeople = true },
+                onNext = { newStep = NewFlightStep.PEOPLE },
+                onBack = { newStep = NewFlightStep.ROUTE },
+                onCancel = { nav.popBackStack() },
+                onCreate = { scope.launch { vm.save().join(); newFlow = false } },
+            )
+            return@composable
         }
 
         FlightEditScreen(

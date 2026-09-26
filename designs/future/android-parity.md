@@ -23,7 +23,7 @@ Gap survey of 2026-09-26, verified against the code. Size: S small, M medium, L 
 | PR | Issue | Scope | Sections | State |
 |---|---|---|---|---|
 | 1 | #29 | Forms come out right and complete | §4 (1a–1e) | Merged (#33); unit + instrumented tests pass, manual emulator drive still owed (§8) |
-| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a, 2b, 2c done |
+| 2 | #30 | Getting data in fast | §5 (2a–2e) | In progress: 2a, 2b, 2c, 2d done |
 | 3 | #31 | Platform and integrations | §6 (3a–3d) | Not started — after PR 2 |
 | — | — | Blocked follow-ups | §7 | Blocked (G4, translator, device) |
 
@@ -154,9 +154,9 @@ from the errors sheet) are a new gap, outside "getting data in", listed in §7.
 
 ### 2d — New-flight flow (M, Sonnet)
 
-- [ ] Two-step New Flight: route/schedule/aircraft → people (`Views/NewFlightFlow.swift`)
-- [ ] "Same crew as…" suggestion (`Services/PeopleSuggestion.swift`, `CrewSourcePickerView`)
-- [ ] Import from a previous flight (`Services/FlightImportMethod.swift`)
+- [x] Two-step New Flight: route/schedule/aircraft → people (`Views/NewFlightFlow.swift`)
+- [x] "Same crew as…" suggestion (`Services/PeopleSuggestion.swift`, `CrewSourcePickerView`)
+- [x] Import from a previous flight (`Services/FlightImportMethod.swift`)
 
 ### 2e — Contact import (M, Sonnet)
 
@@ -243,3 +243,4 @@ Newest last. One line per decision: date, section, what was decided, why.
 - 2026-09-26 — 2c — The route is picked from the database (the route card replaces the two ICAO text fields); a four-letter code the database lacks can still be used as typed. The database is copied out of the APK to no-backup storage once per app update, since SQLite cannot open an asset.
 - 2026-09-26 — 2c — The schedule field starts in UTC and moves to the airport's zone once it is known, unless the pilot picked a zone; iOS moves only while the selection is still the default, and Android also never overrides a choice. The date picker is fed the shown day as UTC midnight so a local date does not shift through the device zone.
 - 2026-09-26 — 2c — Airport notices come from `maps.flyfun.aero` through their own client, so the forms token is never sent there; a notice that fails to load is left out, as on iOS.
+- 2026-09-26 — 2d — + opens the two-step flow on the same draft; Create Flight stores it and the editor takes over in place. Leg actions still open the editor directly. Only "Previous Flight" is offered as an import: FPL paste is blocked on G4, Weather and Autorouter are PR 3. Repeating a flight also carries reason for visit and the document choices, which iOS's draft leaves out.
