@@ -457,7 +457,10 @@ class FlightsViewModel(
         } else {
             null
         }
-        _stagedAircraft.value = staged
+        // No registration keeps the draft's aircraft (below), so it must keep
+        // the staged one behind it too: dropping it would leave aircraftId
+        // pointing at a row save() never writes, failing the foreign key.
+        if (registration != null) _stagedAircraft.value = staged
         val fresh = FlightEntity(departureInstant = route.departure, arrivalInstant = route.arrival)
         val clearPeople = peopleFromImport
         edit { current ->
