@@ -1,0 +1,8 @@
+- Flights is now the first tab, and a new bar at the top of each flight lets you jump straight to any section
+- Add a new person straight from the crew and passenger picker
+- One person can now hold several travel documents: import them from CSV and choose which one to use on each flight
+- Fix validation errors in place, straight from the list of errors
+- Customs e-mail addresses now come from the official AIP, and the form you need to e-mail is shown first
+- More privacy control: generated forms are deleted after you share them, the privacy notice is one tap away, and Settings has a new Delete All Data option
+- A new layout designed for iPad and wide screens
+- Fixes: people with several documents no longer take up oversized rows, errors after Try Again are now shown, cancelling an import no longer leaves an aircraft behind, and filled PDFs are now properly flattened
