@@ -35,3 +35,10 @@ local.properties
 .idea/
 *.iml
 .cxx/
+
+# Play upload key; never commit
+keystore.properties
+*.jks
+*.keystore
+# Owner-only Play notes (personal details); never commit
+app/android/play/private-notes.md

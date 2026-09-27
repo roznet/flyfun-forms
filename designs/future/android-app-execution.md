@@ -444,6 +444,9 @@ into four `strings.xml` files. Mechanical.
 
 ### S16 — Play Store release prep (Sonnet)
 
+The full checklist, with drafted store and Data safety answers, is
+[android-play-release.md](./android-play-release.md).
+
 - **`android:allowBackup="false"`** or full `dataExtractionRules`. This is the
   highest-risk default in the whole port — see
   [android-app.md §6](./android-app.md). Passport numbers must not enter Google
