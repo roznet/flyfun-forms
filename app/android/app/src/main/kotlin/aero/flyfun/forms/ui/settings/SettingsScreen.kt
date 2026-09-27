@@ -134,12 +134,11 @@ fun SettingsScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                    Text("Privacy", style = MaterialTheme.typography.titleMedium)
-                    OutlinedButton(onClick = onOpenPrivacyPolicy) { Text("Privacy policy") }
-                    OutlinedButton(onClick = onSharePassengerNote) { Text("Privacy note for passengers") }
+                    Text(stringResource(R.string.settings_privacy), style = MaterialTheme.typography.titleMedium)
+                    OutlinedButton(onClick = onOpenPrivacyPolicy) { Text(stringResource(R.string.settings_privacy_policy)) }
+                    OutlinedButton(onClick = onSharePassengerNote) { Text(stringResource(R.string.settings_passenger_note)) }
                     Text(
-                        "Your passengers' details come from you, not from them. Share this note " +
-                            "so they know how their details are used.",
+                        stringResource(R.string.settings_passenger_note_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -147,10 +146,9 @@ fun SettingsScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), Arrangement.spacedBy(8.dp)) {
-                    Text("Delete all data", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_delete_all_data), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Removes every person, document, aircraft, flight and trip from this phone, " +
-                            "with any generated forms and exports. You stay signed in.",
+                        stringResource(R.string.settings_delete_all_data_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     OutlinedButton(
@@ -159,7 +157,7 @@ fun SettingsScreen(
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),
-                    ) { Text("Delete all data") }
+                    ) { Text(stringResource(R.string.settings_delete_all_data)) }
                 }
             }
 
@@ -225,29 +223,26 @@ fun SettingsScreen(
     if (confirmEraseAll) {
         AlertDialog(
             onDismissRequest = { confirmEraseAll = false },
-            title = { Text("Delete all data?") },
+            title = { Text(stringResource(R.string.settings_delete_all_data_confirm_title)) },
             text = {
-                Text(
-                    "Deletes all people, documents, aircraft, flights and trips from this phone. " +
-                        "This cannot be undone. Your FlightForms account is not affected.",
-                )
+                Text(stringResource(R.string.settings_delete_all_data_confirm_message))
             },
             confirmButton = {
                 TextButton(
                     onClick = { confirmEraseAll = false; onEraseAll() },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Delete all data") }
+                ) { Text(stringResource(R.string.settings_delete_all_data)) }
             },
-            dismissButton = { TextButton(onClick = { confirmEraseAll = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmEraseAll = false }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 
     when (state) {
         TransferState.Erased -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Data deleted") },
-            text = { Text("All people, documents, aircraft, flights and trips have been removed from this phone.") },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+            title = { Text(stringResource(R.string.settings_data_deleted)) },
+            text = { Text(stringResource(R.string.settings_data_deleted_message)) },
+            confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_ok)) } },
         )
 
         is TransferState.Exported -> AlertDialog(

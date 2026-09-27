@@ -106,7 +106,7 @@ class DataTransferViewModel(
         _state.value = runCatching {
             eraser.eraseAll()
             TransferState.Erased
-        }.getOrElse { TransferState.Failed(it.message ?: "Could not delete the data") }
+        }.getOrElse { TransferState.Failed(it.message ?: resources.getString(R.string.settings_delete_all_data_failed)) }
     }
 
     fun reset() {

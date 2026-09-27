@@ -69,4 +69,5 @@
     <string name="app_weather_empty">Weather server sent nothing back.</string>
     <!-- %1$s: why, in English from the decoder. -->
     <string name="app_weather_unreadable">That flight could not be read. %1$s</string>
+    <string name="app_contact_no_name">That contact has no name to import.</string>
 </resources>
