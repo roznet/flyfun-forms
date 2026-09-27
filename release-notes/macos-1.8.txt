@@ -1,0 +1,8 @@
+- A redesigned layout made for the Mac window, instead of a stretched iPhone form, and the current app icon at every size
+- New flights start from a single Import button: paste an ICAO flight plan, repeat a previous flight, or import from FlyFun Weather or Autorouter
+- Open official airport web forms already filled in with your flight details, starting with Fairoaks book-out, PPR and out-of-hours requests, plus a new customs form for Le Mans Arnage (LFRM)
+- Redesigned departure and arrival times, shown in the airport's local time, with daylight saving worked out for the flight's own date
+- Customs e-mail addresses now come from the official AIP, and the form you need to e-mail is shown first
+- One person can now hold several travel documents, you can add people straight from the crew and passenger picker, and validation errors can be fixed in place
+- More privacy control: generated forms are deleted after you share them, the privacy notice is one click away, and Settings has a new Delete All Data option
+- Fixes: more secure sign-in, correct dates on French customs forms for late-evening flights and arrivals after midnight, flight plans read correctly, and filled PDFs properly flattened
