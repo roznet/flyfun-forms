@@ -795,7 +795,7 @@ private fun androidx.navigation.NavGraphBuilder.peopleRoutes(
             scope.launch {
                 val read = ContactReader.read(context, uri)
                 if (read == null) {
-                    android.widget.Toast.makeText(context, "That contact has no name to import.", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(context, context.getString(R.string.app_contact_no_name), android.widget.Toast.LENGTH_LONG).show()
                     nav.popBackStack()
                 } else {
                     vm.setPickedContact(read)
@@ -1294,8 +1294,8 @@ private fun openInBrowser(context: Context, url: String) {
 private fun sharePassengerNote(context: Context) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "How I use your details for this flight")
+        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.settings_passenger_note_subject))
         putExtra(Intent.EXTRA_TEXT, PASSENGER_PRIVACY_NOTE)
     }
-    context.startActivity(Intent.createChooser(intent, "Privacy note for passengers"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_passenger_note)))
 }

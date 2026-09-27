@@ -134,4 +134,8 @@
     <string name="aircraft_phone">Teléfono</string>
     <string name="aircraft_address">Dirección</string>
     <string name="aircraft_base">Base</string>
+    <string name="settings_privacy">Privacidad</string>
+    <string name="settings_privacy_policy">Política de privacidad</string>
+    <string name="settings_passenger_note">Aviso de privacidad para pasajeros</string>
+    <string name="settings_delete_all_data">Eliminar todos los datos</string>
 </resources>
