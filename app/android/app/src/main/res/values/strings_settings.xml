@@ -17,7 +17,7 @@
     <string name="settings_languages_you_speak">Languages you speak</string>
     <string name="settings_languages_footer">When an airport\'s local language matches one you speak, emails are written in that language. Otherwise English is used.</string>
     <string name="settings_move_my_data">Move my data</string>
-    <string name="settings_move_my_data_footer">Creates one encrypted file holding your people, aircraft and flights, protected by a passphrase shown once. Use it to move everything to another device.</string>
+    <string name="settings_move_my_data_footer">Creates one encrypted file holding your people, aircraft and flights, protected by a passphrase you choose. Use it to move everything to another device.</string>
     <string name="settings_export_encrypted_file">Export encrypted file</string>
     <string name="settings_import_from_a_file">Import from a file</string>
     <string name="settings_download_copy">Download a copy of my data</string>
@@ -31,8 +31,11 @@
     <string name="settings_delete_account_confirm_message">Deletes your FlightForms account and its usage records on the server. This cannot be undone.\n\nPeople, aircraft, flights and trips stay on this phone. To remove them too, use Delete all data.</string>
     <string name="settings_delete_my_account">Delete my account</string>
     <string name="settings_passphrase">Passphrase</string>
+    <string name="settings_choose_passphrase_message">The file is encrypted with this passphrase. Keep the suggestion or type your own - you will need it on the other device.</string>
+    <string name="settings_suggest_another">Suggest another</string>
+    <string name="settings_export">Export</string>
     <string name="settings_export_ready">Export ready</string>
-    <string name="settings_passphrase_instructions">Type this on the other device to open the file. It is not stored anywhere, so write it down now.</string>
+    <string name="settings_passphrase_instructions">Type this on the other device to open the file. It is not stored anywhere. If you lose it, export a new file.</string>
     <string name="settings_file_ready_not_encrypted">%1$s is ready. It is not encrypted.</string>
     <string name="settings_share_file">Share file</string>
     <string name="settings_passphrase_from_other_device">Passphrase from the other device</string>

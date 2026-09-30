@@ -71,4 +71,15 @@ class DataFileCryptoTest {
         val blob = DataFileCrypto.encrypt(payload, one.toCharArray())
         assertEquals(payload, DataFileCrypto.decrypt(blob, one.toCharArray()))
     }
+
+    @Test
+    fun `passphrases are trimmed and NFC-normalised but keep their case`() {
+        val composed = "Caf\u00e9-Rudder"      // é as one code point
+        val decomposed = "  Cafe\u0301-Rudder " // e + combining accent, with spaces
+        val blob = DataFileCrypto.encrypt(payload, DataFileCrypto.normalisePassphrase(composed))
+        assertEquals(payload, DataFileCrypto.decrypt(blob, DataFileCrypto.normalisePassphrase(decomposed)))
+        assertThrows(DataFileCrypto.WrongPasswordException::class.java) {
+            DataFileCrypto.decrypt(blob, DataFileCrypto.normalisePassphrase("café-rudder"))
+        }
+    }
 }
