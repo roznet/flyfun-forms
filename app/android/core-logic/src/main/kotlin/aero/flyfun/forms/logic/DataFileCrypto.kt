@@ -1,6 +1,7 @@
 package aero.flyfun.forms.logic
 
 import java.security.SecureRandom
+import java.text.Normalizer
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
@@ -87,6 +88,17 @@ object DataFileCrypto {
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         return SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
     }
+
+    /**
+     * The exact characters fed to the key derivation, for both export and import.
+     *
+     * The passphrase is typed by hand, possibly on another platform: stray
+     * spaces around it are dropped, and Unicode is NFC-normalised so an accented
+     * letter typed on iOS produces the same UTF-8 bytes as on Android. Case is
+     * kept. iOS must apply the same rule, or a correct passphrase is refused.
+     */
+    fun normalisePassphrase(input: String): CharArray =
+        Normalizer.normalize(input.trim(), Normalizer.Form.NFC).toCharArray()
 
     /**
      * A transfer passphrase the user reads off one device and types into the

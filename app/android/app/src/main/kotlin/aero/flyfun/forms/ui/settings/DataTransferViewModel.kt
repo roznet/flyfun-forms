@@ -19,7 +19,7 @@ sealed interface TransferState {
     data object Idle : TransferState
     data object Working : TransferState
 
-    /** Export finished; the passphrase is shown once and never stored. */
+    /** Export finished; the passphrase is shown as a reminder and never stored. */
     data class Exported(val file: File, val passphrase: String?) : TransferState
 
     /** Decoded but nothing written yet - the user confirms from here. */
@@ -49,14 +49,16 @@ class DataTransferViewModel(
 
     private var pending: MergeSummary? = null
 
-    fun exportEncrypted() = viewModelScope.launch {
+    /** Pre-filled in the export dialog; the user may keep it or type their own. */
+    fun suggestPassphrase(): String = DataFileCrypto.generatePassphrase()
+
+    fun exportEncrypted(passphrase: String) = viewModelScope.launch {
         _state.value = TransferState.Working
         _state.value = runCatching {
-            val passphrase = DataFileCrypto.generatePassphrase()
-            val bytes = transfer.exportEncrypted(appVersion, passphrase.toCharArray())
+            val bytes = transfer.exportEncrypted(appVersion, DataFileCrypto.normalisePassphrase(passphrase))
             val file = outDir().resolve("flyfun-forms-data.ffdata")
             file.writeBytes(bytes)
-            TransferState.Exported(file, passphrase)
+            TransferState.Exported(file, passphrase.trim())
         }.getOrElse { TransferState.Failed(it.message ?: resources.getString(R.string.settings_export_failed)) }
     }
 
@@ -77,7 +79,7 @@ class DataTransferViewModel(
             return@launch
         }
         _state.value = runCatching {
-            val (_, summary) = transfer.preview(bytes, password?.toCharArray())
+            val (_, summary) = transfer.preview(bytes, password?.let(DataFileCrypto::normalisePassphrase))
             pending = summary
             TransferState.Previewed(summary)
         }.getOrElse {

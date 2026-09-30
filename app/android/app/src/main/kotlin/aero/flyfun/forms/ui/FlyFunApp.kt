@@ -1242,7 +1242,8 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             state = state,
             signedIn = signedIn,
             onSignIn = { auth.startSignIn(it) },
-            onExportEncrypted = { vm.exportEncrypted() },
+            suggestPassphrase = { vm.suggestPassphrase() },
+            onExportEncrypted = { vm.exportEncrypted(it) },
             onExportPlain = { vm.exportPlain() },
             onPickFile = { picker.launch(arrayOf("*/*")) },
             onSubmitPassword = { password ->

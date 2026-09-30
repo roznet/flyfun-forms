@@ -58,7 +58,8 @@ fun SettingsScreen(
     state: TransferState,
     signedIn: Boolean,
     onSignIn: (SignInProvider) -> Unit,
-    onExportEncrypted: () -> Unit,
+    suggestPassphrase: () -> String,
+    onExportEncrypted: (passphrase: String) -> Unit,
     onExportPlain: () -> Unit,
     onPickFile: () -> Unit,
     onSubmitPassword: (String) -> Unit,
@@ -77,6 +78,8 @@ fun SettingsScreen(
 ) {
     var confirmDeleteAccount by remember { mutableStateOf(false) }
     var confirmEraseAll by remember { mutableStateOf(false) }
+    // Non-null while the export dialog is open: the passphrase being edited.
+    var exportPassphrase by remember { mutableStateOf<String?>(null) }
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
         Column(
@@ -110,7 +113,7 @@ fun SettingsScreen(
                         stringResource(R.string.settings_move_my_data_footer),
                         style = MaterialTheme.typography.bodySmall,
                     )
-                    Button(onClick = onExportEncrypted, enabled = state !is TransferState.Working) {
+                    Button(onClick = { exportPassphrase = suggestPassphrase() }, enabled = state !is TransferState.Working) {
                         Text(stringResource(R.string.settings_export_encrypted_file))
                     }
                     OutlinedButton(onClick = onPickFile, enabled = state !is TransferState.Working) {
@@ -217,6 +220,34 @@ fun SettingsScreen(
                 ) { Text(stringResource(R.string.settings_delete_my_account)) }
             },
             dismissButton = { TextButton(onClick = { confirmDeleteAccount = false }) { Text(stringResource(R.string.common_cancel)) } },
+        )
+    }
+
+    exportPassphrase?.let { passphrase ->
+        AlertDialog(
+            onDismissRequest = { exportPassphrase = null },
+            title = { Text(stringResource(R.string.settings_passphrase)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_choose_passphrase_message))
+                    OutlinedTextField(
+                        value = passphrase,
+                        onValueChange = { exportPassphrase = it },
+                        label = { Text(stringResource(R.string.settings_passphrase)) },
+                        singleLine = true,
+                    )
+                    TextButton(onClick = { exportPassphrase = suggestPassphrase() }) {
+                        Text(stringResource(R.string.settings_suggest_another))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = passphrase.isNotBlank(),
+                    onClick = { exportPassphrase = null; onExportEncrypted(passphrase) },
+                ) { Text(stringResource(R.string.settings_export)) }
+            },
+            dismissButton = { TextButton(onClick = { exportPassphrase = null }) { Text(stringResource(R.string.common_cancel)) } },
         )
     }
 

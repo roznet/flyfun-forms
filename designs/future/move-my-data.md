@@ -1,6 +1,6 @@
 # Move My Data: Encrypted Device Transfer + GDPR Export
 
-> **Status: proposed. Nothing built. Written 2026-09-18.**
+> **Status: built on Android; iOS not started. Written 2026-09-18, updated 2026-09-30.**
 >
 > Two user-facing features that share **one serializer**:
 >
@@ -196,14 +196,24 @@ artifact to avoid.
 | Concern | Choice |
 |---|---|
 | Cipher | AES-256-GCM |
-| Key derivation | Argon2id (preferred) or PBKDF2-HMAC-SHA256 at high iteration count |
-| iOS | CryptoKit |
-| Android | Tink (cross-platform consistency) |
+| Key derivation | PBKDF2-HMAC-SHA256, 210k iterations (Argon2id has no system implementation on iOS) |
+| iOS | CryptoKit (AES-GCM) + CommonCrypto (PBKDF2) |
+| Android | JDK `javax.crypto` — no Tink dependency |
 | Salt / nonce | Random per export, stored in the file header |
 
-**Passphrase UX:** generate a 6-word passphrase on export, display it, the user
-types it on the receiving device. This beats user-chosen passwords — which will
-be weak and reused — and reads naturally as a one-time transfer code.
+**Passphrase UX:** the export dialog pre-fills a generated 6-word passphrase
+in an editable field; the user keeps it or types their own (only non-blank is
+required). The file is meant to be created, imported and deleted — not
+archived — so a forgotten passphrase just means exporting again from the
+other device.
+
+**As built (Android, `core-logic/.../DataFileCrypto.kt`) — iOS must match byte for byte:**
+
+- Layout: `"FFFORMS"` (ASCII) | version `0x01` | salt (16) | nonce (12) | ciphertext ‖ GCM tag (16)
+- Key: PBKDF2-HMAC-SHA256, 210,000 iterations, 32-byte key (iOS: CommonCrypto `CCKeyDerivationPBKDF` — not in CryptoKit)
+- Cipher: AES-256-GCM, no AAD (iOS: CryptoKit `AES.GCM.SealedBox(nonce:ciphertext:tag:)`)
+- Passphrase bytes: trim surrounding whitespace, Unicode NFC, then UTF-8. Case is kept.
+  Applied on both export and import (`normalisePassphrase`).
 
 The plaintext GDPR variant (§3) is an explicit, separately-labelled action with
 a clear warning, never the default.
