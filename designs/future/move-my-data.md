@@ -252,23 +252,99 @@ existing 1,631 lines of Swift tests so valuable.
 
 ---
 
-## 7. The UUID prerequisite
+## 7. The stable-ID prerequisite (iOS)
 
-The SwiftData models have **no stable external IDs** — `Person` and friends rely
-on `PersistentIdentifier`, and `designs/ios-app.md` already records that
-*"SwiftData + CloudKit doesn't support unique constraints."*
+The SwiftData models have **no stable external IDs**. `persistentModelID` is
+local to one store on one device — the same person synced by CloudKit to an iPad
+has a different one there — and `designs/ios-app.md` already records that
+*"SwiftData + CloudKit doesn't support unique constraints."* The merge (§6)
+matches on `id`, so without one every round trip duplicates records, "newer
+wins" has nothing to compare, and deletions cannot travel.
 
-Export forces the issue: a file without stable IDs cannot round-trip (§2).
+Android already has all three (`id`, `updatedAt`, `deletedAt` as soft-delete
+columns). iOS needs the equivalent, but **not** the same soft-delete mechanism.
 
-**Do this on iOS now, while CloudKit is the only consumer.** Adding a UUID
-column to `Person`, `TravelDocument`, `Aircraft`, `Flight` and `Trip` is a
-CloudKit-synced schema change — which, per the `departureInstant` experience, is
-a multi-release exercise paced by how quickly users update. Far better to start
-it for a feature that pays for itself immediately than to discover it is needed
-in Android Phase 1, with rows already sitting on two platforms' devices.
+### Two fields on every model
 
-Add `updatedAt` and `deletedAt` in the same migration. They cost nothing and
-§6 depends on both.
+`Person`, `TravelDocument`, `Aircraft`, `Flight`, `Trip` gain:
+
+| Field | Type | Notes |
+|---|---|---|
+| `uuid` | `UUID?` | Exported as `id`, lowercase string. Imported records keep the file's id. |
+| `updatedAt` | `Date?` | Stamped on every insert and change. `nil` = "older than anything". |
+
+Both optional, because CloudKit requires new attributes to be optional or
+defaulted, and because of two traps:
+
+- **Do not write `var uuid = UUID()`.** The declared default can be applied as
+  one constant to every existing row during migration, giving them all the same
+  id. Backfill instead: on every launch, give each row whose `uuid` is `nil` its
+  own `UUID()` — the same "runs every launch, writes only on a real difference"
+  pattern as `backfillScheduleInstants()`. Every launch, not once, because an
+  older build on another device keeps creating rows without one.
+- **Do not backfill `updatedAt` with "now".** That would make stale iOS data
+  win over newer Android edits on the first import. Leave it `nil`; the merge
+  treats a missing timestamp as the oldest possible.
+
+`updatedAt` is stamped centrally — one observer on the context's `willSave`
+that sets it on every inserted and changed model — not in each edit view, where
+one would inevitably be missed. Imported records keep the file's `updatedAt`, so
+the import path must write it after (or bypass) the stamping.
+
+Two iOS devices can backfill the same pre-existing record before CloudKit
+syncs; CloudKit keeps one of the two uuids. Only an export made inside that
+window carries the loser, and at worst it imports as a duplicate. Accepted.
+
+### Tombstones in their own table, not soft-delete columns
+
+Android keeps deleted rows with `deletedAt` set and filters them everywhere.
+Doing that on iOS means changing every `modelContext.delete`, every `@Query`,
+every fetch, and every relationship (a flight's crew still pointing at a
+deleted person) — the largest and most error-prone part of the port, for no
+user-visible gain.
+
+Instead, deletes stay real deletes, and each one leaves a row in a new synced
+model:
+
+```swift
+@Model final class DeletedRecord {
+    var uuid: UUID?          // the deleted record's uuid
+    var kind: String = ""    // "person" | "travelDocument" | "aircraft" | "flight" | "trip"
+    var deletedAt: Date?
+}
+```
+
+- **Recording:** written alongside the delete, captured before the object is
+  gone (its `uuid` is unreadable afterwards). A record with no `uuid` was never
+  exportable, so it needs no tombstone.
+- **Export:** each `DeletedRecord` becomes a minimal record in its array —
+  `{ "id", "updatedAt": deletedAt, "deletedAt" }` — with the kind's required
+  fields filled (`departureInstant`/`arrivalInstant` for flights, `createdAt` for
+  trips: use `deletedAt`). Android's merge reads only `id` and `deletedAt` from a
+  tombstone and every other field has a default, so **neither the format nor
+  Android changes.**
+- **Import:** a tombstone in the file whose `deletedAt` is newer than the local
+  record's `updatedAt` deletes that record *and* writes a local `DeletedRecord`,
+  so the deletion keeps propagating on the next export. A tombstone for an id
+  already tombstoned locally is unchanged.
+- **Resurrection guard:** an incoming live record whose id has a local
+  `DeletedRecord` newer than its `updatedAt` is skipped, exactly as Android
+  skips it against a soft-deleted row.
+- **"Delete all data" is not a deletion to propagate.** `LocalDataEraser` wipes
+  `DeletedRecord` along with everything else and writes no tombstones: erasing
+  one device must not erase the other through the next file.
+- Tombstones are tiny and never pruned for now. If that ever matters, prune
+  those older than a generous horizon (a year).
+
+### Why now, and how it is paced
+
+These are CloudKit-synced schema changes: the CloudKit production schema must
+be deployed before the release, and older builds keep syncing without knowing
+the fields exist (the `departureInstant` experience). The every-launch backfill
+covers rows they create; edits they make don't bump `updatedAt`, which only
+makes "newer wins" less precise until users update. Start it for a feature that
+pays for itself, while CloudKit is the only consumer, rather than discover it
+mid-port with rows already on two platforms.
 
 ---
 
@@ -297,7 +373,7 @@ call as controller of their own records — but the app must not suggest it.
 
 | Step | Where | Effort |
 |---|---|---|
-| **1.** UUID + `updatedAt` + `deletedAt` migration | iOS | Small in code; paced by release cadence (§7) |
+| **1.** `uuid` + `updatedAt` + `DeletedRecord` tombstone table | iOS | Small in code; paced by release cadence (§7) |
 | **2.** Serializer + merge as a pure function, with golden-file tests | iOS | ~½ session |
 | **3.** Encryption, passphrase generation + entry UI | iOS | ~½ session |
 | **4.** `fileExporter` / `fileImporter` + preview sheet | iOS | ~½ session |
