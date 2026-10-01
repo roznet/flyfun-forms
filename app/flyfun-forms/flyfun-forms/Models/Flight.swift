@@ -53,6 +53,10 @@ final class Flight {
     /// for people who carry more than one. See `DocumentResolver.chosen`.
     var chosenDocNumbers: [String]?
 
+    // Move-my-data identity; see StableRecords.swift.
+    var uuid: UUID?
+    var updatedAt: Date?
+
     /// The absolute departure moment.
     ///
     /// Setting it writes the day and the UTC time-of-day *together*, so an edit
@@ -243,7 +247,9 @@ final class Flight {
     var passengerList: [Person] { passengers ?? [] }
     var chosenDocNumberList: [String] { chosenDocNumbers ?? [] }
 
-    init() {}
+    init() {
+        self.uuid = UUID()
+    }
 
     /// The GAR's reasons for visit, used when the form does not list its own.
     static let reasonForVisitOptions = [

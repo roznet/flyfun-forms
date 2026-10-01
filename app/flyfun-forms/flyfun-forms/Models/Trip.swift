@@ -7,6 +7,10 @@ final class Trip {
     var createdAt: Date = Date()
     var extraFieldsData: Data?
 
+    // Move-my-data identity; see StableRecords.swift.
+    var uuid: UUID?
+    var updatedAt: Date?
+
     @Relationship(inverse: \Flight.trip)
     var legs: [Flight]?
 
@@ -25,6 +29,7 @@ final class Trip {
     }
 
     init(name: String = "") {
+        self.uuid = UUID()
         self.name = name
     }
 }

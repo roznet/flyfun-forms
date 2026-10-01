@@ -288,7 +288,7 @@ struct PeoplePickerView: View {
         let id = person.persistentModelID
         crew.removeAll { $0.persistentModelID == id }
         passengers.removeAll { $0.persistentModelID == id }
-        context.delete(person)
+        context.deleteRecordingTombstone(person)
         return true
     }
 

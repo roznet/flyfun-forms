@@ -17,6 +17,8 @@ struct flyfun_formsApp: App {
         // by a build before the cleanup) can outlive that: nothing from a
         // previous run is still in use.
         GeneratedFormFiles.standard.removeAll()
+        // Before the first save, so every edit moves `updatedAt`.
+        UpdateStamper.install()
     }
 
     var sharedModelContainer: ModelContainer = {
@@ -55,8 +57,13 @@ struct flyfun_formsApp: App {
                 }
             }
             .environment(appState)
-            .task { migrateDocuments() }
-            .task { backfillScheduleInstants() }
+            // One task, in order: the documents migrateDocuments creates need a
+            // uuid from backfillStableIDs.
+            .task {
+                migrateDocuments()
+                backfillScheduleInstants()
+                backfillStableIDs()
+            }
             .task { await preloadAirportData() }
         }
         .modelContainer(sharedModelContainer)
@@ -113,8 +120,10 @@ struct flyfun_formsApp: App {
             }
         }
 
+        // Derived from the pair, not an edit: stamping `updatedAt` here would
+        // make every flight look freshly edited to a move-my-data merge.
         if updated > 0 {
-            try? context.save()
+            UpdateStamper.withoutStamping { try? context.save() }
         }
     }
 
@@ -146,8 +155,14 @@ struct flyfun_formsApp: App {
             migrated += 1
         }
 
+        // A storage migration, not an edit; see backfillScheduleInstants.
         if migrated > 0 {
-            try? context.save()
+            UpdateStamper.withoutStamping { try? context.save() }
         }
+    }
+
+    /// Every record gets a stable `uuid` for move-my-data; see `StableRecords.backfill`.
+    private func backfillStableIDs() {
+        try? StableRecords.backfill(in: sharedModelContainer.mainContext)
     }
 }

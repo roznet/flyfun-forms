@@ -18,6 +18,10 @@ final class Person {
     var email: String?
     var isUsualCrew: Bool = false
 
+    // Move-my-data identity; see StableRecords.swift.
+    var uuid: UUID?
+    var updatedAt: Date?
+
     var documents: [TravelDocument]?
 
     // CloudKit inverses
@@ -80,6 +84,7 @@ final class Person {
     }
 
     init(firstName: String = "", lastName: String = "") {
+        self.uuid = UUID()
         self.firstName = firstName
         self.lastName = lastName
     }

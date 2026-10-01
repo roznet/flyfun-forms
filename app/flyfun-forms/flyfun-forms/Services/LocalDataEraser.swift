@@ -11,6 +11,7 @@ enum AppSchema {
         Aircraft.self,
         Flight.self,
         Trip.self,
+        DeletedRecord.self,
     ]
 
     static var schema: Schema { Schema(models) }
@@ -18,6 +19,11 @@ enum AppSchema {
 
 /// Settings → Delete All Data (GDPR.md §7): removes everything the app holds
 /// about people, their documents, aircraft, flights and trips.
+///
+/// It also clears the `DeletedRecord` tombstones, and writes none: erasing
+/// this device is not a deletion to carry to another device through
+/// "Move my data". That is why it calls `delete` directly rather than
+/// `deleteRecordingTombstone`.
 ///
 /// The store is CloudKit-synced, so this deletes from iCloud and from every
 /// device on the same Apple ID, not just this one. It leaves the FlightForms

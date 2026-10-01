@@ -13,6 +13,10 @@ final class Aircraft {
     var useCompanyOperator: Bool = false
     var operatorName: String?
 
+    // Move-my-data identity; see StableRecords.swift.
+    var uuid: UUID?
+    var updatedAt: Date?
+
     // CloudKit inverse
     @Relationship(inverse: \Flight.aircraft)
     var flights: [Flight]?
@@ -23,6 +27,7 @@ final class Aircraft {
     }
 
     init(registration: String = "", type: String = "") {
+        self.uuid = UUID()
         self.registration = registration
         self.type = type
     }

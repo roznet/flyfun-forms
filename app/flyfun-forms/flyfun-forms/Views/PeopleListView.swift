@@ -129,7 +129,7 @@ struct PeopleListView: View {
         .onChange(of: newPerson) { left, _ in
             // Backed out of Add Person without typing anything.
             if let left, left.isBlank {
-                modelContext.delete(left)
+                modelContext.deleteRecordingTombstone(left)
             }
         }
         #if os(macOS)
@@ -148,7 +148,7 @@ struct PeopleListView: View {
     private func deletePeople(at offsets: IndexSet) {
         let filtered = filteredPeople
         for index in offsets {
-            modelContext.delete(filtered[index])
+            modelContext.deleteRecordingTombstone(filtered[index])
         }
     }
 

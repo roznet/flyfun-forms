@@ -46,7 +46,7 @@ struct AircraftListView: View {
 
     private func deleteAircraft(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(aircraft[index])
+            modelContext.deleteRecordingTombstone(aircraft[index])
         }
     }
 }
