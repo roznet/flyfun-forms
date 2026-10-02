@@ -115,7 +115,8 @@ you may stop using the service and close your account, and we will not charge yo
 notice period. We cannot offer a parallel deployment that excludes a sub-processor.
 
 Every sub-processor is bound by data-protection obligations equivalent to these Terms, and
-**we remain fully liable to you for their performance**.
+we remain responsible to you for their performance of those obligations, as Art. 28(4)
+requires (and only to that extent; see §9).
 
 *Not sub-processors:* your iCloud account and Apple's CloudKit hold Manifest Data under
 **your own** relationship with Apple, which we neither instruct nor can read; and the
@@ -244,13 +245,34 @@ their nature should survive — confidentiality, and §4.7 — survive its closu
 
 ## 9. Liability
 
-These Terms allocate responsibility **between us and you**. They do not and cannot limit any
-liability either of us has directly to a data subject under Art. 82, or to a supervisory
-authority. Each party is responsible for its own compliance with GDPR.
+FlightForms is a free, personal open-source project run by one individual in their spare
+time. It is offered **as is**, with no warranty and no service level, and **we accept no
+liability for your use of it**. If your organisation needs a supplier that accepts liability,
+FlightForms is not the right service for you, and you should not use it.
 
-FlightForms is a personal open-source project offered under the
-[MIT Licence](../LICENSE), and the warranty position in that licence applies to the software.
-Nothing in these Terms is a warranty that your use of FlightForms makes *you* compliant —
+Accordingly, to the fullest extent permitted by law:
+
+1. **We are not liable to you** for any loss or damage, whether in contract, tort
+   (including negligence), breach of statutory duty or otherwise, arising out of or in
+   connection with these Terms or the service. This includes, without limitation, a form that
+   is filled incorrectly, incomplete or rejected, a missed filing deadline, a fine or delay
+   imposed by an authority, loss of data, and any loss of profit, business or opportunity.
+2. **You are responsible for checking** every form before you send it. The service produces
+   a draft; the filing is yours.
+3. **This is not affected by** anything else in these Terms, including the obligations in §4.
+
+What this section does **not** do, because the law does not allow it:
+
+- It does not exclude or limit liability for death or personal injury caused by negligence,
+  for fraud or fraudulent misrepresentation, or any other liability that cannot be excluded
+  or limited under the law of England and Wales.
+- It does not limit any liability either of us has **directly to a data subject** under
+  Art. 82, or to a supervisory authority, or the responsibility for sub-processors that
+  Art. 28(4) places on us by law (§5). Each party is responsible for its own compliance
+  with GDPR.
+
+The warranty disclaimer in the [MIT Licence](../LICENSE) applies to the software as well.
+Nothing in these Terms is a warranty that your use of FlightForms makes *you* compliant;
 that depends on choices only you control (§5).
 
 ## 10. Changes to these Terms

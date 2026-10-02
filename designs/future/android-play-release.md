@@ -107,7 +107,9 @@ and screenshot plan in `listing.md`.
     sent to the server to fill a form and **processed ephemerally**, never
     stored (`PRIVACY.md`, "Server-Side Processing"); app diagnostics and a
     per-install ID, collected by the ML Kit SDK once the scanner has been
-    used (`PRIVACY.md`, "Passport Scanning").
+    used (`PRIVACY.md`, "Passport Scanning"); declare them as *App info and
+    performance → Diagnostics* and *Device or other IDs*, purpose Analytics,
+    not processed ephemerally.
   - *Shared:* none. Google receiving ML Kit metrics as the SDK provider
     counts as a service provider, not sharing.
   - *Encrypted in transit:* yes. *Deletion:* yes, in-app plus the §4 URL.

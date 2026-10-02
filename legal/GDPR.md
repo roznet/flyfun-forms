@@ -43,14 +43,14 @@ That inverts the two hardest questions. Weather's answer to "does anyone need a 
 | Special-category data & ID numbers (Art. 9, Art. 87) | ✅ Believe fine — no Art. 9 data; passport numbers handled as national ID numbers |
 | **Our role: processor for manifest data, controller for the account** | 🟡 Position documented here; [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md) drafted, not yet in force |
 | On-device & iCloud storage (the real data store) | ✅ Sound, with two hardening items (§6) |
-| Android client (on-device only) | ✅ No cloud backup or transfer; 🟡 ML Kit sends Google diagnostics (§6a) |
+| Android client (on-device only) | ✅ No cloud backup or transfer; ML Kit diagnostics disclosed, Google an independent controller (§6a, §13) |
 | Right to erasure (Art. 17) | ✅ Server-side, plus **Delete All Data** on-device (iOS/macOS, Android) |
 | Right to data portability (Art. 20) | ✅ full device export as JSON (iOS, macOS, Android); server-side account export at `GET /account/export` |
 | Security of processing (Art. 32) | ✅ Temp-file regression fixed, `/generate` rate-limited; iOS hardening items remain (§6) |
 | Retention / storage limitation (Art. 5(1)(e)) | 🟡 Usage rows never pruned; temp files now deleted (§9) |
 | Data residency (UK, EU-adequate) | ✅ Implemented |
 | International transfers (Art. 44–49) | ✅ No manifest data leaves the server; sign-in, and ML Kit diagnostics on Android (§12) |
-| Processor agreements / DPAs (Art. 28) | ✅ DigitalOcean + Google in force; Apple as independent controller; 🟡 Google ML Kit role (§13) |
+| Processor agreements / DPAs (Art. 28) | ✅ DigitalOcean + Google in force; Apple and Google ML Kit as independent controllers (§13) |
 | Onward transfer to airports & authorities | ✅ User-initiated, from the user's own device |
 | Breach notification (Art. 33–34) | ✅ [`SECURITY.md`](../SECURITY.md) runbook; GitHub private vulnerability reporting enabled |
 | Records of processing (Art. 30) | 🟡 The small-scale exemption probably does **not** apply here — this doc is the record |
@@ -95,7 +95,7 @@ airport/form, return bytes; nothing else touches the request body).
 
 ## What we have considered
 
-### 1. Transparency & privacy notice (Art. 13–14) — 🟡
+### 1. Transparency & privacy notice (Art. 13–14) — ✅
 
 - [`PRIVACY.md`](../PRIVACY.md) is a detailed, plain-language notice: what is stored where,
   why the server exists at all, what it does and doesn't keep.
@@ -290,7 +290,7 @@ iOS — manifest data on the device, the server for filling only — with two di
 - **Worth revisiting:** a non-Google OCR would remove the disclosure entirely — not needed for
   compliance.
 
-### 7. Right to erasure (Art. 17) — ✅ server-side, 🟡 wording
+### 7. Right to erasure (Art. 17) — ✅
 
 - **Delete Account** in the app (`ContentView.swift`) calls `DELETE /auth/account`. The
   forms-specific hook deletes every `Usage` row for the user
@@ -432,12 +432,33 @@ Same suppliers as weather, minus everything weather needs for email and LLMs.
 - **Apple / iCloud (neither our processor nor our controller):** the CloudKit private database
   belongs to the user's Apple ID. We do not instruct Apple, cannot read the data, and there is
   no DPA to obtain — recorded in §6 and in `PRIVACY.md`. ✅
-- **Google ML Kit (Android) — 🟡 role to confirm:** governed by the
-  [ML Kit terms](https://developers.google.com/ml-kit/terms) under the Google APIs Terms of
-  Service we already accept. Google uses the metrics "to measure performance, debug, maintain
-  and improve the APIs, and detect misuse or abuse" — purposes of its own, which reads as an
-  **independent controller** for that data rather than our processor. Nothing to sign either
-  way; what the terms require of us is disclosure, which is done (§6a).
+- **Google ML Kit (Android): independent controller, confirmed 2026-10-02 as far as the
+  published terms allow.** Governed by the [ML Kit terms](https://developers.google.com/ml-kit/terms)
+  under the Google APIs Terms of Service we already accept. The reasoning:
+  1. Google decides the purposes: it uses the metrics "to measure performance, debug, maintain
+     and improve the APIs, and detect misuse or abuse", which are Google's own purposes, not
+     a service run for us. Deciding the purpose is what makes a controller (Art. 4(7)).
+  2. Google offers no processor terms for ML Kit. The ML Kit terms and the
+     [Android data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)
+     name no DPA and no controller/processor role, and we cannot instruct Google, limit its
+     use of the metrics, or switch the metrics off (§6a). A processor would have to act only
+     on our instructions (Art. 28(3)(a)), and none of that holds here.
+  3. The terms put **disclosure** on us ("You are responsible for informing users of your
+     app about Google's processing of ML Kit metrics data"), which is what an independent
+     controller arrangement asks of the app developer. Done in `PRIVACY.md` (§6a).
+  - *Our own share:* under the CJEU's *Fashion ID* reasoning (C-40/17), embedding a
+    third-party component that sends data to its maker can make the embedding app a **joint
+    controller for the collection and transmission step only**, with Google the sole
+    controller after that. Our side of that is to be transparent (done) and to collect no
+    more than needed: ML Kit starts only on first scan (§6a). The lawful basis is legitimate
+    interest in offering an on-device scanner, an expectation that holds because it is
+    disclosed and the scan is optional.
+  - *Residual point (low):* the metrics include a per-installation identifier stored on the
+    phone. Storing or reading information on a device for a purpose other than the service
+    the user asked for is a PECR / ePrivacy question (consent, unless strictly necessary),
+    separate from GDPR. Lazy start and disclosure reduce it; they do not remove it. If it
+    ever needs closing, the options are a one-time notice before the first scan, or a
+    non-Google OCR (§6a). Recorded, not acted on.
 - **No email processor, no LLM processor, no analytics processor** — ML Kit's metrics are
   the one SDK telemetry in any client, and are about API performance, not user behaviour. ✅
 
@@ -459,7 +480,8 @@ is worth being explicit about who does the sending:
 - **Honest caveat:** ordinary email is not encrypted end-to-end, so a manifest sent to an
   airport travels as far as TLS between mail servers takes it. That is inherent to how these
   authorities accept filings — most publish an address and nothing else — and it is the pilot's
-  transfer, not ours. It deserves a line in `PRIVACY.md` rather than silence.
+  transfer, not ours. **Resolved 2026-10-02:** `PRIVACY.md` now says so in *Sending Forms to
+  the Authorities*, and in one line of the *Passengers* section.
 - *Flagged for future review:* a planned feature would notify the pilot when a form is
   **accepted**. Our server cannot know that today, because it plays no part in submission.
   Any status tracking means the server becomes involved in the submission path, which would
@@ -529,11 +551,17 @@ Ordered by ratio of obligation to effort.
 2. ✅ ~~Delete the generated file when the share/mail sheet dismisses~~ — done 2026-09-26,
    `SECURITY_AUDIT.md` §16 and `PRIVACY.md` corrected. *(§9)*
 3. ✅ ~~Make the privacy notice reachable from the app~~ — `/privacy`, linked from Settings. *(§1)*
-4. 🟡 **Passenger-facing paragraph** — done (`PRIVACY.md` Passengers, in-app share). Still to
-   add: the plain-email caveat from §14. *(§1, §14)*
-5. 🟡 **Put the processor terms in force** (Art. 28(3)) — [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md)
-   is drafted; it needs a notice address, an incorporation decision, and the DRAFT banner
-   removed. Then add the Art. 30(2) processor-side record. *(§5, §16)*
+4. ✅ ~~**Passenger-facing paragraph**~~ — done (`PRIVACY.md` Passengers, in-app share); the
+   plain-email caveat from §14 added 2026-10-02. *(§1, §14)*
+5. 🟡 **Processor terms** (Art. 28(3)) — [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md) is
+   drafted and **deliberately kept as a draft** (decision 2026-10-02): FlightForms is a hobby
+   open-source project run by an individual, and no organisational user exists. "Incorporation"
+   in the draft means *how the terms take effect* (pre-accepted at signup vs. on request), not
+   forming a company; the draft already names the individual developer as the party. Trigger
+   to revisit: the first flight school, club or operator that asks. Its §9 (rewritten
+   2026-10-02) accepts no liability to the extent English law allows: a free hobby service,
+   as is, and anyone who needs a supplier that accepts liability should not use it. Then add the Art. 30(2)
+   processor-side record. *(§5, §16)*
 6. ✅ ~~**Server-side account export** (Art. 20)~~ Done 2026-10-02, `GET /account/export`.
    Moving the shared part into `flyfun-common` remains a refactor, not a compliance gap. *(§8)*
 7. ✅ ~~Clarify Delete Account, and add "Delete all local data"~~ — done 2026-09-26. *(§7)*
@@ -542,11 +570,21 @@ Ordered by ratio of obligation to effort.
 9. 🟡 **Evaluate `@Attribute(.allowsCloudEncryption)`** for document number, ID number, DOB and
    place of birth — scoped as a schema migration, not a one-liner. *(§6)*
 10. 🟡 **Set `NSFileProtectionComplete`** on the SwiftData store (`SECURITY_AUDIT.md` §19). *(§6)*
-11. 🟡 **Confirm the App Store privacy "nutrition labels"** match this document — in particular
-    that passport/manifest data is declared as **not collected**, which is what the code does.
-    **And the Play Console Data safety form** for Android: manifest data not collected, but
-    **ML Kit's diagnostics and device identifier are collected (by Google, via an SDK)** and
-    must be declared. *(§1, §6a)*
+11. ✅ ~~**Confirm the store privacy declarations**~~ — checked 2026-10-02. *(§1, §6a)*
+    - **App Store** (public listing, id6760511907): *Data Linked to You* = Contact Info (Email
+      Address, Name) and Usage Data (Product Interaction), for App Functionality and
+      Analytics. No passport or manifest data is declared, which is correct: Apple's definition
+      of "collect" excludes data "sent to your servers then immediately discarded after
+      servicing the request". Consistent with this document. *Optional tidy-up:* the
+      Analytics purpose on Contact Info overstates what we do (we run no analytics);
+      over-declaring is not a compliance problem, so change it only at a convenient release.
+    - **Play Console** (Android not yet published): Play's test differs from Apple's. Data
+      sent off the device counts as *collected* even when processed ephemerally, so the
+      manifest data **is declared, marked "processed ephemerally"**, rather than "not
+      collected" as this item first said. ML Kit's metrics go under *App info and performance
+      → Diagnostics* and *Device or other IDs*, collected, not shared, encrypted in transit.
+      The full answers are drafted in `designs/future/android-play-release.md` §6, to enter
+      when the listing is created.
 12. 🟡 **Document the push capability, and prepare for it.** The `aps-environment` entitlement
     is declared, but the app registers for no notifications and **collects no device token
     today** — recorded so the capability is explained rather than dangling. Push *is* planned
@@ -556,8 +594,9 @@ Ordered by ratio of obligation to effort.
     APNs payload passes through Apple, so "accepted for LFMD" is fine and "accepted for
     John Smith" is not. Weather's `device_tokens` handling is the pattern to copy. Separately,
     `flyfun_forms.entitlements` (underscore) is referenced by no build configuration and can go.
-13. 🟡 **Confirm Google's role for ML Kit metrics** (independent controller is our reading).
-    Lazy initialisation is done, so only pilots who scan are affected. *(§6a, §13)*
+13. ✅ ~~**Confirm Google's role for ML Kit metrics**~~ — independent controller, reasoning in
+    §13 (2026-10-02). One low residual point recorded there: the per-install identifier under
+    PECR / ePrivacy. *(§6a, §13)*
 
 ---
 

@@ -75,7 +75,7 @@ The server stores only:
 If you are a passenger or crew member and a pilot has entered your details into FlightForms, this section is for you.
 
 - **Where your details are** — in the FlightForms app on the pilot's own devices. On iPhone, iPad and Mac they sync through the pilot's private iCloud account; on Android they stay on the pilot's phone. FlightForms (the developer) has no copy and cannot see them.
-- **What they are used for** — filling in the customs, immigration and airport forms the flight requires. The pilot sends those forms to the authorities that ask for them, from their own email or the airport's own website; FlightForms never sends anything on their behalf.
+- **What they are used for** — filling in the customs, immigration and airport forms the flight requires. The pilot sends those forms to the authorities that ask for them, from their own email or the airport's own website; FlightForms never sends anything on their behalf. Like any email, a form sent this way is not end-to-end encrypted.
 - **The server keeps nothing** — to fill a form, the details pass through our server for the moment it takes, over an encrypted connection, and are then discarded.
 - **Your rights** — the pilot (or the organisation they fly for) decides what is kept, so ask them to show, correct or delete your details. The app lets them delete a person, or everything, in one step.
 
@@ -108,6 +108,10 @@ Your data is in two places, so a full copy comes in two parts, both as machine-r
 
 When you generate a form, the filled file is written to the app's temporary storage on your device so it can be saved, shared or emailed. On iPhone, iPad and Android the app deletes it as soon as the share sheet or mail composer closes. On a Mac, if you open the form in another app, reveal it in Finder, or send it with Mail or a sharing service, the file is kept briefly because that app is still reading it; it is deleted when you next generate a form (once it is more than 15 minutes old) or the next time the app starts. The file never leaves your device unless you send it, and it is covered by the same at-rest encryption as the rest of the app's data.
 
+## Sending Forms to the Authorities
+
+You send the finished form yourself, from your own mail app or on the airport's own website; FlightForms never sends a form on your behalf and never contacts an airport. Most authorities accept these forms only by email, and ordinary email is not end-to-end encrypted: it is usually encrypted between mail servers, but your mail provider and the recipient's can read the attachment, and it stays in your Sent folder and their inbox. That is how these filings work, not something the app adds, but it is worth knowing that a form, once sent, is outside FlightForms' protection. The recipient authority handles it under its own rules.
+
 ## CLI Tool
 
 The command-line tool sends the same data to the server for form generation. If you use CSV files for crew/passenger data, those files are on your local machine — manage their permissions accordingly. The CLI defaults to `http://localhost` for local development; when pointing at a remote server, always use HTTPS.
@@ -124,6 +128,7 @@ The command-line tool sends the same data to the server for form generation. If 
 | Server processing | In-memory only, no persistence of personal data |
 | Server logs | Usage metrics only, no PII |
 | Temporary files | Deleted when sharing ends (briefly kept on Mac for the receiving app), swept at launch, encrypted at rest |
+| Sending to authorities | By you, from your own mail app or the airport's website; ordinary email, not end-to-end encrypted |
 
 ## Security Issues
 
