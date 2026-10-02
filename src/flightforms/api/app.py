@@ -20,6 +20,7 @@ from ..airport_resolver import AirportResolver
 from ..db.models import AppBase, Usage
 from ..registry import MappingRegistry
 from . import account_export, airports, email_text, generate, prefill, privacy, validate
+from .middleware import BodySizeLimitMiddleware, RedactedErrorMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,12 @@ def create_app() -> FastAPI:
         redoc_url=None,
         lifespan=lifespan,
     )
+
+    # Innermost first (add_middleware wraps outward): the body limit sits
+    # closest to the routes so its 413 is a normal response, and the error
+    # middleware catches whatever the routes raise before Starlette logs it.
+    app.add_middleware(BodySizeLimitMiddleware)
+    app.add_middleware(RedactedErrorMiddleware)
 
     # Security headers middleware
     from starlette.middleware.base import BaseHTTPMiddleware

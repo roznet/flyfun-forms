@@ -8,6 +8,11 @@ Central form-generation service that multiple clients (iOS app, CLI) call. Recei
 
 **Privacy principle:** PII is never stored server-side. No request body logging. The only persistence is usage metrics (which airport, which form, when).
 
+**Keeping request data out of logs and memory** (`api/middleware.py`):
+- `RedactedErrorMiddleware` turns any unhandled exception into a bare 500 and logs only its type, route and stack frames, never the message. Messages routinely quote the failing value (`strptime`, `int()`, `KeyError`), which for this API is passport data.
+- Person `dob`/`id_expiry` are validated in `PersonData` (blank allowed). A malformed one is a 422 to the caller instead of a filler exception.
+- `BodySizeLimitMiddleware` caps bodies at 1 MB (413), counting chunked bodies too, because FastAPI parses the body before auth runs. Caddy enforces the same cap. The container port is published on loopback only.
+
 ## Architecture
 
 ```
