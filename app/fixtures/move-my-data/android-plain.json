@@ -1,0 +1,145 @@
+{
+    "format": "flyfun-forms/data",
+    "version": 1,
+    "exportedAt": "2026-09-20T07:00:00Z",
+    "exportedBy": {
+        "platform": "android",
+        "appVersion": "0.1-fixture"
+    },
+    "people": [
+        {
+            "id": "00000000-0000-4000-8000-00000000a001",
+            "firstName": "Fixture",
+            "lastName": "Pilot-One",
+            "dateOfBirth": "1975-04-12",
+            "sex": "Male",
+            "placeOfBirth": "Fixture Town",
+            "address": "1 Fixture Lane",
+            "phone": "+00 0000 000001",
+            "email": "pilot-one@example.invalid",
+            "isUsualCrew": true,
+            "updatedAt": "2026-09-12T09:01:44.123456Z"
+        },
+        {
+            "id": "00000000-0000-4000-8000-00000000a002",
+            "firstName": "Fixture",
+            "lastName": "Passenger-Two",
+            "dateOfBirth": "1990-12-31",
+            "sex": "Female",
+            "isUsualCrew": false,
+            "updatedAt": "2026-09-01T10:00:00Z"
+        },
+        {
+            "id": "00000000-0000-4000-8000-00000000a003",
+            "firstName": "Fixture",
+            "lastName": "Deleted-Three",
+            "isUsualCrew": false,
+            "updatedAt": "2026-09-15T18:30:00Z",
+            "deletedAt": "2026-09-15T18:30:00Z"
+        }
+    ],
+    "travelDocuments": [
+        {
+            "id": "00000000-0000-4000-8000-00000000d001",
+            "personId": "00000000-0000-4000-8000-00000000a001",
+            "docType": "Passport",
+            "docNumber": "TESTDOC001",
+            "issuingCountry": "FRA",
+            "expiryDate": "2031-06-30",
+            "isActive": true,
+            "updatedAt": "2026-09-12T09:01:44.123456Z"
+        },
+        {
+            "id": "00000000-0000-4000-8000-00000000d002",
+            "personId": "00000000-0000-4000-8000-00000000a002",
+            "docType": "Identity card",
+            "docNumber": "TESTDOC002",
+            "issuingCountry": "GBR",
+            "expiryDate": "2029-01-01",
+            "isActive": false,
+            "updatedAt": "2026-09-01T10:00:00Z"
+        }
+    ],
+    "aircraft": [
+        {
+            "id": "00000000-0000-4000-8000-00000000c001",
+            "registration": "ZZ-FIXT",
+            "type": "FIXT",
+            "owner": "Fixture Owner",
+            "ownerAddress": "1 Fixture Lane",
+            "isAirplane": true,
+            "usualBase": "EGTF",
+            "ownerPersonId": "00000000-0000-4000-8000-00000000a001",
+            "useCompanyOperator": false,
+            "updatedAt": "2026-09-01T10:00:00Z"
+        }
+    ],
+    "trips": [
+        {
+            "id": "00000000-0000-4000-8000-00000000e001",
+            "name": "Fixture trip",
+            "createdAt": "2026-09-01T10:00:00Z",
+            "extraFields": {
+                "fixtureField": "fixture value"
+            },
+            "updatedAt": "2026-09-01T10:00:00Z"
+        }
+    ],
+    "flights": [
+        {
+            "id": "00000000-0000-4000-8000-00000000f001",
+            "originICAO": "EGTF",
+            "destinationICAO": "LFRM",
+            "departureInstant": "2026-09-20T08:15:00Z",
+            "arrivalInstant": "2026-09-20T10:05:00Z",
+            "nature": "private",
+            "observations": "Fixture observation",
+            "aircraftId": "00000000-0000-4000-8000-00000000c001",
+            "responsiblePersonId": "00000000-0000-4000-8000-00000000a001",
+            "tripId": "00000000-0000-4000-8000-00000000e001",
+            "legOrder": 0,
+            "chosenDocNumbers": [
+                "TESTDOC001"
+            ],
+            "updatedAt": "2026-09-12T09:01:44.123456Z"
+        },
+        {
+            "id": "00000000-0000-4000-8000-00000000f002",
+            "originICAO": "LFRM",
+            "destinationICAO": "EGTF",
+            "departureInstant": "2026-09-22T23:30:00Z",
+            "arrivalInstant": "2026-09-23T01:10:00Z",
+            "nature": "private",
+            "aircraftId": "00000000-0000-4000-8000-00000000c001",
+            "tripId": "00000000-0000-4000-8000-00000000e001",
+            "legOrder": 1,
+            "updatedAt": "2026-09-01T10:00:00Z"
+        }
+    ],
+    "flightPeople": [
+        {
+            "flightId": "00000000-0000-4000-8000-00000000f001",
+            "personId": "00000000-0000-4000-8000-00000000a001",
+            "role": "crew",
+            "seatOrder": 0
+        },
+        {
+            "flightId": "00000000-0000-4000-8000-00000000f001",
+            "personId": "00000000-0000-4000-8000-00000000a002",
+            "role": "passenger",
+            "seatOrder": 0
+        },
+        {
+            "flightId": "00000000-0000-4000-8000-00000000f002",
+            "personId": "00000000-0000-4000-8000-00000000a002",
+            "role": "crew",
+            "seatOrder": 0
+        },
+        {
+            "flightId": "00000000-0000-4000-8000-00000000f002",
+            "personId": "00000000-0000-4000-8000-00000000a001",
+            "role": "crew",
+            "seatOrder": 1
+        }
+    ]
+}

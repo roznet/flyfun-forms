@@ -1,0 +1,126 @@
+{
+  "aircraft" : [
+    {
+      "id" : "00000000-0000-4000-8000-00000000c101",
+      "isAirplane" : true,
+      "ownerPersonId" : "00000000-0000-4000-8000-00000000a101",
+      "registration" : "ZZ-IOSF",
+      "type" : "FIXT",
+      "updatedAt" : "1970-01-01T00:00:00Z",
+      "useCompanyOperator" : false
+    }
+  ],
+  "exportedAt" : "2026-09-26T07:00:00Z",
+  "exportedBy" : {
+    "appVersion" : "0.1-fixture",
+    "platform" : "ios"
+  },
+  "flightPeople" : [
+    {
+      "flightId" : "00000000-0000-4000-8000-00000000f101",
+      "personId" : "00000000-0000-4000-8000-00000000a101",
+      "role" : "crew",
+      "seatOrder" : 0
+    },
+    {
+      "flightId" : "00000000-0000-4000-8000-00000000f101",
+      "personId" : "00000000-0000-4000-8000-00000000a102",
+      "role" : "passenger",
+      "seatOrder" : 0
+    }
+  ],
+  "flights" : [
+    {
+      "aircraftId" : "00000000-0000-4000-8000-00000000c101",
+      "arrivalInstant" : "2026-10-01T09:30:00Z",
+      "chosenDocNumbers" : [
+        "TESTDOC101"
+      ],
+      "departureInstant" : "2026-10-01T07:45:00Z",
+      "destinationICAO" : "LFRM",
+      "id" : "00000000-0000-4000-8000-00000000f101",
+      "legOrder" : 0,
+      "nature" : "private",
+      "originICAO" : "EGTF",
+      "responsiblePersonId" : "00000000-0000-4000-8000-00000000a101",
+      "tripId" : "00000000-0000-4000-8000-00000000e101",
+      "updatedAt" : "2026-09-25T12:00:00Z"
+    },
+    {
+      "arrivalInstant" : "2026-09-22T16:00:00Z",
+      "deletedAt" : "2026-09-22T16:00:00Z",
+      "departureInstant" : "2026-09-22T16:00:00Z",
+      "destinationICAO" : "",
+      "id" : "00000000-0000-4000-8000-00000000f199",
+      "legOrder" : 0,
+      "nature" : "private",
+      "originICAO" : "",
+      "updatedAt" : "2026-09-22T16:00:00Z"
+    }
+  ],
+  "format" : "flyfun-forms/data",
+  "people" : [
+    {
+      "address" : "101 Fixture Lane",
+      "dateOfBirth" : "1980-02-29",
+      "email" : "ios-pilot@example.invalid",
+      "firstName" : "Fixture",
+      "id" : "00000000-0000-4000-8000-00000000a101",
+      "isUsualCrew" : true,
+      "lastName" : "Ios-Pilot",
+      "phone" : "+00 0000 000101",
+      "placeOfBirth" : "Fixture Town",
+      "sex" : "Male",
+      "updatedAt" : "2026-09-25T12:00:00.250Z"
+    },
+    {
+      "firstName" : "Fixture",
+      "id" : "00000000-0000-4000-8000-00000000a102",
+      "isUsualCrew" : false,
+      "lastName" : "Ios-Passenger",
+      "sex" : "Female",
+      "updatedAt" : "2026-09-25T12:00:00Z"
+    }
+  ],
+  "travelDocuments" : [
+    {
+      "docNumber" : "TESTDOC101",
+      "docType" : "Passport",
+      "expiryDate" : "2032-03-31",
+      "id" : "00000000-0000-4000-8000-00000000d101",
+      "isActive" : true,
+      "issuingCountry" : "FRA",
+      "personId" : "00000000-0000-4000-8000-00000000a101",
+      "updatedAt" : "2026-09-25T12:00:00Z"
+    },
+    {
+      "deletedAt" : "2026-09-24T08:00:00Z",
+      "docNumber" : "",
+      "docType" : "Passport",
+      "id" : "00000000-0000-4000-8000-00000000d199",
+      "isActive" : true,
+      "personId" : "",
+      "updatedAt" : "2026-09-24T08:00:00Z"
+    }
+  ],
+  "trips" : [
+    {
+      "createdAt" : "2026-09-20T00:00:00Z",
+      "extraFields" : {
+        "fixtureField" : "fixture value"
+      },
+      "id" : "00000000-0000-4000-8000-00000000e101",
+      "name" : "Fixture iOS trip",
+      "updatedAt" : "2026-09-25T12:00:00Z"
+    },
+    {
+      "createdAt" : "2026-09-23T10:00:00Z",
+      "deletedAt" : "2026-09-23T10:00:00Z",
+      "extraFields" : {},
+      "id" : "00000000-0000-4000-8000-00000000e199",
+      "name" : "",
+      "updatedAt" : "2026-09-23T10:00:00Z"
+    }
+  ],
+  "version" : 1
+}

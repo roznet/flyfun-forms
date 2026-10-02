@@ -1,6 +1,6 @@
 # Move My Data: Encrypted Device Transfer + GDPR Export
 
-> **Status: built on Android; iOS not started. Written 2026-09-18, updated 2026-09-30.**
+> **Status: built on Android and iOS/macOS (iOS written 2026-10-02, not yet verified on a device). Server half of the GDPR export (§3) not started. Written 2026-09-18, updated 2026-10-02.**
 >
 > Two user-facing features that share **one serializer**:
 >
@@ -223,6 +223,16 @@ password doesn't match this file", not a parse error or a partial import.
 
 ---
 
+### Cross-platform fixtures
+
+`app/fixtures/move-my-data/` holds one file per platform, each with its
+plaintext: `android-*` written by Android's `MoveMyDataFixturesTest`, `ios-*`
+by the iOS `InterchangeFormatTests` (both writers are gated by
+`WRITE_MOVE_MY_DATA_FIXTURES=1`). Each platform's tests decrypt and decode the
+other's file, so a change to the byte layout, the passphrase rule or the
+record shapes on one side fails the other side's tests. `reference_crypto.py`
+is a third, independent implementation for checking either.
+
 ## 6. Merge semantics
 
 Import **merges**; it never replaces. Match on `id`, then:
@@ -261,6 +271,35 @@ Kotlin port is then mechanical and verifiable — the same pattern that makes th
 existing 1,631 lines of Swift tests so valuable.
 
 ---
+
+### As built on iOS: where it differs from Android
+
+Same rules, same counts in the preview. Differences, all deliberate:
+
+- **Flight membership is replaced wholesale** for every flight the merge
+  writes, empty if the file has no `flightPeople` row for it. Android calls
+  `setPeople` only for the (flight, role) groups present, so a flight whose
+  crew was emptied on the other device keeps its old crew there. Worth fixing
+  on Android.
+- **Resurrection cleans up.** When a newer live record wins over a local
+  `DeletedRecord`, the import deletes that `DeletedRecord`; export also skips
+  any tombstone whose uuid is live, so a file never carries both.
+- **A file tombstone over a local tombstone** (counted as "removed", as on
+  Android) advances the local `deletedAt` rather than adding a second row.
+- **Timestamps are written to the millisecond, truncated** (never rounded up),
+  so re-importing a file into the device that wrote it changes nothing.
+- **An unreadable required value** (an id that is not a UUID, an instant that
+  does not parse) refuses the whole file and rolls back. Android also aborts
+  its transaction on an unparseable instant, but stores any string as an id.
+- **Orphan travel documents** (person deleted, document left behind) are not
+  exported, because `personId` is required. They are part of the local side of
+  the merge, so a file carrying one updates it rather than duplicating it.
+- **Seat order** is the index in `Flight.crew`/`passengers`. SwiftData to-many
+  relationships are unordered underneath (CloudKit has no ordered relations),
+  so that order is only as stable as SwiftData's array is.
+- **UI:** Apple title case for labels ("Move My Data"), `fileExporter` /
+  `fileImporter` on both iOS and macOS, `.ffdata` not registered as a type (the
+  importer accepts any file). Wording otherwise follows `strings_settings.xml`.
 
 ## 7. The stable-ID prerequisite (iOS)
 

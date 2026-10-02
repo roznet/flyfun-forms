@@ -190,6 +190,7 @@ struct SettingsView: View {
     @State private var errorMessage: String?
     @State private var showDeleteAllDataConfirmation = false
     @State private var deleteAllDataError: String?
+    @State private var moveMyData = MoveMyDataFlow()
 
     /// What a pilot shows passengers about their details (GDPR Art. 14): the
     /// passport data reaches the app from the pilot, not from the passenger.
@@ -221,6 +222,8 @@ struct SettingsView: View {
             } footer: {
                 Text("When an airport's local language matches one you speak, emails are written in that language. Otherwise English is used.")
             }
+
+            MoveMyDataSections(flow: moveMyData)
 
             if APIConfig.canToggleServer {
                 Section("Server") {
@@ -315,6 +318,7 @@ struct SettingsView: View {
         .frame(maxWidth: FormLayout.columnMaxWidth, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .navigationTitle("Settings")
+        .moveMyDataPresentation(moveMyData)
         .confirmationDialog(
             "Delete Account",
             isPresented: $showDeleteConfirmation,

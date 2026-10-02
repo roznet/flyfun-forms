@@ -45,7 +45,7 @@ That inverts the two hardest questions. Weather's answer to "does anyone need a 
 | On-device & iCloud storage (the real data store) | ✅ Sound, with two hardening items (§6) |
 | Android client (on-device only) | ✅ No cloud backup or transfer; 🟡 ML Kit sends Google diagnostics (§6a) |
 | Right to erasure (Art. 17) | ✅ Server-side, plus **Delete All Data** on-device (iOS/macOS, Android) |
-| Right to data portability (Art. 20) | 🟡 CSV export of people on device ✅; no server-side account export |
+| Right to data portability (Art. 20) | 🟡 full device export as JSON (iOS, macOS, Android) ✅; no server-side account export |
 | Security of processing (Art. 32) | ✅ Temp-file regression fixed, `/generate` rate-limited; iOS hardening items remain (§6) |
 | Retention / storage limitation (Art. 5(1)(e)) | 🟡 Usage rows never pruned; temp files now deleted (§9) |
 | Data residency (UK, EU-adequate) | ✅ Implemented |
@@ -245,6 +245,13 @@ require us to publish a document.
   Apple even without ADP. *Caveat before doing it:* encrypted CloudKit fields cannot be
   queried or sorted on, and changing the attribute on an existing model is a schema
   migration — worth scoping properly, not a one-liner.
+- **Move My Data (2026-10).** The only way device data leaves the store other than
+  CloudKit and form generation: a user-initiated file (Settings), AES-256-GCM with a
+  PBKDF2-derived key from a passphrase the app suggests and the user may change, never
+  stored. Same format and encryption as Android's, so it also moves data between platforms.
+  The file goes wherever the user saves it; the app offers no per-person export and keeps the
+  feature away from sharing UI, so it reads as moving one's own data, not sending people's
+  passports to someone else (`designs/future/move-my-data.md` §8). Nothing reaches our server.
 - **Hardening item 2 — file protection class.** `SECURITY_AUDIT.md` §19 notes the store
   does not explicitly set `NSFileProtectionComplete`, so data may be readable before first
   unlock after a reboot. Still open.
@@ -258,8 +265,8 @@ iOS — manifest data on the device, the server for filling only — with two di
   `allowBackup="false"`, `fullBackupContent="false"` and `data_extraction_rules.xml`, which
   excludes every domain from both `<cloud-backup>` and `<device-transfer>`; with `minSdk` 33
   the rules always apply. So passport data never reaches the user's Google account. Moving
-  to another device is the user-initiated **move my data** file, encrypted with a generated
-  passphrase; a plain JSON export exists for Art. 20.
+  to another device is the user-initiated **move my data** file, encrypted with a suggested,
+  editable passphrase; a plain JSON export exists for Art. 20.
 - **At rest:** Android file-based encryption (when a screen lock is set). The Room database
   is not additionally encrypted (no SQLCipher). The sign-in token is in
   `EncryptedSharedPreferences` backed by the Keystore.
@@ -306,10 +313,13 @@ iOS — manifest data on the device, the server for filling only — with two di
 
 ### 8. Right to data portability (Art. 20) — 🟡
 
-- **On-device data: ✅.** People can be exported to CSV from the app
-  (`Views/PeopleListView.swift`, "Export to CSV"), which is the bulk of what a user holds and
-  is a genuine machine-readable export. It is also how a pilot would satisfy a passenger's
-  own access request.
+- **On-device data: ✅.** *Settings → Download a Copy of My Data (GDPR)* (iOS/macOS) and
+  *Download a copy of my data* (Android) write everything the app holds (people, travel
+  documents, aircraft, trips, flights and who flew on which) as one plain JSON file in the
+  documented `flyfun-forms/data` format (`designs/future/move-my-data.md` §4), with a warning
+  that it is not encrypted. Same serializer as the encrypted Move My Data file. People can
+  also be exported to CSV (`Views/PeopleListView.swift`, "Export to CSV"), which is how a
+  pilot would most easily satisfy a passenger's own access request.
 - **Server-side data: missing.** There is no forms equivalent of weather's
   `GET /api/account/export`. What we hold is small — email, display name, provider, timestamps
   and a list of `(airport, form, when)` rows — but "small" is not an exemption. A single
