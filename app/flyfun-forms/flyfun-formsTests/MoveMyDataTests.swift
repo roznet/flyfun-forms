@@ -560,7 +560,8 @@ struct DataTransferTests {
 
     @Test("Export maps every field, relationship and tombstone")
     func exportMapping() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let (pilot, flight) = try seed(context)
         let document = try DataTransfer.snapshot(in: context, exportedBy: ExportedBy(platform: "ios", appVersion: "t"))
 
@@ -594,7 +595,8 @@ struct DataTransferTests {
 
     @Test("A record from before stable ids exports with the oldest instant, never now")
     func nilUpdatedAtIsOldest() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let legacy = Person(firstName: "Fixture", lastName: "Legacy")
         context.insert(legacy)
         try context.save()
@@ -608,7 +610,8 @@ struct DataTransferTests {
 
     @Test("Orphan travel documents are left out of the export")
     func orphansSkipped() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         context.insert(TravelDocument(docNumber: "TESTORPHAN"))
         try context.save()
         #expect(try DataTransfer.snapshot(in: context).travelDocuments.isEmpty)
@@ -627,7 +630,8 @@ struct DataTransferTests {
 
     @Test("Imports Android's file with relationships, order and the file's updatedAt")
     func importsAndroidFixture() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let summary = try importFile(try Fixtures.data("android-encrypted.ffdata"),
                                      passphrase: Fixtures.passphrase, into: context)
         // 2 live people, 2 documents, 1 aircraft, 1 trip, 2 flights; the deleted person is not inserted.
@@ -667,7 +671,8 @@ struct DataTransferTests {
 
     @Test("Imports the iOS fixture and keeps its tombstones out of the store")
     func importsIOSFixture() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let summary = try importFile(try Fixtures.data("ios-plain.json"), into: context)
         #expect(summary.removed == 0)
         #expect(try context.fetch(FetchDescriptor<Flight>()).count == 1)
@@ -678,7 +683,8 @@ struct DataTransferTests {
 
     @Test("An update keeps the file's updatedAt rather than being stamped now")
     func updateKeepsFileTimestamp() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let before = Person(firstName: "Fixture", lastName: "Before")
         context.insert(before)
         try context.save()
@@ -699,7 +705,8 @@ struct DataTransferTests {
 
     @Test("A tombstone in the file deletes the record and writes a DeletedRecord")
     func fileTombstoneDeletes() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let doomed = Person(firstName: "Fixture", lastName: "Doomed")
         context.insert(doomed)
         try context.save()
@@ -724,7 +731,8 @@ struct DataTransferTests {
 
     @Test("A record deleted here more recently than the file's edit stays deleted")
     func resurrectionGuard() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let uuid = UUID()
         context.insert(DeletedRecord(uuid: uuid, kind: Person.recordKind, deletedAt: try date(t3)))
         try context.save()
@@ -736,7 +744,8 @@ struct DataTransferTests {
 
     @Test("A record edited elsewhere after it was deleted here comes back, and its tombstone goes")
     func newerEditBeatsOlderTombstone() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let uuid = UUID()
         context.insert(DeletedRecord(uuid: uuid, kind: Person.recordKind, deletedAt: try date(t1)))
         try context.save()
@@ -748,7 +757,8 @@ struct DataTransferTests {
 
     @Test("A reference to a record nowhere to be found becomes nil")
     func danglingReference() throws {
-        let context = try makeTestContainer().mainContext
+        let container = try makeTestContainer()
+        let context = container.mainContext
         let file = InterchangeDocument(exportedAt: t3, aircraft: [
             AircraftRecord(id: UUID().uuidString.lowercased(), registration: "ZZ-DANG",
                            ownerPersonId: UUID().uuidString.lowercased(), updatedAt: t1),
@@ -777,10 +787,12 @@ struct DataTransferTests {
 
     @Test("A wrong passphrase fails cleanly and writes nothing")
     func wrongPassphraseWritesNothing() throws {
-        let source = try makeTestContainer().mainContext
+        let sourceContainer = try makeTestContainer()
+        let source = sourceContainer.mainContext
         try seed(source)
         let file = try DataTransfer.exportEncrypted(in: source, passphrase: "Fixture-right")
-        let target = try makeTestContainer().mainContext
+        let targetContainer = try makeTestContainer()
+        let target = targetContainer.mainContext
         #expect(throws: DataTransfer.Failure.needsPassphrase) {
             try DataTransfer.preview(file, passphrase: nil, in: target)
         }
@@ -792,12 +804,15 @@ struct DataTransferTests {
 
     @Test("End to end: export, import into an empty store, same data; import again, nothing changes")
     func endToEnd() throws {
-        let source = try makeTestContainer().mainContext
+        let sourceContainer = try makeTestContainer()
+        let source = sourceContainer.mainContext
         try seed(source)
         let original = try DataTransfer.snapshot(in: source)
         let file = try DataTransfer.exportEncrypted(in: source, passphrase: "  Fixture-pass ")
 
-        let target = try makeTestContainer().mainContext
+        let targetContainer = try makeTestContainer()
+
+        let target = targetContainer.mainContext
         let first = try importFile(file, passphrase: "Fixture-pass", into: target)
         // 2 people, 2 documents, 1 aircraft, 1 trip, 2 flights; the deleted aircraft is not inserted.
         #expect(first.inserted == 8)
@@ -808,5 +823,100 @@ struct DataTransferTests {
         #expect(again.inserted == 0)
         #expect(again.updated == 0)
         #expect(again.removed == 0)
+    }
+}
+
+// MARK: - Settings flow
+
+/// The presentation sequencing in `MoveMyDataFlow`: each next step waits for
+/// the current sheet or alert to be gone, or SwiftUI drops it.
+@Suite("Move my data: settings flow")
+@MainActor
+struct MoveMyDataFlowTests {
+
+    /// Lets the `DispatchQueue.main.async` hand-offs run.
+    private func nextRunloopTurn() async {
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+    }
+
+    @Test("The import result waits for the preview alert to close, then shows")
+    func importResultWaitsForAlert() async throws {
+        // Held: a context outlives nothing once its container is freed.
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let file = InterchangeDocument(exportedAt: t3, people: [
+            person(UUID().uuidString.lowercased(), "Flowtest", t1),
+        ])
+        let preview = try DataTransfer.preview(try InterchangeMerge.encode(file), passphrase: nil, in: context)
+        let flow = MoveMyDataFlow()
+        flow.notice = .preview(preview)
+
+        flow.confirmImport(preview, in: context)
+        // Still the preview: setting the result now would be wiped by the
+        // closing alert's binding.
+        guard case .preview = flow.notice else { Issue.record("result shown too early"); return }
+
+        flow.alertDismissed()
+        #expect(flow.notice == nil)
+        await nextRunloopTurn()
+        guard case .imported(let summary) = flow.notice else { Issue.record("no result shown"); return }
+        #expect(summary.inserted == 1)
+    }
+
+    @Test("Closing a plain alert shows nothing after it")
+    func plainAlertDismissal() async {
+        let flow = MoveMyDataFlow()
+        flow.notice = .failure("Flowtest")
+        flow.alertDismissed()
+        await nextRunloopTurn()
+        #expect(flow.notice == nil)
+    }
+
+    @Test("The save panel opens only once the passphrase sheet has closed")
+    func exporterWaitsForSheet() throws {
+        // Held: a context outlives nothing once its container is freed.
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let flow = MoveMyDataFlow()
+        flow.startEncryptedExport()
+        #expect(flow.sheet == .exportPassphrase)
+
+        flow.exportEncrypted(in: context)
+        #expect(flow.sheet == nil)
+        #expect(!flow.isExporterPresented)
+
+        flow.sheetDismissed()
+        #expect(flow.isExporterPresented)
+        #expect(flow.exportFile != nil)
+    }
+
+    @Test("Swiping the passphrase sheet away drops the file and passphrase")
+    func swipeDismissClearsPendingImport() async throws {
+        // Held: a context outlives nothing once its container is freed.
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let encrypted = try DataTransfer.exportEncrypted(in: context, passphrase: "Flowtest-pass")
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MoveMyDataFlowTests-\(UUID().uuidString).ffdata")
+        try encrypted.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let flow = MoveMyDataFlow()
+        flow.filePicked(.success([url]), in: context)
+        await nextRunloopTurn()
+        #expect(flow.sheet == .importPassphrase)
+        flow.importPassphrase = "Flowtest-pass"
+
+        // A swipe: the binding clears the sheet, then onDismiss runs.
+        flow.sheet = nil
+        flow.sheetDismissed()
+        #expect(flow.importPassphrase.isEmpty)
+
+        // Nothing is left to open.
+        flow.importPassphrase = "Flowtest-pass"
+        flow.openWithPassphrase(in: context)
+        #expect(flow.notice == nil)
+        flow.sheetDismissed()
+        #expect(flow.notice == nil)
     }
 }

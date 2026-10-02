@@ -47,7 +47,9 @@ enum DataTransfer {
     /// not reachable in the app anyway.
     static func snapshot(
         in context: ModelContext,
-        exportedBy: ExportedBy = DataTransfer.currentExporter,
+        // Optional rather than defaulting to `currentExporter`: a default
+        // argument is evaluated off the main actor, where that property isn't.
+        exportedBy: ExportedBy? = nil,
         now: Date = .now
     ) throws -> InterchangeDocument {
         // No record may lack an id; this is a no-op once launch has run it.
@@ -76,7 +78,7 @@ enum DataTransfer {
 
         return InterchangeDocument(
             exportedAt: InterchangeTime.format(now),
-            exportedBy: exportedBy,
+            exportedBy: exportedBy ?? Self.currentExporter,
             people: people.compactMap { record($0) } + tombstones.records(Person.self, live: people),
             travelDocuments: documents.filter { $0.person?.uuid != nil }.compactMap { record($0) }
                 + tombstones.records(TravelDocument.self, live: documents),
