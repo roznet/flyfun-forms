@@ -10,32 +10,35 @@ Manage the `flightforms` tmux session that runs the FastAPI backend with SSL so 
 
 ## Step 1 — Determine the project root
 
-Figure out the correct project root (`PROJECT_ROOT`):
-- Use the current working directory
-- If we are in a git worktree (no `src/` dir, or `.git` is a file not a directory), the working directory IS the project root for that worktree
+`PROJECT_ROOT=$(git rev-parse --show-toplevel)` — the checkout (or worktree) you're in.
 
 ## Step 2 — Resolve the venv
 
-- If `$PROJECT_ROOT/venv/` exists, use it
-- Otherwise check `$PROJECT_ROOT/../main/venv/` (worktree case sharing main's venv)
-- If neither exists, tell the user and stop
+Each checkout has its own `venv/` (see CLAUDE.md). **Never fall back to another
+checkout's venv** (e.g. `../main/venv`): its editable install would point at that
+checkout, and the server would silently run the wrong code.
 
-Store the resolved path as `VENV_PATH`.
+- If `$PROJECT_ROOT/venv/` exists **and is a real directory of this checkout**, use it.
+  If it is a symlink, or its interpreter lives outside the checkout
+  (`$PROJECT_ROOT/venv/bin/python -c "import sys; print(sys.prefix)"` not under
+  `$PROJECT_ROOT`), it is shared with another checkout: don't use it and don't
+  `pip install` into it — tell the user, and create a real one as below once they
+  agree to remove the link.
+- Otherwise create it and tell the user:
+  ```bash
+  python3 -m venv "$PROJECT_ROOT/venv" && "$PROJECT_ROOT/venv/bin/pip" install -e "$PROJECT_ROOT"
+  ```
 
-### Ensure editable install points to current directory
+Store the path as `VENV_PATH`.
 
-When using a shared venv (especially `../main/venv/`), the package is installed in editable mode and the path may point elsewhere.
+### Ensure the editable install points here
 
-1. Activate the venv and check where the package currently points:
-   ```bash
-   source $VENV_PATH/bin/activate
-   pip show flightforms | grep Location
-   ```
-2. If the Location does **not** match `$PROJECT_ROOT`, re-install:
-   ```bash
-   pip install -e "$PROJECT_ROOT"
-   ```
-3. Tell the user that the editable install was re-pointed to the current directory.
+```bash
+$VENV_PATH/bin/pip show -f flightforms | grep -E "Editable project location|Location"
+```
+
+If the editable location is not `$PROJECT_ROOT` (e.g. the venv was copied or the
+repo moved), re-run `$VENV_PATH/bin/pip install -e "$PROJECT_ROOT"` and tell the user.
 
 ## Step 3 — Check for .env file
 
@@ -49,42 +52,32 @@ When using a shared venv (especially `../main/venv/`), the package is installed 
 
 ## Step 4 — Check for existing tmux session
 
-Run: `tmux has-session -t flightforms 2>/dev/null`
+Run: `tmux has-session -t flightforms 2>/dev/null`. There is one session for the
+whole machine, because the iOS simulator expects port 8443.
 
 If a session exists:
 1. Check what directory it's running in: `tmux display-message -t flightforms -p '#{pane_current_path}'`
-2. Compare that path to `$PROJECT_ROOT`
-3. **If the directory matches**, check if non-Python files have changed since the server started. `uvicorn --reload` only watches `.py` files, so JSON mappings and XLSX templates require a manual restart.
-
-   Get the server start time (the tmux session creation time):
+2. **If it is a different directory** (another checkout), kill it —
+   `tmux kill-session -t flightforms` — tell the user which checkout it was serving,
+   and continue to Step 5.
+3. **If it matches `$PROJECT_ROOT`**, check whether mappings or templates changed
+   since it started. `uvicorn --reload` only watches `.py` files, so JSON mappings and
+   PDF/DOCX/XLSX templates need a restart. The session creation time is the server
+   start time (a restart always recreates the session, below):
    ```bash
-   tmux display-message -t flightforms -p '#{session_created}'
-   ```
-   Then check if any mapping or template files are newer:
-   ```bash
+   created=$(tmux display-message -t flightforms -p '#{session_created}')
+   ref=$(mktemp)
+   touch -t "$(date -r "$created" +%Y%m%d%H%M.%S)" "$ref"
    find "$PROJECT_ROOT/src/flightforms/mappings" "$PROJECT_ROOT/src/flightforms/templates" \
-     -type f \( -name "*.json" -o -name "*.xlsx" \) \
-     -newer <(ls -la --time-style=+%s) 2>/dev/null
+     -type f -newer "$ref"
    ```
-   Or more reliably, use `stat` to compare modification times of those files against the session creation timestamp.
-
-   - **If no non-Python files changed**, tell the user:
+   - **Nothing listed** → tell the user:
      > Dev server already running at https://localhost.ro-z.me:8443 — attach with `tmux attach -t flightforms`
+
      Then stop (no restart needed).
-
-   - **If JSON/XLSX files changed since the server started**, restart the server:
-     ```bash
-     tmux send-keys -t flightforms C-c
-     sleep 1
-     ```
-     Then continue to Step 6 to start fresh in the existing session (skip creating a new tmux session — just send the uvicorn command to the existing pane).
-     Tell the user: "Restarted dev server — JSON mappings/templates changed since last start."
-
-4. **If the directory does NOT match** (e.g., switched worktrees), kill the session:
-   ```
-   tmux kill-session -t flightforms
-   ```
-   Then continue to Step 5 to create a fresh one.
+   - **Files listed** → `tmux kill-session -t flightforms`, continue to Step 5, and
+     tell the user: "Restarted dev server — mappings/templates changed since last
+     start: <files>."
 
 ## Step 5 — Verify SSL certificates
 
