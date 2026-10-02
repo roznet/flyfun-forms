@@ -83,6 +83,7 @@ Pilots can share a short version of this with their passengers from the app's *S
 
 - **Delete Account** (Settings) permanently deletes your FlightForms account and your usage records from our server. It does **not** delete the people, aircraft, flights and trips in the app, because those were never on our server.
 - **Without the app** — if you no longer have the app, email [privacy@flyfun.aero](mailto:privacy@flyfun.aero) from the address you sign in with and ask for your FlightForms account to be deleted. It is deleted as **Delete Account** would, and you get a reply once it is done. The account is shared with [FlyFun Weather](https://weather.flyfun.aero), so this also ends your FlyFun Weather sign-in.
+- **Deleting a person** deletes their travel documents with them. On iPhone, iPad and Mac this also removes them from your iCloud.
 - **Delete All Data** (Settings) deletes every person, travel document, aircraft, flight and trip from the app. On iPhone, iPad and Mac this also removes them from your iCloud, and so from all your devices signed in to the same Apple ID. It does not affect your account.
 - A small record of form costs is kept for accounting after an account is deleted. It is keyed by a random identifier that no longer maps to anyone once the account is gone.
 

@@ -94,6 +94,10 @@ class DataTransfer(private val db: FlyFunDatabase) {
         (summary.travelDocuments.insert + summary.travelDocuments.update)
             .forEach { documents.upsert(it.toEntity()) }
         summary.travelDocuments.remove.forEach { documents.softDelete(it.id, Instant.parse(it.deletedAt)) }
+        // A deleted person's documents go with them, as when deleted here,
+        // whether or not the file carries their own tombstones. After the
+        // upserts, so a file from before #44 listing them live can't revive them.
+        summary.people.remove.forEach { people.softDeleteDocumentsOf(it.id, Instant.parse(it.deletedAt)) }
 
         (summary.flights.insert + summary.flights.update).forEach { flights.upsert(it.toEntity()) }
         summary.flights.remove.forEach { flights.softDelete(it.id, Instant.parse(it.deletedAt)) }

@@ -288,9 +288,14 @@ nobody for a role. Differences, all deliberate:
 - **An unreadable required value** (an id that is not a UUID, an instant that
   does not parse) refuses the whole file and rolls back. Android also aborts
   its transaction on an unparseable instant, but stores any string as an id.
-- **Orphan travel documents** (person deleted, document left behind) are not
-  exported, because `personId` is required. They are part of the local side of
-  the merge, so a file carrying one updates it rather than duplicating it.
+- **Orphan travel documents** (person deleted, document left behind by a
+  build before #44) are not exported, because `personId` is required. They are
+  part of the local side of the merge, so a file carrying one updates it rather
+  than duplicating it. Since #44 none are created: deleting a person deletes
+  and tombstones their documents on both platforms (Android soft-deletes them
+  at the person's `deletedAt`, and undo restores those), an import does the
+  same for a person the file deletes, and iOS deletes leftover orphans at
+  launch (see `ios-app.md`), so their tombstones do travel.
 - **Seat order** is the index in `Flight.crew`/`passengers`. SwiftData to-many
   relationships are unordered underneath (CloudKit has no ordered relations),
   so that order is only as stable as SwiftData's array is.

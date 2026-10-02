@@ -72,6 +72,39 @@ interface PersonDao {
     @Query("UPDATE person SET deletedAt = NULL, updatedAt = :at WHERE id = :id")
     suspend fun restore(id: String, at: Instant = Instant.now())
 
+    /**
+     * Tombstone a person and their live travel documents, at the same instant.
+     * A soft delete never fires the foreign key's CASCADE, so without this the
+     * documents stay live under a deleted person and keep travelling in every
+     * export as passport data nobody can see (#44).
+     */
+    @Transaction
+    suspend fun softDeleteWithDocuments(id: String, at: Instant = Instant.now()) {
+        softDelete(id, at)
+        softDeleteDocumentsOf(id, at)
+    }
+
+    /**
+     * Undo a [softDeleteWithDocuments]: the person, and the documents deleted
+     * with them - those sharing their `deletedAt` - but not one deleted on its
+     * own before.
+     */
+    @Transaction
+    suspend fun restoreWithDocuments(id: String, at: Instant = Instant.now()) {
+        val deletedAt = deletedAtOf(id) ?: return
+        restoreDocumentsOf(id, deletedAt, at)
+        restore(id, at)
+    }
+
+    @Query("SELECT deletedAt FROM person WHERE id = :id")
+    suspend fun deletedAtOf(id: String): Instant?
+
+    @Query("UPDATE travel_document SET deletedAt = :at, updatedAt = :at WHERE personId = :personId AND deletedAt IS NULL")
+    suspend fun softDeleteDocumentsOf(personId: String, at: Instant)
+
+    @Query("UPDATE travel_document SET deletedAt = NULL, updatedAt = :at WHERE personId = :personId AND deletedAt = :deletedAt")
+    suspend fun restoreDocumentsOf(personId: String, deletedAt: Instant, at: Instant)
+
     @Delete
     suspend fun hardDelete(person: PersonEntity)
 }

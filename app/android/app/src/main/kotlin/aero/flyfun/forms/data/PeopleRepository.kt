@@ -55,9 +55,9 @@ class RoomPeopleRepository(
     override suspend fun saveDocument(document: TravelDocumentEntity) =
         documents.upsert(document.copy(updatedAt = Instant.now()))
 
-    override suspend fun deletePerson(id: String) = people.softDelete(id, Instant.now())
+    override suspend fun deletePerson(id: String) = people.softDeleteWithDocuments(id, Instant.now())
 
-    override suspend fun restorePerson(id: String) = people.restore(id, Instant.now())
+    override suspend fun restorePerson(id: String) = people.restoreWithDocuments(id, Instant.now())
 
     override suspend fun deleteDocument(id: String) = documents.softDelete(id, Instant.now())
 

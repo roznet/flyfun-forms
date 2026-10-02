@@ -32,7 +32,23 @@ extension ModelContext {
     ///
     /// Every user-initiated delete goes through here. "Delete all data" does
     /// not: erasing this device must not erase another one through a file.
+    ///
+    /// A person takes their travel documents with them, each with its own
+    /// tombstone. Not a `.cascade` delete rule: a cascade would delete the
+    /// documents without passing through here, so they would get no
+    /// tombstone, and it would be a CloudKit schema change. See
+    /// designs/ios-app.md.
     func deleteRecordingTombstone<T: StableRecord>(_ record: T, at date: Date = .now) {
+        if let person = record as? Person {
+            // One already deleted in this unsaved context keeps its first
+            // tombstone. `deletedModelsArray` as well as `isDeleted`, which
+            // has not always been set before the save.
+            let pending = Set(deletedModelsArray.map { $0.persistentModelID })
+            for document in person.documentList
+            where !document.isDeleted && !pending.contains(document.persistentModelID) {
+                deleteRecordingTombstone(document, at: date)
+            }
+        }
         // A record without a uuid was never exportable, so no other device can
         // know it and there is nothing to propagate.
         if let uuid = record.uuid {
@@ -67,6 +83,81 @@ enum StableRecords {
             try UpdateStamper.withoutStamping { try context.save() }
         }
         return assigned
+    }
+
+    // MARK: - Orphan documents
+
+    /// How long a travel document must have had no person, as seen on this
+    /// device, and gone unedited, before the launch cleanup deletes it.
+    static let orphanMargin: TimeInterval = 24 * 60 * 60
+
+    /// Deletes travel documents left without a person, with a tombstone each.
+    ///
+    /// Builds before #44 deleted a person and left their documents behind,
+    /// and a device still on such a build keeps doing it until it updates, so
+    /// this runs every launch; the steady state finds nothing and saves
+    /// nothing.
+    ///
+    /// A document can also look orphaned only because CloudKit delivered it
+    /// before its person, typically on a fresh device. Deleting it then would
+    /// sync the deletion back and lose the passport everywhere, so a document
+    /// goes only once it has been seen without a person, on this device, for
+    /// `orphanMargin` (`firstSeen`, kept by the caller between launches), and
+    /// has not been edited within that margin either. `updatedAt` alone is not
+    /// enough: every document from before stable ids has none.
+    ///
+    /// `firstSeen` comes back holding only the documents still orphaned and
+    /// kept. Returns how many documents it deleted.
+    @discardableResult
+    static func deleteOrphanDocuments(
+        in context: ModelContext,
+        firstSeen: inout [UUID: Date],
+        now: Date = .now
+    ) throws -> Int {
+        let cutoff = now.addingTimeInterval(-orphanMargin)
+        var stillOrphaned: [UUID: Date] = [:]
+        var deleted = 0
+        for document in try context.fetch(FetchDescriptor<TravelDocument>()) where document.person == nil {
+            // No uuid yet: the backfill gives it one, and the next launch can track it.
+            guard let uuid = document.uuid else { continue }
+            let seen = firstSeen[uuid] ?? now
+            let unedited = (document.updatedAt ?? .distantPast) <= cutoff
+            if seen <= cutoff && unedited {
+                context.deleteRecordingTombstone(document, at: now)
+                deleted += 1
+            } else {
+                stillOrphaned[uuid] = seen
+            }
+        }
+        firstSeen = stillOrphaned
+        // A cleanup, not an edit; see `backfill`.
+        if deleted > 0 {
+            try UpdateStamper.withoutStamping { try context.save() }
+        }
+        return deleted
+    }
+
+    private static let orphanFirstSeenKey = "orphanDocumentsFirstSeen"
+
+    /// The launch step: `deleteOrphanDocuments` with `firstSeen` kept in
+    /// `defaults`. Local to this device on purpose: the point is how long
+    /// *this* store has seen the document without its person.
+    static func deleteOrphanDocuments(in context: ModelContext, defaults: UserDefaults) throws {
+        let stored = defaults.dictionary(forKey: orphanFirstSeenKey) as? [String: Date] ?? [:]
+        var firstSeen: [UUID: Date] = [:]
+        for (key, date) in stored {
+            if let uuid = UUID(uuidString: key) { firstSeen[uuid] = date }
+        }
+        defer {
+            if firstSeen.isEmpty {
+                defaults.removeObject(forKey: orphanFirstSeenKey)
+            } else {
+                var updated: [String: Date] = [:]
+                for (uuid, date) in firstSeen { updated[uuid.uuidString] = date }
+                defaults.set(updated, forKey: orphanFirstSeenKey)
+            }
+        }
+        try deleteOrphanDocuments(in: context, firstSeen: &firstSeen)
     }
 
     private static func backfill<T: StableRecord>(_ type: T.Type, in context: ModelContext) throws -> Int {

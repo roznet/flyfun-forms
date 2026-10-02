@@ -170,6 +170,35 @@ class FlyFunDatabaseTest {
     }
 
     @Test
+    fun soft_deleting_a_person_tombstones_their_documents_and_undo_restores_them() = runTest {
+        // A soft delete never fires the CASCADE above (#44).
+        val p = person("Zz", "Testperson")
+        val passport = TravelDocumentEntity(personId = p.id, docNumber = "TEST-PASSPORT")
+        val oldCard = TravelDocumentEntity(personId = p.id, docType = "ID card", docNumber = "TEST-OLD-CARD")
+        docs.upsert(passport)
+        docs.upsert(oldCard)
+        val cardDeleted = Instant.parse("2026-09-19T11:00:00Z")
+        val deleted = Instant.parse("2026-09-19T12:00:00Z")
+        val undone = Instant.parse("2026-09-19T12:00:05Z")
+        docs.softDelete(oldCard.id, cardDeleted)
+
+        people.softDeleteWithDocuments(p.id, deleted)
+
+        assertTrue(docs.forPerson(p.id).isEmpty())
+        val tombstoned = docs.allIncludingDeleted().single { it.id == passport.id }
+        assertEquals(deleted, tombstoned.deletedAt)
+        assertEquals(deleted, tombstoned.updatedAt)
+        assertEquals(cardDeleted, docs.allIncludingDeleted().single { it.id == oldCard.id }.deletedAt)
+
+        people.restoreWithDocuments(p.id, undone)
+
+        // Back with the person, but not the card deleted on its own before.
+        assertEquals(listOf(passport.id), docs.forPerson(p.id).map { it.id })
+        assertEquals(undone, docs.forPerson(p.id).single().updatedAt)
+        assertNull(people.byId(p.id)!!.person.deletedAt)
+    }
+
+    @Test
     fun deleting_an_aircraft_nulls_the_flight_link_instead_of_removing_the_flight() = runTest {
         val ac = AircraftEntity(registration = "G-ZZZZ").also { aircraft.upsert(it) }
         val f = FlightEntity(departureInstant = dep, arrivalInstant = arr, aircraftId = ac.id)

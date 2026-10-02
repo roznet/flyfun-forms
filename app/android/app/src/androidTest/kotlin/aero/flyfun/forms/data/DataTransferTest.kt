@@ -174,6 +174,44 @@ class DataTransferTest {
     }
 
     @Test
+    fun a_persons_documents_are_deleted_with_them_through_the_file() = runTest {
+        val (personId, _, _) = populate(source)
+        val incoming = DataTransfer(target)
+        DataTransfer(source).exportPlain("test").toByteArray().let { first ->
+            incoming.preview(first, null).let { incoming.apply(it.second) }
+        }
+        assertEquals(1, target.travelDocumentDao().forPerson(personId).size)
+
+        RoomPeopleRepository(source.personDao(), source.travelDocumentDao()).deletePerson(personId)
+        val second = DataTransfer(source).exportPlain("test")
+        val (document, summary) = incoming.preview(second.toByteArray(), null)
+        // The document's tombstone travels in the file, not a live passport.
+        assertTrue(document.travelDocuments.all { it.deletedAt != null })
+        incoming.apply(summary)
+
+        assertTrue(target.travelDocumentDao().forPerson(personId).isEmpty())
+        assertTrue(target.travelDocumentDao().allIncludingDeleted().all { it.deletedAt != null })
+    }
+
+    @Test
+    fun a_file_listing_a_deleted_persons_documents_live_still_deletes_them() = runTest {
+        // What an export from before #44 looks like: only the person tombstoned.
+        val (personId, _, _) = populate(source)
+        val incoming = DataTransfer(target)
+        DataTransfer(source).exportPlain("test").toByteArray().let { first ->
+            incoming.preview(first, null).let { incoming.apply(it.second) }
+        }
+
+        source.personDao().softDelete(personId, Instant.now())
+        val second = DataTransfer(source).exportPlain("test").toByteArray()
+        incoming.preview(second, null).let { incoming.apply(it.second) }
+
+        assertTrue(target.travelDocumentDao().forPerson(personId).isEmpty())
+        val tombstone = target.travelDocumentDao().allIncludingDeleted().single()
+        assertEquals(target.personDao().byId(personId)!!.person.deletedAt, tombstone.deletedAt)
+    }
+
+    @Test
     fun the_wrong_password_fails_before_anything_is_written() = runTest {
         populate(source)
         val bytes = DataTransfer(source).exportEncrypted("test", "correct-horse-battery-staple".toCharArray())
