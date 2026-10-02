@@ -58,11 +58,12 @@ struct flyfun_formsApp: App {
             }
             .environment(appState)
             // One task, in order: the documents migrateDocuments creates need a
-            // uuid from backfillStableIDs.
+            // uuid from backfillStableIDs, and so does an orphan's tombstone.
             .task {
                 migrateDocuments()
                 backfillScheduleInstants()
                 backfillStableIDs()
+                deleteOrphanDocuments()
             }
             .task { await preloadAirportData() }
         }
@@ -164,5 +165,11 @@ struct flyfun_formsApp: App {
     /// Every record gets a stable `uuid` for move-my-data; see `StableRecords.backfill`.
     private func backfillStableIDs() {
         try? StableRecords.backfill(in: sharedModelContainer.mainContext)
+    }
+
+    /// Travel documents left behind by deleting their person on an older
+    /// build; see `StableRecords.deleteOrphanDocuments`.
+    private func deleteOrphanDocuments() {
+        try? StableRecords.deleteOrphanDocuments(in: sharedModelContainer.mainContext, defaults: .standard)
     }
 }

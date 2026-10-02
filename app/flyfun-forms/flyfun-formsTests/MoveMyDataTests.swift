@@ -729,6 +729,104 @@ struct DataTransferTests {
         #expect(try DataTransfer.snapshot(in: context).people.map(\.deletedAt) == [t2])
     }
 
+    /// A person with one passport, both last edited at `t1`.
+    private func seedPersonWithPassport(_ context: ModelContext) throws -> (person: UUID, passport: UUID) {
+        let person = Person(firstName: "Fixture", lastName: "Doomed")
+        let passport = TravelDocument(docNumber: "TESTDOOMED1")
+        context.insert(person)
+        context.insert(passport)
+        passport.person = person
+        try context.save()
+        try UpdateStamper.withoutStamping {
+            person.updatedAt = try date(t1)
+            passport.updatedAt = try date(t1)
+            try context.save()
+        }
+        return (try #require(person.uuid), try #require(passport.uuid))
+    }
+
+    @Test("A person tombstone in the file deletes their documents too, each with a tombstone")
+    func filePersonTombstoneTakesDocuments() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let ids = try seedPersonWithPassport(context)
+        let file = InterchangeDocument(exportedAt: t3, people: [
+            person(ids.person.uuidString.lowercased(), "Fixture", t2, deleted: t2),
+        ])
+        _ = try importFile(try InterchangeMerge.encode(file), into: context)
+
+        let fresh = ModelContext(container)
+        #expect(try fresh.fetchCount(FetchDescriptor<TravelDocument>()) == 0)
+        let tombstones = try fresh.fetch(FetchDescriptor<DeletedRecord>())
+        #expect(tombstones.count == 2)
+        let documentTombstone = try #require(tombstones.first { $0.kind == TravelDocument.recordKind })
+        #expect(documentTombstone.uuid == ids.passport)
+        #expect(documentTombstone.deletedAt == (try date(t2)))
+        // and the document's deletion travels on too
+        #expect(try DataTransfer.snapshot(in: context).travelDocuments.map(\.deletedAt) == [t2])
+    }
+
+    @Test("A file carrying the document's own tombstone too ends the same, with one tombstone for it")
+    func filePersonAndDocumentTombstones() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let ids = try seedPersonWithPassport(context)
+        let file = InterchangeDocument(
+            exportedAt: t3,
+            people: [person(ids.person.uuidString.lowercased(), "Fixture", t2, deleted: t2)],
+            travelDocuments: [TravelDocument.tombstone(id: ids.passport.uuidString.lowercased(), deletedAt: t2)]
+        )
+        _ = try importFile(try InterchangeMerge.encode(file), into: context)
+
+        let fresh = ModelContext(container)
+        #expect(try fresh.fetchCount(FetchDescriptor<TravelDocument>()) == 0)
+        #expect(try fresh.fetchCount(FetchDescriptor<Person>()) == 0)
+        let tombstones = try fresh.fetch(FetchDescriptor<DeletedRecord>())
+        #expect(tombstones.filter { $0.uuid == ids.passport }.count == 1)
+        #expect(tombstones.count == 2)
+    }
+
+    @Test("A document the file still lists live under a deleted person goes with them, not orphaned")
+    func liveDocumentUnderDeletedPerson() throws {
+        // What Android wrote before #44: the person soft-deleted, their
+        // documents left live.
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let ids = try seedPersonWithPassport(context)
+        let personId = ids.person.uuidString.lowercased()
+        let laterDocumentId = UUID().uuidString.lowercased()
+        let file = InterchangeDocument(
+            exportedAt: t3,
+            people: [person(personId, "Fixture", t2, deleted: t2)],
+            travelDocuments: [
+                TravelDocumentRecord(id: ids.passport.uuidString.lowercased(), personId: personId,
+                                     docNumber: "TESTDOOMED1", updatedAt: t1),
+                TravelDocumentRecord(id: laterDocumentId, personId: personId,
+                                     docNumber: "TESTDOOMED2", updatedAt: t1),
+            ]
+        )
+        _ = try importFile(try InterchangeMerge.encode(file), into: context)
+
+        let fresh = ModelContext(container)
+        #expect(try fresh.fetchCount(FetchDescriptor<TravelDocument>()) == 0)
+        let documentTombstones = try fresh.fetch(FetchDescriptor<DeletedRecord>())
+            .filter { $0.kind == TravelDocument.recordKind }
+        #expect(Set(documentTombstones.compactMap(\.uuid))
+            == [ids.passport, try #require(UUID(uuidString: laterDocumentId))])
+    }
+
+    @Test("A document whose person is nowhere to be found is not imported")
+    func documentWithoutPersonSkipped() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let file = InterchangeDocument(exportedAt: t3, travelDocuments: [
+            TravelDocumentRecord(id: UUID().uuidString.lowercased(), personId: UUID().uuidString.lowercased(),
+                                 docNumber: "TESTNOBODY", updatedAt: t1),
+        ])
+        _ = try importFile(try InterchangeMerge.encode(file), into: context)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<TravelDocument>()) == 0)
+    }
+
     @Test("A record deleted here more recently than the file's edit stays deleted")
     func resurrectionGuard() throws {
         let container = try makeTestContainer()

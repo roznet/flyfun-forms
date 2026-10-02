@@ -183,6 +183,182 @@ struct StableRecordsTests {
         #expect(try stored(Flight.self, in: container).isEmpty)
     }
 
+    @Test("Deleting a person deletes their documents, one tombstone each plus the person's")
+    func deletePersonTakesDocuments() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let person = Person(firstName: "Zed", lastName: "Zztest")
+        let passport = TravelDocument(docNumber: "ZZ0000001")
+        let idCard = TravelDocument(docType: "Identity card", docNumber: "ZZ0000002")
+        let someoneElses = TravelDocument(docNumber: "ZZ0000003")
+        let other = Person(firstName: "Ann", lastName: "Zzsample")
+        [person, other].forEach(context.insert)
+        [passport, idCard, someoneElses].forEach(context.insert)
+        passport.person = person
+        idCard.person = person
+        someoneElses.person = other
+        try context.save()
+
+        let deletedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        context.deleteRecordingTombstone(person, at: deletedAt)
+        try context.save()
+
+        let tombstones = try ModelContext(container).fetch(FetchDescriptor<DeletedRecord>())
+        #expect(tombstones.count == 3)
+        #expect(Set(tombstones.compactMap(\.uuid)) == Set([person.uuid, passport.uuid, idCard.uuid].compactMap { $0 }))
+        #expect(tombstones.filter { $0.kind == "travelDocument" }.count == 2)
+        #expect(tombstones.allSatisfy { $0.deletedAt == deletedAt })
+        #expect(try stored(TravelDocument.self, in: container).map(\.docNumber) == ["ZZ0000003"])
+        #expect(try stored(Person.self, in: container).map(\.lastName) == ["Zzsample"])
+    }
+
+    @Test("A document deleted just before its person gets one tombstone, not two")
+    func deleteDocumentThenPerson() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let person = Person(firstName: "Zed", lastName: "Zztest")
+        let passport = TravelDocument(docNumber: "ZZ0000001")
+        context.insert(person)
+        context.insert(passport)
+        passport.person = person
+        try context.save()
+
+        context.deleteRecordingTombstone(passport)
+        context.deleteRecordingTombstone(person)
+        try context.save()
+
+        let tombstones = try ModelContext(container).fetch(FetchDescriptor<DeletedRecord>())
+        #expect(tombstones.filter { $0.uuid == passport.uuid }.count == 1)
+        #expect(tombstones.count == 2)
+    }
+
+    // MARK: - Orphan documents
+
+    @Test("Orphan cleanup deletes only an orphan seen long enough ago and unedited, with a tombstone")
+    func orphanCleanup() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let now = Date(timeIntervalSinceNow: 30 * 24 * 60 * 60)
+        let longAgo = now.addingTimeInterval(-2 * StableRecords.orphanMargin)
+
+        let old = TravelDocument(docNumber: "ZZORPHANOLD")
+        let edited = TravelDocument(docNumber: "ZZORPHANEDITED")
+        let new = TravelDocument(docNumber: "ZZORPHANNEW")
+        let held = TravelDocument(docNumber: "ZZHELD")
+        let person = Person(firstName: "Zed", lastName: "Zztest")
+        context.insert(person)
+        [old, edited, new, held].forEach(context.insert)
+        held.person = person
+        try context.save()
+        // Edited within the margin, as an older build still syncing it would.
+        try UpdateStamper.withoutStamping {
+            edited.updatedAt = now.addingTimeInterval(-60 * 60)
+            old.updatedAt = nil
+            try context.save()
+        }
+
+        let oldId = try #require(old.uuid)
+        let editedId = try #require(edited.uuid)
+        let newId = try #require(new.uuid)
+        let heldId = try #require(held.uuid)
+        var firstSeen: [UUID: Date] = [
+            oldId: longAgo,
+            editedId: longAgo,
+            heldId: longAgo,  // has a person again: forgotten
+        ]
+        let deleted1 = try StableRecords.deleteOrphanDocuments(in: context, firstSeen: &firstSeen, now: now)
+        #expect(deleted1 == 1)
+
+        #expect(Set(try stored(TravelDocument.self, in: container).map(\.docNumber))
+            == ["ZZORPHANEDITED", "ZZORPHANNEW", "ZZHELD"])
+        let tombstones = try ModelContext(container).fetch(FetchDescriptor<DeletedRecord>())
+        #expect(tombstones.compactMap(\.uuid) == [oldId])
+        #expect(tombstones.first?.kind == "travelDocument")
+        #expect(tombstones.first?.deletedAt == now)
+        // The new orphan starts its clock now; the edited one keeps its own.
+        #expect(firstSeen == [editedId: longAgo, newId: now])
+        // A cleanup is not an edit.
+        #expect(try stored(TravelDocument.self, in: container).first { $0.docNumber == "ZZORPHANEDITED" }?.updatedAt
+            == now.addingTimeInterval(-60 * 60))
+    }
+
+    @Test("An orphan seen for the first time is kept, however old, in case its person is still syncing")
+    func orphanFirstSeenKept() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let orphan = TravelDocument(docNumber: "ZZORPHAN")
+        context.insert(orphan)
+        try context.save()
+        try UpdateStamper.withoutStamping {
+            orphan.updatedAt = nil
+            try context.save()
+        }
+
+        let uuid = try #require(orphan.uuid)
+        var firstSeen: [UUID: Date] = [:]
+        let now = Date.now
+        let deleted2 = try StableRecords.deleteOrphanDocuments(in: context, firstSeen: &firstSeen, now: now)
+        #expect(deleted2 == 0)
+        #expect(firstSeen == [uuid: now])
+        #expect(try context.fetchCount(FetchDescriptor<TravelDocument>()) == 1)
+
+        // A day later, still without a person: now it goes.
+        let later = now.addingTimeInterval(StableRecords.orphanMargin + 1)
+        let deleted3 = try StableRecords.deleteOrphanDocuments(in: context, firstSeen: &firstSeen, now: later)
+        #expect(deleted3 == 1)
+        #expect(firstSeen.isEmpty)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<TravelDocument>()) == 0)
+    }
+
+    @Test("Orphan cleanup with nothing to do changes and saves nothing")
+    func orphanCleanupNoOp() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let person = Person(firstName: "Zed", lastName: "Zztest")
+        let passport = TravelDocument(docNumber: "ZZ0000001")
+        context.insert(person)
+        context.insert(passport)
+        passport.person = person
+        try context.save()
+        let before = try #require(try stored(TravelDocument.self, in: container).first?.updatedAt)
+
+        var firstSeen: [UUID: Date] = [:]
+        let later = Date.now.addingTimeInterval(30 * 24 * 60 * 60)
+        let deleted4 = try StableRecords.deleteOrphanDocuments(in: context, firstSeen: &firstSeen, now: later)
+        #expect(deleted4 == 0)
+        #expect(!context.hasChanges)
+        #expect(firstSeen.isEmpty)
+        #expect(try context.fetchCount(FetchDescriptor<DeletedRecord>()) == 0)
+        #expect(try stored(TravelDocument.self, in: container).first?.updatedAt == before)
+    }
+
+    @Test("The launch step keeps first sightings between launches in UserDefaults")
+    func orphanCleanupDefaults() throws {
+        let container = try makeTestContainer()
+        let context = container.mainContext
+        let suite = "StableRecordsTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let orphan = TravelDocument(docNumber: "ZZORPHAN")
+        context.insert(orphan)
+        try context.save()
+        let uuid = try #require(orphan.uuid)
+
+        try StableRecords.deleteOrphanDocuments(in: context, defaults: defaults)
+        let kept = try #require(defaults.dictionary(forKey: "orphanDocumentsFirstSeen") as? [String: Date])
+        #expect(kept.keys.compactMap { UUID(uuidString: $0) } == [uuid])
+        #expect(try context.fetchCount(FetchDescriptor<TravelDocument>()) == 1)
+
+        // Once it has a person again, it is forgotten.
+        let person = Person(firstName: "Zed", lastName: "Zztest")
+        context.insert(person)
+        orphan.person = person
+        try context.save()
+        try StableRecords.deleteOrphanDocuments(in: context, defaults: defaults)
+        #expect(defaults.object(forKey: "orphanDocumentsFirstSeen") == nil)
+    }
+
     @Test("A record that never had a uuid leaves no tombstone")
     func noUUIDNoTombstone() throws {
         let container = try makeTestContainer()

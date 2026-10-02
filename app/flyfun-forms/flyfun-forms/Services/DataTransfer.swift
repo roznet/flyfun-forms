@@ -43,8 +43,10 @@ enum DataTransfer {
     /// Everything this device holds, tombstones included, in file shape.
     ///
     /// Travel documents without a person are left out: the format requires a
-    /// `personId`, and such a document (left behind by deleting its person) is
-    /// not reachable in the app anyway.
+    /// `personId`, and such a document (left behind by deleting its person on
+    /// a build before #44) is not reachable in the app. The launch cleanup,
+    /// `StableRecords.deleteOrphanDocuments`, deletes them with a tombstone,
+    /// which does travel.
     static func snapshot(
         in context: ModelContext,
         // Optional rather than defaulting to `currentExporter`: a default
@@ -312,7 +314,10 @@ private struct Applier {
         var tombstones = try context.fetch(FetchDescriptor<DeletedRecord>())
 
         // Parents before children, so references resolve to records this
-        // import has just written: people, aircraft, trips, documents, flights.
+        // import has just written: people, documents, aircraft, trips,
+        // flights. People the file deleted go only after the documents, so a
+        // document the file still carries for one is linked to them first,
+        // and goes with them.
         var people = try index(Person.self)
         for record in summary.people.insert + summary.people.update {
             let person = try upsert(record, in: &people, tombstones: &tombstones) { Person() }
@@ -326,7 +331,24 @@ private struct Applier {
             person.email = record.email
             person.isUsualCrew = record.isUsualCrew
         }
-        try remove(summary.people.remove, from: &people, tombstones: &tombstones)
+
+        var documents = try index(TravelDocument.self)
+        for record in summary.travelDocuments.insert + summary.travelDocuments.update {
+            // Never write a passport nobody holds: one whose person is neither
+            // here nor in the file (deleted, or a file from Android before
+            // #44 listing a deleted person's documents live) is skipped, and
+            // a copy already here is left as it is.
+            guard let holder = lookup(record.personId, in: people) else { continue }
+            let document = try upsert(record, in: &documents, tombstones: &tombstones) { TravelDocument() }
+            document.docType = record.docType
+            document.docNumber = record.docNumber
+            document.issuingCountry = record.issuingCountry
+            document.expiryDate = record.expiryDate.flatMap { InterchangeDay.parse($0) }
+            document.isActive = record.isActive
+            document.person = holder
+        }
+        try remove(summary.travelDocuments.remove, from: &documents, tombstones: &tombstones)
+        try removePeople(summary.people.remove, from: &people, documents: &documents, tombstones: &tombstones)
 
         var aircraft = try index(Aircraft.self)
         for record in summary.aircraft.insert + summary.aircraft.update {
@@ -355,18 +377,6 @@ private struct Applier {
             }
         }
         try remove(summary.trips.remove, from: &trips, tombstones: &tombstones)
-
-        var documents = try index(TravelDocument.self)
-        for record in summary.travelDocuments.insert + summary.travelDocuments.update {
-            let document = try upsert(record, in: &documents, tombstones: &tombstones) { TravelDocument() }
-            document.docType = record.docType
-            document.docNumber = record.docNumber
-            document.issuingCountry = record.issuingCountry
-            document.expiryDate = record.expiryDate.flatMap { InterchangeDay.parse($0) }
-            document.isActive = record.isActive
-            document.person = lookup(record.personId, in: people)
-        }
-        try remove(summary.travelDocuments.remove, from: &documents, tombstones: &tombstones)
 
         var flights = try index(Flight.self)
         for record in summary.flights.insert + summary.flights.update {
@@ -437,6 +447,32 @@ private struct Applier {
         return model
     }
 
+    /// `remove` for people, taking each person's travel documents with them,
+    /// each with a tombstone at the person's deletion time: the same result
+    /// as deleting the person here (`deleteRecordingTombstone`). The file may
+    /// carry the documents' own tombstones (then already gone, via `remove`),
+    /// or nothing for them, or, from Android before #44, still list them live.
+    private func removePeople(
+        _ records: [PersonRecord],
+        from people: inout [UUID: Person],
+        documents: inout [UUID: TravelDocument],
+        tombstones: inout [DeletedRecord]
+    ) throws {
+        for record in records {
+            guard let uuid = UUID(uuidString: record.id) else { throw InterchangeMerge.Failure.notOurFile }
+            guard let person = people[uuid] else { continue }
+            let deletedAt = try instant(record.deletedAt ?? record.updatedAt)
+            for document in person.documentList {
+                // Through the index rather than `isDeleted`: one the file
+                // deleted is already out of it, and gets no second tombstone.
+                guard let documentId = document.uuid, documents.removeValue(forKey: documentId) != nil else { continue }
+                context.delete(document)
+                recordTombstone(TravelDocument.self, uuid: documentId, deletedAt: deletedAt, in: &tombstones)
+            }
+        }
+        try remove(records, from: &people, tombstones: &tombstones)
+    }
+
     /// Deletes each record the file says was deleted, and writes a local
     /// `DeletedRecord` so the deletion keeps travelling on the next export.
     private func remove<T: StableRecord, R: InterchangeRecord>(
@@ -450,14 +486,21 @@ private struct Applier {
             if let existing = live.removeValue(forKey: uuid) {
                 context.delete(existing)
             }
-            if let row = tombstones.first(where: { $0.kind == T.recordKind && $0.uuid == uuid }) {
-                // Already deleted here, earlier: carry the later deletion.
-                row.deletedAt = max(row.deletedAt ?? deletedAt, deletedAt)
-            } else {
-                let row = DeletedRecord(uuid: uuid, kind: T.recordKind, deletedAt: deletedAt)
-                context.insert(row)
-                tombstones.append(row)
-            }
+            recordTombstone(T.self, uuid: uuid, deletedAt: deletedAt, in: &tombstones)
+        }
+    }
+
+    /// Writes the local `DeletedRecord` for a deletion, or advances the one
+    /// already there: deleted here earlier, carry the later deletion.
+    private func recordTombstone<T: StableRecord>(
+        _ type: T.Type, uuid: UUID, deletedAt: Date, in tombstones: inout [DeletedRecord]
+    ) {
+        if let row = tombstones.first(where: { $0.kind == T.recordKind && $0.uuid == uuid }) {
+            row.deletedAt = max(row.deletedAt ?? deletedAt, deletedAt)
+        } else {
+            let row = DeletedRecord(uuid: uuid, kind: T.recordKind, deletedAt: deletedAt)
+            context.insert(row)
+            tombstones.append(row)
         }
     }
 
