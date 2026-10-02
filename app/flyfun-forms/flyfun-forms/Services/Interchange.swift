@@ -57,7 +57,7 @@ struct InterchangeDocument: Codable, Equatable {
         format = try c.decodeIfPresent(String.self, forKey: .format) ?? Self.format
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? Self.version
         exportedAt = try c.decode(String.self, forKey: .exportedAt)
-        exportedBy = try c.decodeIfPresent(ExportedBy.self, forKey: .exportedBy) ?? ExportedBy()
+        exportedBy = try c.decodeIfPresent(ExportedBy.self, forKey: .exportedBy) ?? ExportedBy(platform: "android")
         people = try c.decodeIfPresent([PersonRecord].self, forKey: .people) ?? []
         travelDocuments = try c.decodeIfPresent([TravelDocumentRecord].self, forKey: .travelDocuments) ?? []
         aircraft = try c.decodeIfPresent([AircraftRecord].self, forKey: .aircraft) ?? []

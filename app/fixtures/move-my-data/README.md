@@ -28,13 +28,3 @@ encrypted.
   `TEST_RUNNER_WRITE_MOVE_MY_DATA_FIXTURES=1 xcodebuild test -scheme flyfun-forms -project flyfun-forms.xcodeproj -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -only-testing:flyfun-formsTests/InterchangeFormatTests`
 
 Then run the other platform's tests against the new files.
-
-## Provenance of the current `ios-*` files
-
-The first `ios-plain.json` and `ios-encrypted.ffdata` were written without
-Xcode (the change was made in a Linux session): the JSON by hand in the shape
-the Swift encoder produces, and encrypted with `reference_crypto.py`. The iOS
-tests check the JSON decodes to exactly `InterchangeFormatTests.iosFixture` and
-that `DataFileCrypto.swift` decrypts the file. Regenerate them from iOS (above)
-once on a Mac, so the file Android decrypts is one Swift actually encrypted, and
-delete this section.

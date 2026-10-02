@@ -54,6 +54,14 @@ final class MoveMyDataFlow {
     /// Passphrase of the file being saved, for the reminder. Memory only.
     private var savedPassphrase: String?
 
+    // SwiftUI drops a presentation started while another one is still
+    // animating away: a file panel right after a sheet closes, an alert from
+    // the button of the alert that is closing. So the next step waits for the
+    // current one to be gone: `sheetDismissed`, `alertDismissed`, and the next
+    // runloop turn after a file panel's callback.
+    private var afterSheet: (() -> Void)?
+    private var afterAlert: Notice?
+
     static let encryptedFilename = "flyfun-forms-data.ffdata"
     static let plainFilename = "flyfun-forms-export.json"
 
@@ -74,15 +82,17 @@ final class MoveMyDataFlow {
 
     func exportEncrypted(in context: ModelContext) {
         guard canExport else { return }
-        sheet = nil
         let passphrase = DataFileCrypto.normalisePassphrase(exportPassphrase)
         do {
             let data = try DataTransfer.exportEncrypted(in: context, passphrase: passphrase)
-            present(DataFile(data: data, contentType: .data), named: Self.encryptedFilename)
             savedPassphrase = passphrase
+            afterSheet = { [weak self] in
+                self?.present(DataFile(data: data, contentType: .data), named: Self.encryptedFilename)
+            }
         } catch {
-            fail(error, fallback: String(localized: "Export failed"))
+            afterSheet = { [weak self] in self?.fail(error, fallback: String(localized: "Export failed")) }
         }
+        sheet = nil
     }
 
     /// GDPR Art. 20: machine-readable, and deliberately not encrypted.
@@ -101,7 +111,10 @@ final class MoveMyDataFlow {
         defer { savedPassphrase = nil; exportPassphrase = "" }
         switch result {
         case .success:
-            if let savedPassphrase { notice = .passphraseReminder(savedPassphrase) }
+            // The save panel is still closing; see `afterSheet`.
+            if let savedPassphrase {
+                DispatchQueue.main.async { [weak self] in self?.notice = .passphraseReminder(savedPassphrase) }
+            }
         case .failure(let error):
             // Cancelling the save panel is not a failure worth reporting.
             if (error as? CocoaError)?.code == .userCancelled { return }
@@ -129,13 +142,17 @@ final class MoveMyDataFlow {
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             do {
                 let data = try Data(contentsOf: url)
-                if DataFileCrypto.looksEncrypted(data) {
-                    pendingImport = data
-                    importPassphrase = ""
-                    importPassphraseError = nil
-                    sheet = .importPassphrase
-                } else {
-                    showPreview(of: data, passphrase: nil, in: context)
+                // The file panel is still closing; see `afterSheet`.
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    if DataFileCrypto.looksEncrypted(data) {
+                        pendingImport = data
+                        importPassphrase = ""
+                        importPassphraseError = nil
+                        sheet = .importPassphrase
+                    } else {
+                        showPreview(of: data, passphrase: nil, in: context)
+                    }
                 }
             } catch {
                 fail(error, fallback: String(localized: "Could not read that file"))
@@ -155,15 +172,17 @@ final class MoveMyDataFlow {
         do {
             let preview = try DataTransfer.preview(data, passphrase: importPassphrase, in: context)
             clearPendingImport()
+            afterSheet = { [weak self] in self?.notice = .preview(preview) }
             sheet = nil
-            notice = .preview(preview)
         } catch DataFileCrypto.Failure.wrongPassphrase {
             // Stay in the sheet: a typo should cost a retry, not a re-pick.
             importPassphraseError = DataFileCrypto.Failure.wrongPassphrase.errorDescription
         } catch {
             clearPendingImport()
+            afterSheet = { [weak self] in
+                self?.fail(error, fallback: String(localized: "Could not read that file"))
+            }
             sheet = nil
-            fail(error, fallback: String(localized: "Could not read that file"))
         }
     }
 
@@ -172,13 +191,32 @@ final class MoveMyDataFlow {
         sheet = nil
     }
 
+    /// However the sheet went away - a button, or a swipe that bypasses
+    /// Cancel - the encrypted bytes and the typed passphrase go with it,
+    /// then whatever was waiting for the sheet to close is presented.
+    func sheetDismissed() {
+        clearPendingImport()
+        let next = afterSheet
+        afterSheet = nil
+        next?()
+    }
+
     func confirmImport(_ preview: DataTransfer.ImportPreview, in context: ModelContext) {
+        // Called from the preview alert's button: the result is shown once
+        // that alert has gone, or its dismissal would clear it.
         do {
             try DataTransfer.apply(preview.summary, in: context)
-            notice = .imported(preview.summary)
+            afterAlert = .imported(preview.summary)
         } catch {
-            fail(error, fallback: String(localized: "Import failed"))
+            afterAlert = .failure(Self.message(for: error, fallback: String(localized: "Import failed")))
         }
+    }
+
+    func alertDismissed() {
+        notice = nil
+        guard let next = afterAlert else { return }
+        afterAlert = nil
+        DispatchQueue.main.async { [weak self] in self?.notice = next }
     }
 
     private func showPreview(of data: Data, passphrase: String?, in context: ModelContext) {
@@ -196,8 +234,11 @@ final class MoveMyDataFlow {
     }
 
     private func fail(_ error: Error, fallback: String) {
-        let message = (error as? LocalizedError)?.errorDescription ?? fallback
-        notice = .failure(message)
+        notice = .failure(Self.message(for: error, fallback: fallback))
+    }
+
+    private static func message(for error: Error, fallback: String) -> String {
+        (error as? LocalizedError)?.errorDescription ?? fallback
     }
 }
 
@@ -277,7 +318,7 @@ private struct MoveMyDataPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $flow.sheet) { sheet in
+            .sheet(item: $flow.sheet, onDismiss: { flow.sheetDismissed() }) { sheet in
                 switch sheet {
                 case .exportPassphrase:
                     ExportPassphraseSheet(flow: flow)
@@ -306,7 +347,7 @@ private struct MoveMyDataPresentation: ViewModifier {
                 title,
                 isPresented: Binding(
                     get: { flow.notice != nil },
-                    set: { if !$0 { flow.notice = nil } }
+                    set: { if !$0 { flow.alertDismissed() } }
                 ),
                 presenting: flow.notice
             ) { notice in
