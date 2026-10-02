@@ -1,6 +1,7 @@
 """Pydantic models for API request/response."""
 
 import re
+from datetime import date
 
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, Union
@@ -18,9 +19,21 @@ def _validate_icao(v: str) -> str:
 
 
 def _validate_date(v: str) -> str:
+    # The message never includes the value: dates of birth go through here,
+    # and an unvalidated one used to reach the fillers' strptime, whose
+    # ValueError (value included) ended up in the server log.
     if not _DATE_RE.match(v):
         raise ValueError("Date must be YYYY-MM-DD")
+    try:
+        date.fromisoformat(v)
+    except ValueError:
+        raise ValueError("Date must be a valid YYYY-MM-DD date") from None
     return v
+
+
+def _validate_optional_date(v: Optional[str]) -> Optional[str]:
+    """Like _validate_date, but None and "" (field left blank) pass through."""
+    return _validate_date(v) if v else v
 
 
 def _validate_time(v: str) -> str:
@@ -72,6 +85,11 @@ class PersonData(BaseModel):
     sex: Optional[str] = None
     place_of_birth: Optional[str] = None
     address: Optional[str] = None
+
+    @field_validator("dob", "id_expiry")
+    @classmethod
+    def validate_dates(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_optional_date(v)
 
 
 class ConnectingFlightData(BaseModel):
