@@ -1,6 +1,6 @@
 # Move My Data: Encrypted Device Transfer + GDPR Export
 
-> **Status: built on Android and iOS/macOS (iOS written 2026-10-02, not yet verified on a device). Server half of the GDPR export (§3) not started. Written 2026-09-18, updated 2026-10-02.**
+> **Status: built on Android and iOS/macOS (iOS written 2026-10-02, not yet verified on a device). Server half of the GDPR export (§3) built 2026-10-02 as `GET /account/export`, see [api.md](../api.md). Written 2026-09-18, updated 2026-10-02.**
 >
 > Two user-facing features that share **one serializer**:
 >
@@ -78,7 +78,9 @@ Art. 20 requires a copy of the user's personal data in a *structured, commonly
 used, machine-readable* format. We do not have one. The data lives in two
 places, so the export has two halves.
 
-### Server half — does not exist, should
+### Server half: built (2026-10-02)
+
+`GET /account/export` in `src/flightforms/api/account_export.py`; the table below was the plan, and the endpoint also covers `user_preferences`, OAuth grants and forms' `cost_ledger` rows. Design and choices are in [api.md](../api.md#get-accountexport). Original notes:
 
 `flyfun-weather` already has the pattern: `src/weatherbrief/api/account_export.py`
 serves `GET /account/export` as JSON with a `Content-Disposition` attachment
@@ -423,7 +425,7 @@ call as controller of their own records — but the app must not suggest it.
 | **2.** Serializer + merge as a pure function, with golden-file tests | iOS | ~½ session |
 | **3.** Encryption, passphrase generation + entry UI | iOS | ~½ session |
 | **4.** `fileExporter` / `fileImporter` + preview sheet | iOS | ~½ session |
-| **5.** `GET /account/export` (server half) | forms server | ~½ session, follows the weather precedent |
+| **5.** ✅ `GET /account/export` (server half) | forms server | done 2026-10-02 |
 | **6.** Plaintext GDPR variant + `PRIVACY.md` / `legal/GDPR.md` updates | iOS + docs | small |
 | **7.** Kotlin importer against real fixtures | Android | falls out of [android-app.md](./android-app.md) Phase 1 |
 
