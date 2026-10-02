@@ -119,6 +119,24 @@ class DataTransferTest {
     }
 
     @Test
+    fun a_newer_flight_with_nobody_aboard_empties_the_local_crew() = runTest {
+        val (_, _, flightId) = populate(source)
+        val first = DataTransfer(source).exportPlain("test").toByteArray()
+        DataTransfer(target).let { incoming -> incoming.preview(first, null).let { incoming.apply(it.second) } }
+        assertEquals(1, target.flightDao().crewOn(flightId).size)
+
+        // On the source the crew is removed and the flight edited afterwards.
+        source.flightDao().setPeople(flightId, FlightRole.CREW, emptyList())
+        val flight = source.flightDao().byId(flightId)!!
+        source.flightDao().upsert(flight.copy(updatedAt = flight.updatedAt.plusSeconds(60)))
+
+        val second = DataTransfer(source).exportPlain("test").toByteArray()
+        DataTransfer(target).let { incoming -> incoming.preview(second, null).let { incoming.apply(it.second) } }
+
+        assertTrue(target.flightDao().crewOn(flightId).isEmpty())
+    }
+
+    @Test
     fun import_never_removes_local_records_the_file_does_not_mention() = runTest {
         populate(source)
         val local = PersonEntity(firstName = "Only", lastName = "Here")

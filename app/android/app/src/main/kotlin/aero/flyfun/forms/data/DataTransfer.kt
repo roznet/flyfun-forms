@@ -98,11 +98,16 @@ class DataTransfer(private val db: FlyFunDatabase) {
         (summary.flights.insert + summary.flights.update).forEach { flights.upsert(it.toEntity()) }
         summary.flights.remove.forEach { flights.softDelete(it.id, Instant.parse(it.deletedAt)) }
 
-        summary.flightPeople
-            .groupBy { it.flightId to it.role }
-            .forEach { (key, refs) ->
-                flights.setPeople(key.first, key.second, refs.sortedBy { it.seatOrder }.map { it.personId })
+        // Every flight this import writes takes the file's crew and passengers
+        // wholesale - including none: a role the file lists nobody in is
+        // emptied, not left holding whoever was there before. Same as iOS.
+        val byFlightAndRole = summary.flightPeople.groupBy { it.flightId to it.role }
+        (summary.flights.insert + summary.flights.update).forEach { flight ->
+            for (role in listOf(FlightRole.CREW, FlightRole.PASSENGER)) {
+                val refs = byFlightAndRole[flight.id to role].orEmpty()
+                flights.setPeople(flight.id, role, refs.sortedBy { it.seatOrder }.map { it.personId })
             }
+        }
     }
 
     private suspend fun localSnapshot() = InterchangeMerge.LocalSnapshot(

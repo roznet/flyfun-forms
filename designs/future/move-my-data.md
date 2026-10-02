@@ -274,13 +274,10 @@ existing 1,631 lines of Swift tests so valuable.
 
 ### As built on iOS: where it differs from Android
 
-Same rules, same counts in the preview. Differences, all deliberate:
+Same rules, same counts in the preview. Flight membership is replaced wholesale on both: every flight the merge
+writes takes the file's crew and passengers, emptied if the file lists
+nobody for a role. Differences, all deliberate:
 
-- **Flight membership is replaced wholesale** for every flight the merge
-  writes, empty if the file has no `flightPeople` row for it. Android calls
-  `setPeople` only for the (flight, role) groups present, so a flight whose
-  crew was emptied on the other device keeps its old crew there. Worth fixing
-  on Android.
 - **Resurrection cleans up.** When a newer live record wins over a local
   `DeletedRecord`, the import deletes that `DeletedRecord`; export also skips
   any tombstone whose uuid is live, so a file never carries both.
