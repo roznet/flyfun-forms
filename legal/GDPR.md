@@ -254,7 +254,9 @@ require us to publish a document.
   passports to someone else (`designs/future/move-my-data.md` §8). Nothing reaches our server.
 - **Hardening item 2 — file protection class.** `SECURITY_AUDIT.md` §19 notes the store
   does not explicitly set `NSFileProtectionComplete`, so data may be readable before first
-  unlock after a reboot. Still open.
+  unlock after a reboot. The October 2026 review keeps the store on the default class,
+  because complete protection would stop background CloudKit sync, and recommends complete
+  protection for generated form files instead. Still open.
 
 ### 6a. The Android client — ✅ (with one disclosure)
 
@@ -333,8 +335,9 @@ iOS — manifest data on the device, the server for filling only — with two di
 
 ### 9. Security of processing (Art. 32) — 🟡
 
-The standing review is [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md) (critical and high items
-resolved). Points that bear on GDPR specifically:
+The standing review is [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md); its October 2026 update
+lists the open items, including two high ones: Android deletion (N4) and the "Move my data"
+passphrase (N5). Points that bear on GDPR specifically:
 
 - **TLS everywhere**, HSTS with `preload` at the Caddy layer plus in the app itself; security
   headers and a `Permissions-Policy` denying geolocation/camera/microphone to the origin

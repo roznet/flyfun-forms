@@ -1,321 +1,279 @@
-# Security Audit Report — FlightForms
+# Security Audit Report: FlightForms
 
-**Date:** 2026-03-11
-**Scope:** iOS app (Swift/SwiftData/CloudKit) + Python backend (FastAPI/SQLAlchemy)
-**Focus:** Protection of sensitive passport/document data
+**Latest audit:** 2026-10-02 (previous: 2026-03-11)
+**Scope:** Python backend (FastAPI), deploy and CI config, iOS/macOS app, Android app, and the shared `flyfun-common` library that the backend and apps use for auth.
+**Focus:** protection of passport and travel-document data, and of the shared FlyFun account.
 
----
+The 2026-10-02 audit was run independently of the March report, by four separate reviews (backend, iOS/macOS, Android, flyfun-common), and then compared with it. Findings were checked against the code; the server and library ones were also reproduced with small tests against the real code.
 
-## Executive Summary
-
-The application's architecture is **fundamentally sound** for its purpose: sensitive passport data (document numbers, PII) lives in SwiftData with CloudKit sync and is **never persisted** on the server. The backend is stateless with respect to PII — it receives data, fills a PDF/DOCX/XLSX template, returns the file, and discards everything.
-
-Several vulnerabilities were identified and the critical/high-severity items have been **resolved** (see status markers below).
-
----
-
-## CRITICAL Issues
-
-### 1. ~~Passport Data Logged in Plaintext on iOS Device~~ (RESOLVED)
-
-**File:** `app/flyfun-forms/flyfun-forms/Services/FormService.swift:52`
-
-**Status: FIXED** — The debug log now only records the airport and form identifiers, not the request body:
-```swift
-Self.logger.debug("POST /generate for airport=\(request.airport) form=\(request.form)")
-```
-No PII (passport numbers, DOB, nationality, addresses) is written to the system log.
+**Status legend:**
+- **Fixed:** merged and deployed.
+- **Fixed, pending release:** merged or in an open PR; not yet in production until the release and deploy listed with it.
+- **Open:** not fixed yet.
+- **Accepted:** deliberately not fixed, with the reason.
 
 ---
 
-### 2. Sensitive Data Transmitted to Server in Every Generate Request (ACCEPTED RISK)
+## Summary
 
-**Files:**
-- `app/flyfun-forms/flyfun-forms/Services/APITypes.swift:165-192` (`PersonPayload`)
-- `app/flyfun-forms/flyfun-forms/Views/FlightEditView.swift:350-366` (`personPayload()`)
+The core design still holds: the server keeps no passport or passenger data, and the apps store it on the device and in the user's private iCloud (iOS) or app-private storage with no backup (Android).
 
-Every form generation sends passport numbers, DOB, nationality, address, place of birth, and sex to the backend. This is **inherent to the application's purpose** (filling customs/immigration forms), but it means:
+The serious problems found in October were in the shared auth library rather than in forms itself, plus two privacy gaps in how the apps delete people:
 
-- The data transits the network on every generate call
-- The server processes it in memory temporarily
-- **This is an accepted architectural trade-off**, not a bug — the server needs this data to fill the PDF fields
+| ID | Severity | Area | Finding | Status |
+|----|----------|------|---------|--------|
+| N1 | High | flyfun-common | Magic-link sign-in could resolve to a different account (unescaped `LIKE`, then accent-insensitive collation) | Fixed, pending release (0.6.8) |
+| N2 | High | flyfun-common, forms | API-token scopes not registered by an app were given full access there | Fixed, pending release (0.6.9) |
+| N3 | High | flyfun-common | Script injection on the OAuth server's redirect pages | Fixed, pending release (0.6.8) |
+| N4 | High | Android | Deleting a person kept all their data in the database and in exports | Open |
+| N5 | High | iOS, Android | Suggested "Move my data" passphrase has only about 31 bits of entropy | Open |
+| N6 | Medium | flyfun-common | Sliding-session renewal can revive a token revoked by "log out everywhere" | Open |
+| N7 | Medium | Android, flyfun-common | Native sign-in callback can be intercepted by another installed app | Open |
+| N8 | Medium | Backend | Dates of birth could reach the server log through error tracebacks | Fixed, pending deploy |
+| N9 | Medium | Backend, deploy | No request body size limit | Fixed, pending deploy |
+| N10 | Medium | iOS | Deleted documents' numbers kept on flights | Open |
+| N11 | Low-Med | flyfun-common | Legacy native login still returns the session token in a URL | Open |
+| N12 | Low | Deploy | Container port published on all interfaces | Fixed, pending deploy |
+| N13 | Low | iOS, Android | Web-form prefill does not check the page's origin | Open |
+| N14 | Low | Backend, macOS | Spreadsheet formula injection in XLSX forms and the people CSV export | Open |
+| N15 | Low | iOS, Android | Passport screens visible in app-switcher snapshots and screenshots | Open |
+| N16 | Low | Android | Keyboard may learn document numbers; passphrase shown in clear | Open |
+| N17 | Low | CI | `claude.yml` grants broad tools and write access | Open |
+| N18 | Low | flyfun-common | OAuth server hardening (refresh-token reuse, code redemption race, registration cap) | Open |
+| N19 | Low | iOS, Android | Oversized PDFs or import files can crash the app | Open |
 
-The mitigating factors are:
-- HTTPS in production (`https://forms.flyfun.aero`)
-- HSTS header now enforced in production (see fix in Issue #14)
-- The server does not persist this data (only logs `Usage` with airport/form, no PII)
-- Data exists in server memory only for the duration of the request
+**Release steps for the fixes above:**
+1. Publish flyfun-common 0.6.8 and 0.6.9.
+2. Deploy forms (it now requires `flyfun-common>=0.6.9`) and weather.
 
----
-
-## HIGH Severity Issues
-
-### 3. ~~JWT Token Passed in OAuth Callback URL~~ (RESOLVED — H8)
-
-Previously the JWT was returned as a query parameter in the custom URL scheme
-callback (`flyfunforms://auth?token=...`), which meant: the token could appear in
-server/proxy access logs on the OAuth redirect; a malicious app registering a
-`flyfun*` scheme could be chosen by the OS to intercept it; and, because the app
-accepted a bare token from *any* inbound deep link with no `state` binding, an
-injected `flyfunforms://auth?token=<attacker_jwt>` link was a login-CSRF /
-session-fixation vector (silently signing the victim into the attacker's account).
-
-This is the cross-repo **H8** issue tracked in
-`flyfun-common/designs/oauth-deeplink-hardening.md`.
-
-**Resolution** (matches the flyfun-weather fix):
-- Bumped the shared `flyfun-common` package to **v0.6.3**, which moves the native
-  sign-in to the standard **authorization-code** pattern: the client generates a
-  random `state`, the server callback returns a short-TTL signed `code`+`state`
-  (never the token), and the client verifies `state` and exchanges the code for the
-  JWT over an HTTPS **POST** (`/auth/exchange`) — the token now only ever travels in
-  a response body. See `FlyFunCommon.FlyFunAuthService.signIn`, already used by
-  `LoginView`.
-- **Removed the bare-token deep-link path entirely.** `AppState.handleAuthCallback`
-  and the app's `onOpenURL` hook were deleted, so no inbound `token=` deep link can
-  authenticate. Forms has no App Store reviewer deep link, so unlike weather it needs
-  no `scope:"review"` carve-out — the reviewer signs in via a normal demo account.
-- Server-side, the shared auth router now serves `/auth/exchange` and enforces an
-  exact scheme allowlist (`flyfunforms` is on it by default); picked up when the
-  forms API is deployed with `flyfun-common >= 0.6.3`.
-
-### 4. No Certificate Pinning / TLS Validation (ACCEPTED RISK)
-
-**File:** `app/flyfun-forms/flyfun-forms/Services/FormService.swift:56`
-
-```swift
-let (data, _) = try await URLSession.shared.data(for: request)
-```
-
-The app uses `URLSession.shared` with default TLS validation. This means:
-- A compromised CA could issue a rogue certificate for `forms.flyfun.aero`
-- On managed devices (corporate MDM), installed profiles can add trusted CAs, enabling MITM
-- No certificate pinning means network interception proxies (Charles, mitmproxy) can capture all traffic including passport data
-
-**Status: ACCEPTED RISK** — Certificate pinning with Let's Encrypt (90-day rotation) would require app updates on every certificate renewal, creating an unacceptable maintenance burden and bricking risk. Standard TLS validation via the system trust store, combined with HSTS enforcement (now added), provides adequate protection for this use case.
-
-### 5. ~~Person Legacy Fields Still on Model~~ (RESOLVED)
-
-**File:** `app/flyfun-forms/flyfun-forms/flyfun_formsApp.swift`
-
-**Status: FIXED** — The migration code now nils out the legacy fields after copying data to `TravelDocument`:
-```swift
-person.idNumber = nil
-person.idType = nil
-person.idIssuingCountry = nil
-person.idExpiry = nil
-```
-Passport numbers no longer exist in two places in the SwiftData/CloudKit store.
+Until then the "pending" items are fixed in code only.
 
 ---
 
-## MEDIUM Severity Issues
+## October 2026 findings
 
-### 6. No Request Body Encryption (MEDIUM)
+### N1. Magic-link sign-in could resolve to a different account (High)
+**Where:** `flyfun-common/python/src/flyfun_common/auth/magic_link.py`
 
-While HTTPS provides transport encryption, the passport data in the POST body is plaintext JSON that the server processes. If you want defense-in-depth against server-side compromise:
+- **Original flaw:** the case-insensitive fallback lookup used `ILIKE` with the requested address unescaped, so `_` and `%` acted as wildcards.
+- **Second route:** production MySQL's `utf8mb4_unicode_ci` collation also treats accented look-alikes as equal.
+- **Impact:** either way, a sign-in link sent to one mailbox could log into a different existing account.
+- **Exposure:** only apps that enable magic-link sign-in (weather). Forms does not mount it.
 
-**Recommendation:** Consider encrypting the `PersonPayload` fields with a per-request key that the server holds only in memory. This is likely over-engineering for this use case but noted for completeness.
+**Fix (0.6.8):**
+- Magic-link addresses must be ASCII.
+- SQL only narrows the candidates; Python accepts a row only if its email equals the request ignoring case, so the database collation can't change the result.
+- Code redemption only considers tokens for exactly that address.
+- Regression tests cover wildcards, look-alikes and a simulated accent-folding collation.
 
-### 7. CLI Tool Uses HTTP by Default (MEDIUM)
+### N2. Unregistered token scopes had full access (High)
+**Where:** `flyfun-common/python/src/flyfun_common/db/deps.py`
 
-**File:** `src/flightforms/cli.py:13`
+- **Flaw:** each app keeps its own scope registry, but the `api_tokens` table is shared. A scope missing from the local registry was treated as broad.
+- **Impact:** a limited token issued by weather (`flights:read`) had full access on forms, including account deletion and the account export.
 
-```python
-DEFAULT_URL = "http://127.0.0.1:8030"
-```
+**Fix (0.6.9):**
+- Scopes are default-deny: a scoped token reaches only paths the current app registered for it. Forms registers none.
+- `mcp` stays broad by default, and `register_broad_scope()` declares any other broad scope.
 
-The CLI defaults to `http://` (not HTTPS). While this is meant for local development, if users point it at a remote server and forget to specify `https://`, passport data would travel in plaintext.
+### N3. Script injection on the OAuth redirect pages (High)
+**Where:** `flyfun-common/python/src/flyfun_common/oauth/router.py`
 
-**Recommendation:** Add a warning when using HTTP with a non-localhost URL, or default to HTTPS for non-local URLs.
+- **Flaw:** the error and approve redirect pages embedded the client's registered `redirect_uri` in an inline script without escaping `<`. Client registration is open.
+- **Impact:** a crafted client could run script on the host app's domain when a signed-in user followed a link.
+- **Exposure:** weather (MCP), not forms.
 
-### 8. CLI People CSV Contains Passport Data on Disk (MEDIUM)
+**Fix (0.6.8):**
+- One redirect-page helper now escapes the URL for both the script and the meta-refresh contexts.
+- Registration rejects redirect URIs containing characters RFC 3986 does not allow.
 
-**File:** `src/flightforms/cli.py:16-39`
+### N4. Android: deleting a person kept their data (High)
+**Where:** `app/android/.../data/Daos.kt` (soft delete), `data/DataTransfer.kt` (export of all rows including deleted ones)
 
-The `--people-file` CSV contains passport numbers, DOB, nationality in plaintext on disk. This is user-managed, but the CLI doesn't warn about file permissions.
+- **Flaw:** deletion only set `deletedAt`. The full row (name, date of birth, address, document numbers) stayed in Room.
+- **Impact:** every later "Move my data" or GDPR export carried the deleted data. This contradicts `PRIVACY.md`. iOS tombstones correctly hold only an id, kind and date.
 
-**Recommendation:** Document that the CSV should be stored with restricted permissions. Consider adding a check that warns if the file is world-readable.
+**Fix to do:**
+- Clear every personal field of a tombstoned row once the undo window closes.
+- Export tombstones as id, kind and date only.
+- Add a migration that scrubs existing tombstones.
 
-### 9. CORS Allows All Origins in Dev Mode (MEDIUM)
+### N5. Weak suggested "Move my data" passphrase (High)
+**Where:** `app/flyfun-forms/.../Services/DataFileCrypto.swift`, Android `core-logic/.../DataFileCrypto.kt`
 
-**File:** `src/flightforms/api/app.py:57-58`
+- **Flaw:** the suggested passphrase is six words from a 36-word list, about 31 bits. Under PBKDF2 at 210k iterations it can be brute-forced on a single GPU in under a day.
+- **Impact:** the file is meant to be moved through chat, mail or AirDrop, and contains every stored passport number.
 
-```python
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-```
+**Fix to do:**
+- Use a large word list on both platforms, such as the EFF long list (6 words is about 77 bits). The word list only affects passphrase generation, not the file format.
+- Require a minimum strength for custom passphrases.
 
-In dev mode, CORS is completely open. If dev mode is accidentally enabled in production, any website could make authenticated requests to the API.
+### N6. Sliding renewal can revive revoked sessions (Medium)
+**Where:** `flyfun-common/python/src/flyfun_common/auth/middleware.py`
 
-**Recommendation:** Even in dev mode, restrict CORS to known origins (e.g., `http://localhost:*`). The `is_dev_mode()` guard is good, but defense-in-depth is warranted.
+- **Flaw:** the renewal middleware issues a fresh token for any validly signed token near expiry, even on public endpoints. It does not check the account's revocation time.
+- **Impact:** a token revoked by "log out everywhere" can be renewed into a valid one.
 
-### 10. SessionMiddleware Uses JWT Secret (MEDIUM)
+**Fix to do:** only renew after the request actually authenticated, or check the revocation epoch in the middleware.
 
-**File:** `src/flightforms/api/app.py:51-54`
+### N7. Android sign-in callback interception (Medium)
+**Where:** `app/android/.../AndroidManifest.xml`, `auth/AuthService.kt`; server `flyfun_common/auth/router.py`
 
-```python
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=get_jwt_secret(),
-)
-```
+- **Flaw:** the callback uses a custom URL scheme opened from a Custom Tab, and the exchange step has no PKCE.
+- **Impact:** a malicious app on the same device could register the scheme and redeem the code.
+- **Not affected:** iOS, because `ASWebAuthenticationSession` delivers the callback privately.
 
-The session middleware and JWT signing share the same secret. If the session secret is leaked (e.g., via a session cookie vulnerability), the JWT signing key is also compromised.
+**Fix to do:**
+- Add PKCE to the native flow in flyfun-common.
+- Use Android's Auth Tab where it is available.
 
-**Recommendation:** Use a separate secret for session middleware.
+### N8. Dates of birth in server logs (Medium)
+**Where:** `src/flightforms/api/models.py`, `src/flightforms/fillers/*.py`
 
-### 11. ~~`.env.sample` Contains Placeholder Credentials~~ (RESOLVED)
+- **Flaw:** a date of birth or expiry not in `YYYY-MM-DD` reached the fillers' `strptime`. Its error message, which quotes the value, was logged with the traceback. The CLI passes unrecognised date formats through unchanged.
 
-**File:** `src/flightforms/api/app.py`
+**Fix (pending deploy):**
+- `PersonData` validates `dob` and `id_expiry` (blank allowed), so a malformed date is a 422 to the caller.
+- A new `RedactedErrorMiddleware` logs unhandled exceptions by type, route and stack frames only, never the message.
 
-**Status: FIXED** — The server now refuses to start in production if `JWT_SECRET` is unset or still has the placeholder value:
-```python
-if not is_dev_mode() and os.environ.get("JWT_SECRET") in (None, "", "change-me-in-production"):
-    raise RuntimeError("JWT_SECRET must be set to a secure value in production")
-```
+### N9. No request body size limit (Medium)
+**Where:** `deploy/forms.flyfun.aero.caddy`, `src/flightforms/api/middleware.py`
 
-### 12. ~~No ICAO Code Input Validation~~ (RESOLVED)
+- **Flaw:** FastAPI parses the JSON body before authentication, and nothing capped its size.
+- **Impact:** one unauthenticated oversized request could exhaust the container's 512 MB.
 
-**Status: FIXED** — ICAO codes are now validated at two levels:
-- **Pydantic model** (`models.py`): `GenerateRequest.airport` uses a `field_validator` enforcing exactly 4 uppercase letters via `^[A-Z]{4}$`
-- **Endpoint** (`airports.py`): The `/airports/{icao}` path parameter is validated with the same regex before any database/registry lookup
+**Fix (pending deploy):**
+- 1 MB cap in Caddy and in the app, which also counts chunked bodies.
+- Form requests are a few KB.
 
-Invalid ICAO codes now return a `400 Bad Request` instead of reaching backend logic.
+### N10. iOS: deleted documents' numbers kept on flights (Medium)
+**Where:** `app/flyfun-forms/.../Models/Flight.swift` (`chosenDocNumbers`), `Services/StableRecords.swift`
 
-### 13. ~~Potential Path Traversal in Template Loading~~ (RESOLVED)
+- **Flaw:** the per-flight document choice stores raw document numbers, and deleting the document or person does not remove them.
+- **Impact:** they keep syncing through iCloud, are copied to duplicated flights and appear in exports.
 
-**File:** `src/flightforms/registry.py:81`
+**Fix to do:**
+- Strip the numbers on delete, plus a launch-time sweep.
+- Longer term, store document ids instead of numbers.
 
-**Status: FIXED** — `get_template_path()` now resolves the path and verifies it stays within the templates directory:
-```python
-def get_template_path(self, mapping: FormMapping) -> Path:
-    path = (self.templates_dir / mapping.template).resolve()
-    if not path.is_relative_to(self.templates_dir.resolve()):
-        raise ValueError("Invalid template path")
-    return path
-```
+### N11. Legacy token-in-URL login branch (Low-Medium)
+**Where:** `flyfun_common/auth/router.py`
 
-Even if a mapping file were compromised with a `../` traversal payload, the server will reject it.
+- **Flaw:** a native login without `state` still returns the session token in the custom-scheme callback URL. When no scheme is given it defaults to one that isn't on the allowlist. Current apps always send `state`.
 
-### 14. ~~No Security Headers~~ (RESOLVED)
+**Fix to do:** remove the branch, and require an allowlisted scheme.
 
-**File:** `src/flightforms/api/app.py`
+### N12. Container port on all interfaces (Low)
+**Where:** `docker-compose.yml`
 
-**Status: FIXED** — A `SecurityHeadersMiddleware` now sets the following headers on all responses:
-- `X-Content-Type-Options: nosniff` — prevents MIME sniffing
-- `X-Frame-Options: DENY` — prevents clickjacking
-- `Referrer-Policy: strict-origin-when-cross-origin` — limits referrer leakage
-- `Strict-Transport-Security: max-age=63072000; includeSubDomains` (production only) — forces HTTPS
+- **Flaw:** `8030:8030` published plain HTTP on the public interface. Docker's published ports bypass the host firewall, so this route skipped Caddy's TLS and limits.
 
-### 15. ~~Loose Dependency Version Pinning~~ (RESOLVED)
+**Fix (pending deploy):** publish on `127.0.0.1` only. Caddy runs on the host and proxies `localhost:8030`.
 
-**File:** `pyproject.toml`
+### N13. Web-form prefill without origin check (Low)
+**Where:** `app/flyfun-forms/.../Views/WebFormView.swift`, Android `ui/webform/WebFormScreen.kt`
 
-**Status: FIXED** — All dependencies now have upper-bound version constraints (e.g., `fastapi>=0.109,<1.0`) to prevent unvetted major version upgrades while still allowing patch/minor updates.
+- **Flaw:** both the automatic fill and "Fill again" write passenger data into whatever page is loaded, even after a redirect or a link to another site.
+
+**Fix to do:** fill only when the page's host matches the plan's URL and the page uses https.
+
+### N14. Spreadsheet formula injection (Low)
+**Where:** `src/flightforms/fillers/xlsx_filler.py`, macOS `Views/PeopleListView.swift`
+
+- **Flaw:** a value starting with `=`, `+`, `-` or `@` is treated as a formula when the airport opens the XLSX form, or when someone opens the exported CSV.
+
+**Fix to do:** prefix such values with `'` in user-supplied cells.
+
+### N15. Screen exposure of passport data (Low)
+- **Flaw:** there is no app-switcher privacy cover on iOS and no `FLAG_SECURE` on Android.
+
+**Fix to do:** apply these to the person, document, scanner and passphrase screens only, so legitimate screenshots of flight details still work.
+
+### N16. Android keyboard learning (Low)
+- **Flaw:** document-number fields allow the keyboard to learn and suggest their contents, and the import passphrase is shown in clear.
+
+**Fix to do:** turn off autocorrect and personalised learning on those fields, and mask the passphrase.
+
+### N17. CI agent permissions (Low)
+**Where:** `.github/workflows/claude.yml`
+
+- **Flaw:** the workflow allows arbitrary code tools with a write token, prints full output to public logs, and pins actions to tags rather than commit SHAs.
+- **Trigger:** only maintainers can start it, but the content it processes may come from outsiders.
+
+**Fix to do:**
+- Drop `python`, `pip`, `npm` and `npx` from the allowed tools.
+- Set `show_full_output: false`.
+- Pin actions to commit SHAs.
+
+### N18. OAuth server hardening (Low)
+**Fix to do:**
+- Revoke the token family when a rotated refresh token is reused.
+- Lock the authorization code row while it is redeemed.
+- Add a per-IP limit on client registration as well as the global one.
+- Show the redirect host on the consent page.
+
+### N19. Local crashes from oversized files (Low)
+**Fix to do:**
+- iOS: cap the size and page count when rendering PDFs for scanning.
+- Android: cap the size when reading a data file for import.
 
 ---
 
-## LOW Severity Issues
+## March 2026 findings: current status
 
-### 16. ~~Generated PDFs Written to Temp Directory~~ (RESOLVED — regressed, fixed again)
-
-**Files:** `app/flyfun-forms/flyfun-forms/Services/GeneratedFormFiles.swift`, `Views/FlightEditView.swift`
-
-**History:** first fixed by deleting the file when the QuickLook preview was dismissed. That cleanup went away on 2026-03-14 (`6d5d0cc`) when QuickLook was replaced by the share sheet, and filled forms were left in tmp until iOS purged it — while this section still said FIXED. Found by the GDPR review (`legal/GDPR.md` §9).
-
-**Status: FIXED (2026-09-26)** — every generated form is written to its own folder under `tmp/forms/`, and:
-- **iOS:** deleted when the share sheet closes; for mail, deleted as soon as the attachment has been read into the composer.
-- **macOS:** deleted on Done, close, or Save to File (moved out). After Open, Reveal in Finder, a sharing service or Mail the file is kept, because the receiving app reads it after the sheet closes.
-- **Sweeps:** each new form first deletes files over 15 minutes old, and launch clears the folder (plus loose forms older builds left at the tmp root). Delete All Data clears it too.
-
-The residual window is therefore macOS-only and bounded by the next form or launch. Still on the user's own device under Data Protection / FileVault, so the risk was always low.
-
-### 17. ~~No Rate Limiting on /generate Endpoint~~ (RESOLVED)
-
-**File:** `src/flightforms/api/rate_limit.py`
-
-**Status: FIXED (2026-09-26)** — `/generate` and `/prefill` together allow 100 fills per user per rolling hour, counted over the existing `usage` log (the same no-counter-rows strategy as `flyfun_common.auth.rate_limit`). Over the limit the request gets `429` with `Retry-After` before any template is filled. Skipped in dev mode, like the shared limits.
-
-### 18. ~~Server Error Messages May Leak Internal Paths~~ (RESOLVED)
-
-**File:** `src/flightforms/api/generate.py`
-
-**Status: FIXED** — Error messages no longer expose internal template filenames or filler type names:
-```python
-# Before:
-raise HTTPException(status_code=500, detail=f"Template file not found: {mapping.template}")
-raise HTTPException(status_code=500, detail=f"Unknown filler type: {mapping.filler_type}")
-
-# After:
-raise HTTPException(status_code=500, detail="Template file not found")
-raise HTTPException(status_code=500, detail="Unsupported form type")
-```
-
-### 19. No SwiftData Encryption at Rest (LOW — Mitigated by iOS)
-
-SwiftData/Core Data stores are encrypted at rest by iOS Data Protection (when the device has a passcode). CloudKit private database is also encrypted. However, the app does not use the `NSFileProtectionComplete` attribute explicitly, which means data may be accessible before first unlock after boot.
-
-**Recommendation:** Set `NSFileProtection` to `.complete` on the SwiftData store file for maximum protection.
+| # | Finding | Status (2026-10-02) |
+|---|---------|----------------------|
+| 1 | Passport data in iOS debug log | **Fixed.** Verified again: all Swift logging uses `os.Logger` with private interpolation. |
+| 2 | Passport data sent to the server on every generate | **Accepted.** Inherent to filling forms; HTTPS + HSTS, never stored. |
+| 3 | JWT in the OAuth callback URL (H8) | **Fixed** for the apps (auth-code exchange with `state`). The server still has the legacy branch: see N11. Android has a related interception risk: see N7. |
+| 4 | No certificate pinning | **Accepted.** Pinning against Let's Encrypt rotation risks locking users out. |
+| 5 | Legacy person ID fields | **Fixed.** |
+| 6 | No request body encryption | **Accepted.** The server must read the data to fill the form. |
+| 7 | CLI defaults to `http://` | **Open.** Low; add a warning for non-localhost `http://` URLs. |
+| 8 | CLI people CSV on disk | **Accepted.** User-managed file. |
+| 9 | Dev-mode CORS `*` | **Open, low.** Dev mode now refuses to start in production (an unknown `ENVIRONMENT` is not dev). |
+| 10 | SessionMiddleware signed with the JWT secret | **Open.** Use a separate `SESSION_SECRET`. |
+| 11 | Placeholder `JWT_SECRET` | **Fixed.** |
+| 12 | ICAO validation | **Fixed.** Person dates were not validated, which allowed N8. |
+| 13 | Template path traversal | **Fixed.** |
+| 14 | Security headers | **Fixed.** |
+| 15 | Dependency pinning | **Partly.** `flyfun-common` has no upper bound and there is no lock file. |
+| 16 | Generated forms left in temp | **Fixed** (re-fixed 2026-09-26). On macOS a file handed to another app stays until the next form or launch. |
+| 17 | No rate limit on `/generate` | **Fixed.** `/validate` and `/email-text` are not limited (cheap endpoints). |
+| 18 | Error messages leaking paths | **Fixed.** |
+| 19 | SwiftData file protection | **Recommendation changed.** `NSFileProtectionComplete` on the store would stop background CloudKit sync. Keep the store on the default class (documented in `PRIVACY.md`) and apply complete protection to generated form files instead. |
 
 ---
 
-## Positive Security Findings
+## Verified as sound (October 2026)
 
-These aspects of the architecture are well-designed:
+**Server**
+- It stores no person data and logs nothing from request bodies.
+- The GDPR export is scoped to the signed-in user and excludes secrets.
+- Account deletion removes usage, preferences, tokens and OAuth grants.
+- The container runs as non-root.
 
-1. **JWT stored in Keychain** (`AppState.swift:14-16`) — The JWT is stored using `CodableSecureStorage` backed by the iOS Keychain, not UserDefaults or files.
+**Auth (flyfun-common)**
+- JWTs are HS256-pinned with required `sub` and `exp`.
+- Exchange codes and link tickets cannot be used as sessions.
+- API tokens are 256-bit and stored hashed.
+- OAuth login checks `state`, `nonce` and verified email.
+- `next` redirects are restricted to relative paths.
+- Stripe webhooks verify their signatures.
 
-2. **Server stores no PII** — The `Usage` database table (`db/models.py:17-27`) only stores `user_id`, `endpoint`, `airport_icao`, `form_id`, and `timestamp`. No passport data, names, or PII are persisted server-side.
+**iOS/macOS**
+- The JWT is in the Keychain (this device only).
+- CloudKit uses the private database only.
+- There are no analytics or crash SDKs and no ATS exceptions.
+- Scans are never saved.
+- Generated forms are cleaned up after sharing.
+- Debug and UI-test bypasses are compiled out of release builds.
 
-3. **CloudKit private database** (`flyfun_formsApp.swift:20-21`) — Data syncs via `iCloud.aero.flyfun.flightforms` private database, which is encrypted and only accessible to the user's iCloud account.
-
-4. **Non-root Docker container** (`Dockerfile:6-7`) — The container runs as user `app` (UID 2000), not root.
-
-5. **Production Swagger docs disabled** (`app.py:45`) — `/docs` endpoint is only enabled in dev mode.
-
-6. **Proper .gitignore** — `.env` is gitignored, preventing secret leakage.
-
-7. **Auth-protected endpoints** — The `/generate` endpoint requires authentication via `current_user_id` dependency.
-
-8. **Test data uses fake values** — Tests use synthetic IDs like `PP-999001`, not real passport numbers.
-
-9. **Memory-limited container** (`docker-compose.yml:19-20`) — 512M memory limit helps prevent resource exhaustion attacks.
-
----
-
-## Priority Action Items
-
-| Priority | Issue | Status |
-|----------|-------|--------|
-| **P0** | Remove/redact passport data from iOS debug log (#1) | **FIXED** |
-| **P0** | Sanitize error messages in production (#18) | **FIXED** |
-| **P0** | Add ICAO code input validation (#12) | **FIXED** |
-| **P0** | Add path traversal protection for templates (#13) | **FIXED** |
-| **P0** | Add security headers (#14) | **FIXED** |
-| **P0** | Pin dependency versions (#15) | **FIXED** |
-| **P1** | Clear legacy Person ID fields after migration (#5) | **FIXED** |
-| **P1** | Certificate pinning (#4) | Accepted risk |
-| **P2** | Use separate secret for SessionMiddleware (#10) | Open |
-| **P2** | Clean up temp form files after sharing (#16) | **FIXED** (re-fixed 2026-09-26) |
-| **P2** | Add startup check for placeholder JWT_SECRET (#11) | **FIXED** |
-| **P3** | Add HTTP warning in CLI for non-localhost URLs (#7) | Open |
-| **P3** | Add rate limiting to /generate endpoint (#17) | **FIXED** |
-
----
-
-## Conclusion
-
-**Your core security goal — keeping passport data out of the server — is achieved.** The server never persists PII; it only holds it in memory during form generation. The SwiftData + CloudKit private database architecture ensures sensitive data stays encrypted on-device and in iCloud.
-
-The most critical issues have been resolved:
-- Debug logging no longer exposes passport data to the iOS system log
-- Error messages no longer leak internal server paths or template names
-- ICAO codes are validated before reaching backend logic
-- Template loading is protected against path traversal
-- Security headers (HSTS, X-Frame-Options, etc.) are now set on all responses
-- Dependency versions are pinned to prevent unvetted upgrades
-- Legacy Person ID fields are cleared after migration to avoid duplicate PII storage
-- Server refuses to start with placeholder JWT_SECRET in production
-- Temp form files containing passport data are deleted when sharing ends (re-fixed 2026-09-26 after a regression)
-
-Remaining open items (separate session secret, CLI HTTP warning) are lower priority and primarily affect defense-in-depth rather than direct data exposure.
+**Android**
+- Backup and device transfer are disabled.
+- The token is encrypted with a non-exportable Keystore key.
+- Only the launcher activity is exported.
+- The FileProvider is limited to generated forms.
+- Nothing is written to external storage.
+- No personal data is logged.
+- The web-form WebView data is cleared on exit.
