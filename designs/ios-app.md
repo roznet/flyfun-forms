@@ -111,6 +111,12 @@ The schedule is read and written through `departureDateTime` / `arrivalDateTime`
 
 **Trip:** name, createdAt, legs (→ [Flight]), extraFields (JSON-encoded dict for form-specific fields)
 
+**Stable identity (move-my-data, `Services/StableRecords.swift`):** all five models above also carry optional `uuid` and `updatedAt`, and conform to `StableRecord`. `persistentModelID` differs per device, so `uuid` is what a record is recognised by in an interchange file; `updatedAt` decides which copy wins a merge. Both optional for CloudKit, and never a declared `= UUID()` default (migration can apply it as one constant to every row).
+
+- Every `init` assigns a `uuid`. `StableRecords.backfill` runs every launch, after `migrateDocuments()` and `backfillScheduleInstants()` in one ordered task, and gives any row without one its own — older builds keep creating such rows.
+- `UpdateStamper` observes `ModelContext.willSave` and stamps `updatedAt` on every inserted and changed record, so autosaved bindings are covered. Writes that are not edits (the launch backfills, a future import keeping the file's timestamps) go through `UpdateStamper.withoutStamping`. Existing rows keep `updatedAt == nil`, meaning older than anything. A relationship change stamps both ends.
+- **`DeletedRecord`** (`uuid`, `kind`, `deletedAt`) is a synced tombstone. Every user delete goes through `ModelContext.deleteRecordingTombstone(_:)`; deletes stay real deletes, so no query filters anything. Delete All Data calls `delete` directly, clears the tombstones with everything else, and writes none. See `designs/future/move-my-data.md` §7.
+
 ### Document Resolution
 
 A person can have multiple travel documents (e.g., French + UK passport). `DocumentResolver` selects the best one at form generation time based on the target airport:

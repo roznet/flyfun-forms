@@ -9,6 +9,10 @@ final class TravelDocument {
     var expiryDate: Date?
     var isActive: Bool = true
 
+    // Move-my-data identity; see StableRecords.swift.
+    var uuid: UUID?
+    var updatedAt: Date?
+
     @Relationship(inverse: \Person.documents)
     var person: Person?
 
@@ -27,6 +31,7 @@ final class TravelDocument {
     }
 
     init(docType: String = "Passport", docNumber: String = "", issuingCountry: String? = nil, expiryDate: Date? = nil) {
+        self.uuid = UUID()
         self.docType = docType
         self.docNumber = docNumber
         self.issuingCountry = issuingCountry

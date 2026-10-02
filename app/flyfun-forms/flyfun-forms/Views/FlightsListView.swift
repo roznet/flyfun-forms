@@ -128,7 +128,7 @@ struct FlightsListView: View {
 
     private func deleteFlights(_ offsets: IndexSet, from list: [Flight]) {
         for index in offsets {
-            modelContext.delete(list[index])
+            modelContext.deleteRecordingTombstone(list[index])
         }
     }
 }

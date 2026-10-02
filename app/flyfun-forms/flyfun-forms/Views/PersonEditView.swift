@@ -224,7 +224,7 @@ struct PersonEditView: View {
                     DisclosureGroup {
                         DocumentFields(document: doc)
                         Button("Delete Document", role: .destructive) {
-                            modelContext.delete(doc)
+                            modelContext.deleteRecordingTombstone(doc)
                         }
                     } label: {
                         documentLabel(doc)
@@ -239,7 +239,7 @@ struct PersonEditView: View {
             .onDelete { offsets in
                 let docs = person.documentList
                 for i in offsets {
-                    modelContext.delete(docs[i])
+                    modelContext.deleteRecordingTombstone(docs[i])
                 }
             }
 
