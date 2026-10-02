@@ -4,7 +4,10 @@ services:
     container_name: flightforms
     restart: unless-stopped
     ports:
-      - "8030:8030"
+      # Loopback only: Caddy on the host proxies localhost:8030. Docker's
+      # published ports bypass the host firewall, so "8030:8030" would expose
+      # plain HTTP (no TLS, no Caddy limits) on the public interface.
+      - "127.0.0.1:8030:8030"
     env_file: .env
     environment:
       - ENVIRONMENT=production
