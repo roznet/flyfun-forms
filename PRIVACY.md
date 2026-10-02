@@ -67,6 +67,8 @@ The server stores only:
 
 - **User accounts** — email address, display name and sign-in provider identifier, used for authentication. The account is shared with [FlyFun Weather](https://weather.flyfun.aero).
 - **Usage records** — which airport, which form, and when. No crew or passenger data.
+- **Form-cost records**: the same airport and form, with a nominal cost, for accounting.
+- **Access tokens**: if you create an API token or connect another app, its name, scope and dates, and a one-way hash of the token (never the token itself).
 
 ## Passengers
 
@@ -78,6 +80,13 @@ If you are a passenger or crew member and a pilot has entered your details into 
 - **Your rights** — the pilot (or the organisation they fly for) decides what is kept, so ask them to show, correct or delete your details. The app lets them delete a person, or everything, in one step.
 
 Pilots can share a short version of this with their passengers from the app's *Settings → Privacy note for passengers*.
+
+## Getting a Copy of Your Data
+
+Your data is in two places, so a full copy comes in two parts, both as machine-readable JSON.
+
+- **What is in the app** (people, travel documents, aircraft, flights and trips): *Settings → Download a Copy of My Data (GDPR)* in the app, as described above.
+- **What the server holds about your account**: your account record, usage records, the names and dates of any API tokens or connected apps, and the form-cost records for your account. Open [forms.flyfun.aero/account/export](https://forms.flyfun.aero/account/export) in a browser where you are signed in to FlightForms or FlyFun Weather, and the file downloads. If you are not signed in there, sign in first with [Google](https://forms.flyfun.aero/auth/login/google?next=/account/export) or [Apple](https://forms.flyfun.aero/auth/login/apple?next=/account/export) and the download starts afterwards. With an API token: `curl -H "Authorization: Bearer <token>" https://forms.flyfun.aero/account/export`. The values of tokens and of any stored service credentials are never included. You can also email [privacy@flyfun.aero](mailto:privacy@flyfun.aero) from the address you sign in with and we will send you the same file.
 
 ## Deleting Your Data
 

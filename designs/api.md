@@ -19,6 +19,7 @@ src/flightforms/
 │   ├── validate.py     # POST /validate — dry-run validation
 │   ├── airports.py     # GET /airports, GET /airports/{icao}
 │   ├── email_text.py   # POST /email-text — localized email subject/body
+│   ├── account_export.py # GET /account/export (GDPR Art. 20, server half)
 │   ├── privacy.py      # GET /privacy — PRIVACY.md rendered as the public notice
 │   ├── rate_limit.py   # Per-user fill limit for /generate + /prefill
 │   └── models.py       # Pydantic request/response schemas (with date/time/ICAO validation)
@@ -48,7 +49,7 @@ See [flyfun-common auth design](link) for full OAuth flow details.
 ### Database
 
 Shared MySQL (prod) / SQLite (dev) with flyfun-common:
-- **Shared tables:** `users`, `api_tokens` (from flyfun-common)
+- **Shared tables:** `users`, `api_tokens`, `user_preferences`, `oauth_*`, `cost_ledger` (from flyfun-common)
 - **App-specific:** `usage` table (user_id, endpoint, airport_icao, form_id, timestamp)
 
 ## Endpoints
@@ -81,6 +82,15 @@ Same body as `/generate`, returns validation errors without generating. Each `Va
 
 ### `DELETE /auth/account`
 Deletes the authenticated user's account and all associated data (usage records, API tokens, user record). Returns 204 No Content on success. Used by the iOS app's Settings screen for Apple App Store guideline 5.1.1(v) compliance.
+
+### `GET /account/export`
+GDPR Art. 20, server half: everything the server holds about the signed-in user as a JSON download (`flightforms-account-export.json`, `Cache-Control: no-store`). Shape: `{format: "flightforms/account-export", version: 1, exportedAt, note, user, preferences, usage, apiTokens, oauthGrants, oauthPendingCodes, formCosts}`. Top-level keys are camelCase (as the issue specified); each row keeps its column names (snake_case), like weather's export. 401 without auth or when the user row is gone. How a user reaches it is in `PRIVACY.md` → *Getting a Copy of Your Data*.
+
+- **Coverage mirrors deletion.** Every table `DELETE /auth/account` empties (forms' `_on_delete_user` + flyfun-common's own deletes) must be in `EXPORTED_TABLES`. `test_account_export.py` runs the real deletion against SQLite and fails on a gap; it also fails if any table with a `user_id` column is in neither `EXPORTED_TABLES` nor `NOT_EXPORTED`.
+- **Exclude list, pinned columns.** Like weather, every column is exported except `_EXCLUDE` (token hashes, encrypted credentials, `provider_sub`, `tokens_valid_after`, OAuth code/PKCE values, row ids). Because an exclude list leaks new columns by default, the test pins each table's full column set: a flyfun-common upgrade that adds a column fails CI until someone decides.
+- **`cost_ledger` is exported but not deleted** (kept unlinked for accounting, see `PRIVACY.md`). Only `service = "flyfun-forms"` rows: the ledger is shared with weather, and weather's rows are weather's to export. `donation_ledger` and `magic_link_tokens` are in `NOT_EXPORTED` with the reason.
+- **Lives in forms, not flyfun-common, for now.** The serializer and the users / preferences / tokens sections are generic and could move to the library with an app hook (like `on_delete_user`); that needs a flyfun-common release, so it was left as a follow-up.
+- Never log the body or anything about its contents.
 
 ### `GET /privacy`
 Public (no auth) HTML privacy notice rendered from the repo's `PRIVACY.md`, which the Dockerfile copies into the image. The apps' Settings link here, and the passenger note links `/privacy#passengers` — renaming the `## Passengers` heading breaks that anchor (a test guards it). Repo-relative links are rewritten to GitHub.

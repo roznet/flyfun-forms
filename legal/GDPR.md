@@ -1,6 +1,6 @@
 # FlightForms — GDPR Considerations
 
-*Last updated: 2026-09-26*
+*Last updated: 2026-10-02*
 
 ## Statement
 
@@ -45,7 +45,7 @@ That inverts the two hardest questions. Weather's answer to "does anyone need a 
 | On-device & iCloud storage (the real data store) | ✅ Sound, with two hardening items (§6) |
 | Android client (on-device only) | ✅ No cloud backup or transfer; 🟡 ML Kit sends Google diagnostics (§6a) |
 | Right to erasure (Art. 17) | ✅ Server-side, plus **Delete All Data** on-device (iOS/macOS, Android) |
-| Right to data portability (Art. 20) | 🟡 full device export as JSON (iOS, macOS, Android) ✅; no server-side account export |
+| Right to data portability (Art. 20) | ✅ full device export as JSON (iOS, macOS, Android); server-side account export at `GET /account/export` |
 | Security of processing (Art. 32) | ✅ Temp-file regression fixed, `/generate` rate-limited; iOS hardening items remain (§6) |
 | Retention / storage limitation (Art. 5(1)(e)) | 🟡 Usage rows never pruned; temp files now deleted (§9) |
 | Data residency (UK, EU-adequate) | ✅ Implemented |
@@ -311,7 +311,7 @@ iOS — manifest data on the device, the server for filling only — with two di
   it also clears the web-form WebView's storage and runs Room's `clearAllTables` (which
   VACUUMs, so rows do not linger in free pages).
 
-### 8. Right to data portability (Art. 20) — 🟡
+### 8. Right to data portability (Art. 20) — ✅
 
 - **On-device data: ✅.** *Settings → Download a Copy of My Data (GDPR)* (iOS/macOS) and
   *Download a copy of my data* (Android) write everything the app holds (people, travel
@@ -320,11 +320,16 @@ iOS — manifest data on the device, the server for filling only — with two di
   that it is not encrypted. Same serializer as the encrypted Move My Data file. People can
   also be exported to CSV (`Views/PeopleListView.swift`, "Export to CSV"), which is how a
   pilot would most easily satisfy a passenger's own access request.
-- **Server-side data: missing.** There is no forms equivalent of weather's
-  `GET /api/account/export`. What we hold is small — email, display name, provider, timestamps
-  and a list of `(airport, form, when)` rows — but "small" is not an exemption. A single
-  read-only endpoint returning that JSON would close it, and would be a better home in
-  `flyfun-common` than in either app, since the shape is shared.
+- **Server-side data: ✅ (2026-10-02).** `GET /account/export`
+  (`src/flightforms/api/account_export.py`) returns the signed-in user's account record,
+  preferences, usage rows, form-cost rows written by forms, and the metadata of their API
+  tokens and OAuth grants, as one JSON download (`flightforms/account-export`, version 1).
+  Token hashes, encrypted credentials, the provider subject and the session-revocation epoch
+  are excluded. Coverage is pinned to the deletion path: a test runs the real
+  `DELETE /auth/account` and fails if it empties a table the export omits, and another fails
+  if any table holding user rows is unclassified. How to get it (browser while signed in,
+  API token, or by email) is in `PRIVACY.md` → *Getting a Copy of Your Data*. Built in forms
+  for now; the generic part could move to `flyfun-common` and be shared with weather.
 
 ### 9. Security of processing (Art. 32) — 🟡
 
@@ -529,8 +534,8 @@ Ordered by ratio of obligation to effort.
 5. 🟡 **Put the processor terms in force** (Art. 28(3)) — [`PROCESSOR_TERMS.md`](./PROCESSOR_TERMS.md)
    is drafted; it needs a notice address, an incorporation decision, and the DRAFT banner
    removed. Then add the Art. 30(2) processor-side record. *(§5, §16)*
-6. 🟡 **Server-side account export** (Art. 20) — account + usage JSON; best built in
-   `flyfun-common` and shared with weather. *(§8)*
+6. ✅ ~~**Server-side account export** (Art. 20)~~ Done 2026-10-02, `GET /account/export`.
+   Moving the shared part into `flyfun-common` remains a refactor, not a compliance gap. *(§8)*
 7. ✅ ~~Clarify Delete Account, and add "Delete all local data"~~ — done 2026-09-26. *(§7)*
 8. 🟡 **State a retention period** for `usage` and `cost_ledger` rows and for proxy access logs,
    and implement the prune. Shared with weather. *(§10)*

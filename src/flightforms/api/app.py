@@ -19,7 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ..airport_resolver import AirportResolver
 from ..db.models import AppBase, Usage
 from ..registry import MappingRegistry
-from . import airports, email_text, generate, prefill, privacy, validate
+from . import account_export, airports, email_text, generate, prefill, privacy, validate
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,11 @@ def create_app() -> FastAPI:
         app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
     def _on_delete_user(user_id: str, db):
-        """Clean up app-specific data when a user deletes their account."""
+        """Clean up app-specific data when a user deletes their account.
+
+        Every table deleted here must be in `account_export.EXPORTED_TABLES`
+        (GDPR Art. 20 mirrors Art. 17); a test enforces it.
+        """
         db.query(Usage).filter(Usage.user_id == user_id).delete()
 
     # Mount shared auth router (Google/Apple OAuth, /auth/me, /auth/logout, /auth/account)
@@ -115,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(prefill.router, tags=["prefill"])
     app.include_router(validate.router, tags=["validate"])
     app.include_router(privacy.router)
+    app.include_router(account_export.router)
 
     # "Import from Autorouter" in the app: read-only access to the pilot's
     # recent routes. Deliberately *not* the account-linking router — the flyfun
