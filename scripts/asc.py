@@ -19,6 +19,10 @@ omission is the safety mechanism: you cannot fat-finger a submission through a
 tool that has no code path for it. Press Submit yourself, in the web UI, when
 you are happy with what `asc.py status` shows.
 
+Versions default to `AFTER_APPROVAL`: once Apple approves, the update goes
+live without a second "Release" click. The owner's approval of the archive is
+the release gate; pass `--release-type MANUAL` to hold a version back.
+
 Every subcommand is **idempotent** — re-running is the expected way to correct
 a mistake:
 
@@ -334,40 +338,50 @@ class Asc:
         return None
 
     def ensure_version(
-        self, version_string: str, release_type: str = "MANUAL"
+        self, version_string: str, release_type: str = "AFTER_APPROVAL"
     ) -> dict[str, Any]:
         """Get-or-create the editable App Store version for `version_string`.
 
         Three cases, all of which the /archive skill can hit legitimately:
         an editable version already exists with this number (reuse it), exists
         with a different number because the bump changed (rename it), or does
-        not exist (create it).
+        not exist (create it). A reused version also gets `release_type`, so a
+        version created under an older default doesn't keep it.
         """
         existing = self.editable_version()
         if existing is not None:
-            current = existing["attributes"].get("versionString")
+            attrs = existing["attributes"]
+            changes: dict[str, Any] = {}
+            current = attrs.get("versionString")
             if current == version_string:
                 print(
                     f"{self.platform} version {version_string} already exists and "
                     f"is editable ({self.state_of(existing)}) — reusing it."
                 )
-                return existing
-            print(
-                f"Editable {self.platform} version is {current}, renaming it to "
-                f"{version_string}."
-            )
-            self.request(
-                "PATCH",
-                f"/appStoreVersions/{existing['id']}",
-                body={
-                    "data": {
-                        "id": existing["id"],
-                        "type": "appStoreVersions",
-                        "attributes": {"versionString": version_string},
-                    }
-                },
-            )
-            existing["attributes"]["versionString"] = version_string
+            else:
+                print(
+                    f"Editable {self.platform} version is {current}, renaming it to "
+                    f"{version_string}."
+                )
+                changes["versionString"] = version_string
+            if attrs.get("releaseType") != release_type:
+                print(
+                    f"Setting release type {attrs.get('releaseType')} → {release_type}."
+                )
+                changes["releaseType"] = release_type
+            if changes:
+                self.request(
+                    "PATCH",
+                    f"/appStoreVersions/{existing['id']}",
+                    body={
+                        "data": {
+                            "id": existing["id"],
+                            "type": "appStoreVersions",
+                            "attributes": changes,
+                        }
+                    },
+                )
+                attrs.update(changes)
             return existing
 
         # Nothing editable. If something is mid-review, stop — cancelling a
@@ -683,6 +697,7 @@ def print_status(asc: Asc) -> None:
         return
 
     print(f"\nEditable version {editable['attributes'].get('versionString')}:")
+    print(f"  release type:    {editable['attributes'].get('releaseType')}")
     build = asc.get(f"/appStoreVersions/{editable['id']}/build").get("data")
     if build:
         bnum = build.get("attributes", {}).get("version")
@@ -740,9 +755,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", required=True, help="marketing version, e.g. 1.6")
     p.add_argument(
         "--release-type",
-        default="MANUAL",
+        default="AFTER_APPROVAL",
         choices=["MANUAL", "AFTER_APPROVAL", "SCHEDULED"],
-        help="MANUAL (default) = you press Release after approval",
+        help="AFTER_APPROVAL (default) = goes live once Apple approves; "
+        "MANUAL = you press Release after approval",
     )
     add_common(p)
 
@@ -784,8 +800,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--review-notes", help="App Review notes for the reviewer")
     p.add_argument(
         "--release-type",
-        default="MANUAL",
+        default="AFTER_APPROVAL",
         choices=["MANUAL", "AFTER_APPROVAL", "SCHEDULED"],
+        help="AFTER_APPROVAL (default) = goes live once Apple approves",
     )
     p.add_argument("--timeout", type=int, default=60)
     add_common(p)

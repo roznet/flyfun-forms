@@ -275,6 +275,8 @@ git push origin {platform}/{version} --force  # moved tag (build-only bump)
 
 `scripts/asc.py` creates (or reuses) the App Store version, writes What's New, uploads the archive, waits for Apple to process it, and attaches the build — the steps that used to be Organizer + copy-paste. **It cannot submit for review, by design** (there is no such subcommand); the user presses Submit in App Store Connect.
 
+The version is set to **release automatically once Apple approves** (`AFTER_APPROVAL`, the default): the user's approval of this archive is the release gate, so there is no second "Release" click in App Store Connect. `stage` also switches an existing editable version to it. Only pass `--release-type MANUAL` if the user asks to hold this release back.
+
 If `ASC_KEY_ID` / `ASC_ISSUER_ID` are not in `.env`, this step is unavailable — say so, point at the credentials section of `scripts/asc.py`'s docstring, and fall back to the manual route in Step 10.
 
 Offer `--dry-run` first if the user wants to see the calls before anything is sent. Then stage everything in one call:
@@ -307,6 +309,6 @@ Tell the user:
 - Version and build number in the archive
 - The tag that was created or moved
 - The release notes, and the file they were saved to
-- **If Step 9 ran:** the version is staged on App Store Connect with What's New and the build attached — they review it in the web UI and press **Submit for Review** themselves. Show the final `asc.py status` output.
+- **If Step 9 ran:** the version is staged on App Store Connect with What's New and the build attached — they review it in the web UI and press **Submit for Review** themselves; it then goes live automatically once Apple approves (check `release type: AFTER_APPROVAL` in the final `asc.py status` output, which you show them).
 - **If Step 9 was skipped** (no API key configured): the archive appears in **Xcode → Window → Organizer**, and from there **Distribute App** → **App Store Connect** uploads it; the What's New text then has to be pasted in by hand.
 - Remind them to push the version bump and release-notes commits when ready
