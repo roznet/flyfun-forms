@@ -15,6 +15,7 @@ All personal data (crew, passengers, travel documents, flights) is stored locall
 - **Synced across your devices** — data follows Apple's standard CloudKit sync, meaning it is available on your iPhone, iPad, and Mac under the same Apple ID
 - **No access by FlightForms** — we have no copy of, and no way to read, your CloudKit private data. It is held by Apple under your own iCloud account and Apple's terms. By default Apple manages the iCloud encryption keys; if you turn on [Advanced Data Protection](https://support.apple.com/en-gb/102651), the keys are held only on your devices and Apple cannot read the data either
 - **Authentication tokens in Keychain** — JWT credentials are stored in the iOS/macOS Keychain, the most secure storage available on Apple platforms
+- **Moving to another device is your choice**: *Settings → Move My Data* writes one file holding your people, travel documents, aircraft, trips and flights, encrypted with a passphrase the app suggests (keep it or type your own); the file only goes where you save or send it, and it can be opened by the FlightForms app on iPhone, iPad, Mac or Android. *Download a Copy of My Data (GDPR)* writes the same content as plain, unencrypted JSON for your own records
 
 ## On-Device Storage (Android App)
 
@@ -22,7 +23,7 @@ All personal data (crew, passengers, travel documents, aircraft, flights) is sto
 
 - **Encrypted at rest** — Android's file-based encryption protects the app's storage whenever the phone has a screen lock
 - **Stays on the phone** — there is no cloud sync, and the app opts out of Android backup and device-to-device transfer, so the data is not copied to your Google account or to a new phone
-- **Moving to another device is your choice** — *Settings → Move my data* writes one file, encrypted with a passphrase the app generates and shows you; the file only goes where you send it. A plain, unencrypted export is also available for your own records
+- **Moving to another device is your choice** — *Settings → Move my data* writes one file, encrypted with a passphrase the app suggests (keep it or type your own); the file only goes where you send it, and the iPhone, iPad and Mac apps can open it too. A plain, unencrypted export is also available for your own records, as on Apple devices
 - **No access by FlightForms** — we have no copy of, and no way to read, the data on your phone
 - **Authentication tokens in the Android Keystore** — sign-in credentials are stored in encrypted preferences backed by the Keystore
 

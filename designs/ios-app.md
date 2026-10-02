@@ -114,8 +114,18 @@ The schedule is read and written through `departureDateTime` / `arrivalDateTime`
 **Stable identity (move-my-data, `Services/StableRecords.swift`):** all five models above also carry optional `uuid` and `updatedAt`, and conform to `StableRecord`. `persistentModelID` differs per device, so `uuid` is what a record is recognised by in an interchange file; `updatedAt` decides which copy wins a merge. Both optional for CloudKit, and never a declared `= UUID()` default (migration can apply it as one constant to every row).
 
 - Every `init` assigns a `uuid`. `StableRecords.backfill` runs every launch, after `migrateDocuments()` and `backfillScheduleInstants()` in one ordered task, and gives any row without one its own — older builds keep creating such rows.
-- `UpdateStamper` observes `ModelContext.willSave` and stamps `updatedAt` on every inserted and changed record, so autosaved bindings are covered. Writes that are not edits (the launch backfills, a future import keeping the file's timestamps) go through `UpdateStamper.withoutStamping`. Existing rows keep `updatedAt == nil`, meaning older than anything. A relationship change stamps both ends.
+- `UpdateStamper` observes `ModelContext.willSave` and stamps `updatedAt` on every inserted and changed record, so autosaved bindings are covered. Writes that are not edits (the launch backfills, the Move My Data import keeping the file's timestamps) go through `UpdateStamper.withoutStamping`. Existing rows keep `updatedAt == nil`, meaning older than anything. A relationship change stamps both ends.
 - **`DeletedRecord`** (`uuid`, `kind`, `deletedAt`) is a synced tombstone. Every user delete goes through `ModelContext.deleteRecordingTombstone(_:)`; deletes stay real deletes, so no query filters anything. Delete All Data calls `delete` directly, clears the tombstones with everything else, and writes none. See `designs/future/move-my-data.md` §7.
+
+### Move My Data (Settings)
+
+Encrypted file to carry everything to another device (iOS, macOS or Android), plus the plaintext GDPR copy; same serializer, two wrappers. Spec and as-built notes: `designs/future/move-my-data.md`. Android (`core-logic/.../Interchange.kt`, `DataFileCrypto.kt`) is the reference; the Swift is a port of it.
+
+- **Layers.** `Services/DataFileCrypto.swift` (AES-GCM + CommonCrypto PBKDF2, byte-identical to Android) and `Services/Interchange.swift` (Codable records, merge, `InterchangeTime`/`InterchangeDay`) are pure. `Services/DataTransfer.swift` is the only SwiftData edge: `snapshot`, `preview`, `apply`. `Views/MoveMyDataView.swift` holds `MoveMyDataFlow` (state), the two Settings sections, and one `.moveMyDataPresentation` modifier that owns every sheet, file panel and alert.
+- **Export** runs `StableRecords.backfill`, then maps models to records: ids are lowercased uuids, `nil` `updatedAt` becomes `1970-01-01T00:00:00Z`, calendar days use the device zone (same rule as `FlightEditView.dateFmt`), flights use `departureDateTime`/`arrivalDateTime`. `DeletedRecord`s become minimal records with the kind's required fields set to `deletedAt` (`personId: ""` for documents). Orphan documents (no person) are skipped. A tombstone whose uuid is live again is skipped.
+- **Import** is preview then apply. The local side of the merge is live records plus `DeletedRecord`s as tombstone records, so Android's merge rules apply unchanged. `apply` saves pending user edits first, then writes everything in one `withoutStamping` save and calls `rollback()` on any error. Records keep the file's id and `updatedAt`; a local tombstone for a uuid the import writes is deleted; a file tombstone deletes the record and writes (or advances) a `DeletedRecord`. Membership of each written flight is replaced wholesale from `flightPeople` in `seatOrder`.
+- **Passphrase** is normalised inside `DataFileCrypto` (trim, NFC, case kept), held only in `MoveMyDataFlow` memory, and shown once after a successful save.
+- **Fixtures** shared with Android live in `app/fixtures/move-my-data/` (see its README); `MoveMyDataTests` and Android's `MoveMyDataFixturesTest` each decrypt the other platform's file.
 
 ### Document Resolution
 
@@ -350,6 +360,7 @@ The `/archive` skill (`.claude/skills/archive/SKILL.md`) runs the pre-flight che
 - Account deletion (App Store guideline 5.1.1(v)): **complete**
 - Web forms opened prefilled on the official site (EGTF book-out, PPR, out-of-hours): **prototype**
 - Per-flight document choice in the Crew/Passengers rows: **complete**
+- Move My Data (encrypted, Android-compatible) and GDPR JSON export: **built, not yet verified on device** (see `designs/future/move-my-data.md`)
 
 ## References
 
