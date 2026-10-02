@@ -8,6 +8,11 @@ forms.flyfun.aero {
         -Server
     }
 
+    # Form requests are a few KB; the app enforces the same 1 MB cap.
+    request_body {
+        max_size 1MB
+    }
+
     reverse_proxy localhost:8030 {
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-Proto {scheme}
