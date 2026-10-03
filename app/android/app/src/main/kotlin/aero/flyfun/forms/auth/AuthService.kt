@@ -39,6 +39,11 @@ enum class SignInProvider(val path: String) {
  * redirect URL would be interceptable. We send a `state` nonce, get back a
  * short-TTL `code`, and exchange it over HTTPS. The server only takes the
  * code-flow branch when `state` is present.
+ *
+ * `state` stops a forged callback, but not one intercepted by another app that
+ * registered the scheme: it arrives in the same URL as the code. So we also
+ * use PKCE ([Pkce]): the login carries a challenge, and the code can only be
+ * exchanged with the verifier, which stays in this app.
  */
 class AuthService(
     private val context: Context,
@@ -83,7 +88,20 @@ class AuthService(
             }.commit()
         }
 
+    /**
+     * The PKCE verifier for the pending sign-in. Stored with [pendingState] for
+     * the same process-death reason, and only read while that state is live.
+     */
+    private var pendingVerifier: String?
+        get() = pending.getString(KEY_VERIFIER, null)
+        set(value) {
+            pending.edit().apply {
+                if (value == null) remove(KEY_VERIFIER) else putString(KEY_VERIFIER, value)
+            }.commit()
+        }
+
     fun startSignIn(provider: SignInProvider) {
+        val verifier = Pkce.newVerifier().also { pendingVerifier = it }
         val state = newState().also { pendingState = it }
         val url = Uri.parse(ApiConfig.BASE_URL).buildUpon()
             .appendPath("auth")
@@ -97,6 +115,8 @@ class AuthService(
             .appendQueryParameter("platform", "ios")
             .appendQueryParameter("scheme", ApiConfig.CALLBACK_SCHEME)
             .appendQueryParameter("state", state)
+            .appendQueryParameter("code_challenge", Pkce.challenge(verifier))
+            .appendQueryParameter("code_challenge_method", "S256")
             .build()
 
         CustomTabsIntent.Builder()
@@ -126,10 +146,12 @@ class AuthService(
         if (expected == null || state != expected) {
             return Result.failure(IllegalStateException(context.getString(R.string.app_sign_in_state_mismatch)))
         }
+        val verifier = pendingVerifier
         pendingState = null
+        pendingVerifier = null
 
         return runCatching {
-            val response = api.auth.exchange(ExchangeRequest(code = code, state = state))
+            val response = api.auth.exchange(ExchangeRequest(code = code, state = state, codeVerifier = verifier))
             tokens.token = response.token
             _signInNotice.value = null
             response.userId
@@ -163,6 +185,7 @@ class AuthService(
     private companion object {
         const val KEY_STATE = "state"
         const val KEY_STARTED = "started_at"
+        const val KEY_VERIFIER = "pkce_verifier"
         const val PENDING_TTL_MILLIS = 10 * 60 * 1000L
     }
 
