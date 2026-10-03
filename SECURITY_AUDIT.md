@@ -27,12 +27,12 @@ The serious problems found in October were in the shared auth library rather tha
 | N3 | High | flyfun-common | Script injection on the OAuth server's redirect pages | Fixed, pending release (0.6.8) |
 | N4 | High | Android | Deleting a person kept all their data in the database and in exports | Open |
 | N5 | High | iOS, Android | Suggested "Move my data" passphrase has only about 31 bits of entropy | Open |
-| N6 | Medium | flyfun-common | Sliding-session renewal can revive a token revoked by "log out everywhere" | Open |
-| N7 | Medium | Android, flyfun-common | Native sign-in callback can be intercepted by another installed app | Open |
+| N6 | Medium | flyfun-common | Sliding-session renewal can revive a token revoked by "log out everywhere" | Fixed, pending release (0.6.9) |
+| N7 | Medium | Android, flyfun-common | Native sign-in callback can be intercepted by another installed app | Fixed, pending release (0.6.9 + Android build) |
 | N8 | Medium | Backend | Dates of birth could reach the server log through error tracebacks | Fixed, pending deploy |
 | N9 | Medium | Backend, deploy | No request body size limit | Fixed, pending deploy |
 | N10 | Medium | iOS | Deleted documents' numbers kept on flights | Open |
-| N11 | Low-Med | flyfun-common | Legacy native login still returns the session token in a URL | Open |
+| N11 | Low-Med | flyfun-common | Legacy native login still returns the session token in a URL | Fixed, pending release (0.6.9) |
 | N12 | Low | Deploy | Container port published on all interfaces | Fixed, pending deploy |
 | N13 | Low | iOS, Android | Web-form prefill does not check the page's origin | Open |
 | N14 | Low | Backend, macOS | Spreadsheet formula injection in XLSX forms and the people CSV export | Open |
@@ -43,7 +43,7 @@ The serious problems found in October were in the shared auth library rather tha
 | N19 | Low | iOS, Android | Oversized PDFs or import files can crash the app | Open |
 
 **Release steps for the fixes above:**
-1. Publish flyfun-common 0.6.8 and 0.6.9.
+1. Publish flyfun-common 0.6.9 (0.6.8 is tagged).
 2. Deploy forms (it now requires `flyfun-common>=0.6.9`) and weather.
 
 Until then the "pending" items are fixed in code only.
@@ -114,7 +114,10 @@ Until then the "pending" items are fixed in code only.
 - **Flaw:** the renewal middleware issues a fresh token for any validly signed token near expiry, even on public endpoints. It does not check the account's revocation time.
 - **Impact:** a token revoked by "log out everywhere" can be renewed into a valid one.
 
-**Fix to do:** only renew after the request actually authenticated, or check the revocation epoch in the middleware.
+**Fix (0.6.9):**
+- The auth dependencies record the user they authenticated once every check has passed (user exists, not suspended, not revoked).
+- The middleware renews only when that user is the token's `sub`, so public routes never renew.
+- Sessions are shared across FlyFun apps, so this also closes the route through forms into weather.
 
 ### N7. Android sign-in callback interception (Medium)
 **Where:** `app/android/.../AndroidManifest.xml`, `auth/AuthService.kt`; server `flyfun_common/auth/router.py`
@@ -123,9 +126,11 @@ Until then the "pending" items are fixed in code only.
 - **Impact:** a malicious app on the same device could register the scheme and redeem the code.
 - **Not affected:** iOS, because `ASWebAuthenticationSession` delivers the callback privately.
 
-**Fix to do:**
-- Add PKCE to the native flow in flyfun-common.
-- Use Android's Auth Tab where it is available.
+**Fix:**
+- **Server (0.6.9):** `/auth/login` accepts an S256 `code_challenge`, bound into the exchange code; `/auth/exchange` then requires the matching `code_verifier`. An intercepted `code`+`state` can no longer be redeemed.
+- **Android:** the app sends a challenge and keeps the verifier with the pending `state`. This ships with the next Android build.
+- **Optional:** Android's Auth Tab would also keep the redirect private, but with PKCE it is no longer needed for safety.
+- **Not done:** the Swift client does not send a challenge yet. It isn't exposed, because `ASWebAuthenticationSession` already delivers the callback privately.
 
 ### N8. Dates of birth in server logs (Medium)
 **Where:** `src/flightforms/api/models.py`, `src/flightforms/fillers/*.py`
@@ -161,7 +166,7 @@ Until then the "pending" items are fixed in code only.
 
 - **Flaw:** a native login without `state` still returns the session token in the custom-scheme callback URL. When no scheme is given it defaults to one that isn't on the allowlist. Current apps always send `state`.
 
-**Fix to do:** remove the branch, and require an allowlisted scheme.
+**Fix (0.6.9):** the branch is removed. A native login without an allowlisted scheme and a `state` is refused at `/auth/login`, and the callback has no default scheme. App builds older than the `state` flow (2026-07) can no longer sign in.
 
 ### N12. Container port on all interfaces (Low)
 **Where:** `docker-compose.yml`
@@ -225,7 +230,7 @@ Until then the "pending" items are fixed in code only.
 |---|---------|----------------------|
 | 1 | Passport data in iOS debug log | **Fixed.** Verified again: all Swift logging uses `os.Logger` with private interpolation. |
 | 2 | Passport data sent to the server on every generate | **Accepted.** Inherent to filling forms; HTTPS + HSTS, never stored. |
-| 3 | JWT in the OAuth callback URL (H8) | **Fixed** for the apps (auth-code exchange with `state`). The server still has the legacy branch: see N11. Android has a related interception risk: see N7. |
+| 3 | JWT in the OAuth callback URL (H8) | **Fixed** (auth-code exchange with `state`). The server's legacy branch is removed in 0.6.9 (N11), and PKCE closes the Android interception risk (N7). |
 | 4 | No certificate pinning | **Accepted.** Pinning against Let's Encrypt rotation risks locking users out. |
 | 5 | Legacy person ID fields | **Fixed.** |
 | 6 | No request body encryption | **Accepted.** The server must read the data to fill the form. |
