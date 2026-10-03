@@ -123,12 +123,12 @@ struct DataFileCryptoTests {
         }
     }
 
-    @Test("Generated passphrases are six words from the list, usable and distinct")
+    @Test("Generated passphrases are three words from the list, usable and distinct")
     func generated() throws {
         let one = DataFileCrypto.generatePassphrase()
         let two = DataFileCrypto.generatePassphrase()
         let words = one.split(separator: "-").map(String.init)
-        #expect(words.count == 6)
+        #expect(words.count == 3)
         #expect(words.allSatisfy(DataFileCrypto.wordList.contains))
         #expect(one != two)
         let blob = try DataFileCrypto.encrypt(payload, passphrase: one)

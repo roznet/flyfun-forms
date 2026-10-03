@@ -116,8 +116,10 @@ enum DataFileCrypto {
     }
 
     /// A passphrase the user reads off one device and types into the other:
-    /// six words from the same list as Android, joined by "-".
-    static func generatePassphrase(words: Int = 6) -> String {
+    /// three words from the same list as Android, joined by "-". Short enough
+    /// to fit on one line and to remember; the file is meant to be imported
+    /// and deleted (SECURITY_AUDIT.md N5, accepted).
+    static func generatePassphrase(words: Int = 3) -> String {
         var generator = SystemRandomNumberGenerator()
         return (0..<words)
             .map { _ in wordList.randomElement(using: &generator)! }

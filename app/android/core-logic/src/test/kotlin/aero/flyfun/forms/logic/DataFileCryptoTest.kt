@@ -65,7 +65,7 @@ class DataFileCryptoTest {
     fun `generated passphrases are usable and distinct`() {
         val one = DataFileCrypto.generatePassphrase()
         val two = DataFileCrypto.generatePassphrase()
-        assertEquals(6, one.split("-").size)
+        assertEquals(3, one.split("-").size)
         assertNotEquals(one, two)
         // and it actually works as a password
         val blob = DataFileCrypto.encrypt(payload, one.toCharArray())

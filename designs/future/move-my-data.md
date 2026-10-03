@@ -203,7 +203,7 @@ artifact to avoid.
 | Android | JDK `javax.crypto` — no Tink dependency |
 | Salt / nonce | Random per export, stored in the file header |
 
-**Passphrase UX:** the export dialog pre-fills a generated 6-word passphrase
+**Passphrase UX:** the export dialog pre-fills a generated 3-word passphrase (short enough for one line and to remember; weak by design, see SECURITY_AUDIT.md N5)
 in an editable field; the user keeps it or types their own (only non-blank is
 required). The file is meant to be created, imported and deleted — not
 archived — so a forgotten passphrase just means exporting again from the

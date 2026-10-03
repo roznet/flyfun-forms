@@ -104,11 +104,13 @@ object DataFileCrypto {
      * A transfer passphrase the user reads off one device and types into the
      * other.
      *
-     * Six words from a small, unambiguous list beats a user-chosen password,
-     * which would be weak and reused - and reads naturally as a one-time code
+     * Three words from a small, unambiguous list: short enough to fit on one
+     * line and to remember while walking to the other device. The file is
+     * meant to be imported and deleted, not archived, so this trades strength
+     * for ease (SECURITY_AUDIT.md N5, accepted). Reads as a one-time code
      * rather than as an account credential.
      */
-    fun generatePassphrase(words: Int = 6): String {
+    fun generatePassphrase(words: Int = 3): String {
         val random = SecureRandom()
         return (1..words).joinToString("-") { WORDS[random.nextInt(WORDS.size)] }
     }

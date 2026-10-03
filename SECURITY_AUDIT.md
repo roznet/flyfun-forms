@@ -26,7 +26,7 @@ The serious problems found in October were in the shared auth library rather tha
 | N2 | High | flyfun-common, forms | API-token scopes not registered by an app were given full access there | Fixed, pending release (0.6.9) |
 | N3 | High | flyfun-common | Script injection on the OAuth server's redirect pages | Fixed, pending release (0.6.8) |
 | N4 | High | Android | Deleting a person kept all their data in the database and in exports | Open |
-| N5 | High | iOS, Android | Suggested "Move my data" passphrase has only about 31 bits of entropy | Open |
+| N5 | High | iOS, Android | Suggested "Move my data" passphrase is low-entropy (3 words, about 15.5 bits) | Accepted |
 | N6 | Medium | flyfun-common | Sliding-session renewal can revive a token revoked by "log out everywhere" | Fixed, pending release (0.6.9) |
 | N7 | Medium | Android, flyfun-common | Native sign-in callback can be intercepted by another installed app | Fixed, pending release (0.6.9 + Android build) |
 | N8 | Medium | Backend | Dates of birth could reach the server log through error tracebacks | Fixed, pending deploy |
@@ -101,12 +101,10 @@ Until then the "pending" items are fixed in code only.
 ### N5. Weak suggested "Move my data" passphrase (High)
 **Where:** `app/flyfun-forms/.../Services/DataFileCrypto.swift`, Android `core-logic/.../DataFileCrypto.kt`
 
-- **Flaw:** the suggested passphrase is six words from a 36-word list, about 31 bits. Under PBKDF2 at 210k iterations it can be brute-forced on a single GPU in under a day.
+- **Flaw:** the suggested passphrase is three words from a 36-word list, about 15.5 bits (reduced from six words, about 31 bits, on 2026-10-03). Under PBKDF2 at 210k iterations it can be brute-forced quickly.
 - **Impact:** the file is meant to be moved through chat, mail or AirDrop, and contains every stored passport number.
 
-**Fix to do:**
-- Use a large word list on both platforms, such as the EFF long list (6 words is about 77 bits). The word list only affects passphrase generation, not the file format.
-- Require a minimum strength for custom passphrases.
+**Accepted (2026-10-03):** six words wrapped on screen and were too hard to remember. The file is a one-off transfer that the user creates, imports and deletes, and the user controls where it goes; anyone wanting more strength can type their own passphrase. If this is revisited, a larger word list (e.g. the EFF long list) raises strength without making the passphrase longer; it only affects generation, not the file format.
 
 ### N6. Sliding renewal can revive revoked sessions (Medium)
 **Where:** `flyfun-common/python/src/flyfun_common/auth/middleware.py`
