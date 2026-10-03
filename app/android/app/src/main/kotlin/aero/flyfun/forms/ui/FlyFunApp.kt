@@ -1238,6 +1238,32 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             }
         }
 
+        // CreateDocument: the system "save as" screen, so the export can go
+        // to Downloads (or anywhere) without a share target or a storage
+        // permission. One launcher per type, since the contract fixes it.
+        var saving by remember { mutableStateOf<File?>(null) }
+        val onSaved: (android.net.Uri?) -> Unit = { uri ->
+            val file = saving
+            saving = null
+            if (uri != null && file != null) {
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) {
+                        runCatching {
+                            context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+                        }.getOrNull() != null
+                    }
+                    val message = if (ok) R.string.settings_file_saved else R.string.app_could_not_write_file
+                    android.widget.Toast.makeText(context, context.getString(message), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        val saveData = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream"), onSaved,
+        )
+        val saveJson = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"), onSaved,
+        )
+
         SettingsScreen(
             state = state,
             signedIn = signedIn,
@@ -1254,6 +1280,14 @@ private fun androidx.navigation.NavGraphBuilder.settingsRoute(
             },
             onConfirmImport = { vm.confirmImport() },
             onShare = { shareFile(context, it) },
+            onSave = { file ->
+                if (!file.exists()) {
+                    android.widget.Toast.makeText(context, context.getString(R.string.app_file_cleared), android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    saving = file
+                    (if (file.extension == "json") saveJson else saveData).launch(file.name)
+                }
+            },
             // The sign-in screen follows from the token going; see FlyFunApp.
             onSignOut = { scope.launch { auth.signOut() } },
             onDismiss = { vm.reset() },

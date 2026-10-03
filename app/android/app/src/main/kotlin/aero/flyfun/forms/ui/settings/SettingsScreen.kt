@@ -65,6 +65,8 @@ fun SettingsScreen(
     onSubmitPassword: (String) -> Unit,
     onConfirmImport: () -> Unit,
     onShare: (File) -> Unit,
+    /** Writes the exported file to a place the user picks on the device. */
+    onSave: (File) -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit,
     spokenLanguages: Set<String>,
@@ -291,7 +293,14 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { onShare(state.file) }) { Text(stringResource(R.string.settings_share_file)) } },
+            // Save as well as Share: a share target that keeps the file
+            // (Drive, Files) is not always installed.
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { onSave(state.file) }) { Text(stringResource(R.string.settings_save_to_device)) }
+                    TextButton(onClick = { onShare(state.file) }) { Text(stringResource(R.string.settings_share_file)) }
+                }
+            },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_done)) } },
         )
 

@@ -138,4 +138,6 @@
     <string name="settings_privacy_policy">Datenschutzerklärung</string>
     <string name="settings_passenger_note">Datenschutzhinweis für Passagiere</string>
     <string name="settings_delete_all_data">Alle Daten löschen</string>
+    <string name="settings_save_to_device">Auf dem Gerät sichern</string>
+    <string name="settings_file_saved">Datei gesichert</string>
 </resources>

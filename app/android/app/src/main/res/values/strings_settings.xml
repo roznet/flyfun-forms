@@ -38,6 +38,8 @@
     <string name="settings_passphrase_instructions">Type this on the other device to open the file. It is not stored anywhere. If you lose it, export a new file.</string>
     <string name="settings_file_ready_not_encrypted">%1$s is ready. It is not encrypted.</string>
     <string name="settings_share_file">Share file</string>
+    <string name="settings_save_to_device">Save to device</string>
+    <string name="settings_file_saved">File saved</string>
     <string name="settings_passphrase_from_other_device">Passphrase from the other device</string>
     <string name="settings_open">Open</string>
     <string name="settings_import_this_file">Import this file?</string>
