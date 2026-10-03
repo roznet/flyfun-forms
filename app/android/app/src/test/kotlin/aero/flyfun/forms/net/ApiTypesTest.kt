@@ -149,4 +149,13 @@ class ApiTypesTest {
         assertEquals("Airport", errors[2].displayField)
         assertEquals("25:00", errors[1].value)
     }
+
+    @Test
+    fun `ExchangeRequest sends the PKCE verifier as code_verifier`() {
+        val encoded = json.encodeToString(
+            ExchangeRequest.serializer(),
+            ExchangeRequest(code = "c", state = "s", codeVerifier = "v"),
+        )
+        assertEquals("{\"code\":\"c\",\"state\":\"s\",\"code_verifier\":\"v\"}", encoded)
+    }
 }

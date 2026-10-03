@@ -39,7 +39,12 @@ interface FormsApi {
 }
 
 @kotlinx.serialization.Serializable
-data class ExchangeRequest(val code: String, val state: String)
+data class ExchangeRequest(
+    val code: String,
+    val state: String,
+    /** PKCE verifier for the challenge sent at `/auth/login` (see [aero.flyfun.forms.auth.Pkce]). */
+    @kotlinx.serialization.SerialName("code_verifier") val codeVerifier: String? = null,
+)
 
 @kotlinx.serialization.Serializable
 data class ExchangeResponse(val token: String, @kotlinx.serialization.SerialName("user_id") val userId: String)
