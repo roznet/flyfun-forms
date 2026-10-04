@@ -27,6 +27,10 @@ struct flyfun_formsApp: App {
         if UITestMode.isActive {
             return UITestFixtures.makeContainer(schema: schema)
         }
+        if UITestMode.isUnitTestHost {
+            let config = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+            return try! ModelContainer(for: schema, configurations: config)
+        }
         #endif
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -43,34 +47,46 @@ struct flyfun_formsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if appState.isAuthenticated {
-                    ContentView()
-                        .id(appState.localDataEpoch)
-                        .environment(\.airportCatalog, catalog)
-                        .task(id: appState.jwt) {
-                            catalog.jwt = appState.jwt
-                            await catalog.sync()
-                        }
-                } else {
-                    LoginView()
-                }
+            #if DEBUG
+            if UITestMode.isUnitTestHost {
+                Color.clear
+            } else {
+                root
             }
-            .environment(appState)
-            // One task, in order: the documents migrateDocuments creates need a
-            // uuid from backfillStableIDs, and so does an orphan's tombstone.
-            .task {
-                migrateDocuments()
-                backfillScheduleInstants()
-                backfillStableIDs()
-                deleteOrphanDocuments()
-            }
-            .task { await preloadAirportData() }
+            #else
+            root
+            #endif
         }
         .modelContainer(sharedModelContainer)
         #if os(macOS)
         .defaultSize(width: 1100, height: 700)
         #endif
+    }
+
+    private var root: some View {
+        Group {
+            if appState.isAuthenticated {
+                ContentView()
+                    .id(appState.localDataEpoch)
+                    .environment(\.airportCatalog, catalog)
+                    .task(id: appState.jwt) {
+                        catalog.jwt = appState.jwt
+                        await catalog.sync()
+                    }
+            } else {
+                LoginView()
+            }
+        }
+        .environment(appState)
+        // One task, in order: the documents migrateDocuments creates need a
+        // uuid from backfillStableIDs, and so does an orphan's tombstone.
+        .task {
+            migrateDocuments()
+            backfillScheduleInstants()
+            backfillStableIDs()
+            deleteOrphanDocuments()
+        }
+        .task { await preloadAirportData() }
     }
 
     /// Preload the airport database and warm timezone cache for airports used in recent flights.

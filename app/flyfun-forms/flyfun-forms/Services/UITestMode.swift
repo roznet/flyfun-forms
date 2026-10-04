@@ -13,6 +13,13 @@ nonisolated enum UITestMode {
     /// from one run into the next.
     static let isActive = flag("FLYFUN_UITEST")
 
+    /// The app is only hosting the unit tests (`flyfun-formsTests`): XCTest
+    /// puts its configuration in the host's environment, which an app the XCUI
+    /// suite launches does not get. The tests build their own containers, so
+    /// the host keeps out of their way: no CloudKit store, no UI, no launch
+    /// migrations running alongside them.
+    static let isUnitTestHost = value("XCTestConfigurationFilePath") != nil
+
     /// `FLYFUN_MOCK=1`: answer every HTTP request from `UITestURLProtocol`
     /// instead of the network. A request it has no answer for fails, and is
     /// logged to the capture directory, rather than reaching a server.
