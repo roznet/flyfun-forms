@@ -312,11 +312,9 @@ final class flyfun_formsUITests: XCTestCase {
 
         let firstName = app.textFields["personFirstNameField"]
         XCTAssertTrue(firstName.waitForExistence(timeout: Self.uiTimeout), "the person editor should open")
-        firstName.tap()
-        firstName.typeText("New")
+        typeInto(app, firstName, "New")
         let lastName = app.textFields["personLastNameField"]
-        lastName.tap()
-        lastName.typeText("Person")
+        typeInto(app, lastName, "Person")
 
         let addDocument = element(app, "addDocumentButton")
         scrollTo(app, addDocument)
@@ -327,11 +325,9 @@ final class flyfun_formsUITests: XCTestCase {
 
         let number = app.textFields["documentNumberField"]
         XCTAssertTrue(number.waitForExistence(timeout: Self.uiTimeout), "the document editor should open")
-        number.tap()
-        number.typeText("DEA123456")
+        typeInto(app, number, "DEA123456")
         let country = app.textFields["documentCountryField"]
-        country.tap()
-        country.typeText("deu")
+        typeInto(app, country, "deu")
         // "Set" dates the expiry today, which is already past by the time the row draws.
         app.buttons["Set"].firstMatch.tap()
         goBack(app)
@@ -361,11 +357,9 @@ final class flyfun_formsUITests: XCTestCase {
 
         let firstName = app.textFields["personFirstNameField"]
         XCTAssertTrue(firstName.waitForExistence(timeout: Self.uiTimeout), "the person editor should open over the picker")
-        firstName.tap()
-        firstName.typeText("New")
+        typeInto(app, firstName, "New")
         let lastName = app.textFields["personLastNameField"]
-        lastName.tap()
-        lastName.typeText("Traveller")
+        typeInto(app, lastName, "Traveller")
         backFromEditor(app, title: "New Traveller")
 
         let role = element(app, "selectedRole-Traveller")
@@ -395,8 +389,7 @@ final class flyfun_formsUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: Self.uiTimeout), "back in the picker")
         XCTAssertFalse(element(app, "selectedRole-").exists, "an empty person should not stay selected")
 
-        search.tap()
-        search.typeText("Jane Zztest")
+        typeInto(app, search, "Jane Zztest")
         let addSearched = element(app, "addSearchedPersonButton")
         XCTAssertTrue(addSearched.waitForExistence(timeout: Self.uiTimeout),
                       "a search that finds nobody should offer to add them")
@@ -459,6 +452,20 @@ final class flyfun_formsUITests: XCTestCase {
         app.buttons.matching(identifier: identifier).count
     }
 
+    /// Tap a text field and type into it. On iOS 27, typing into a name field
+    /// raises an AutoFill "Suggested" popover in a full-screen overlay that
+    /// swallows every tap aimed elsewhere, so the next field never gets the
+    /// keyboard. Close it with its own Dismiss button first.
+    @MainActor
+    private func typeInto(_ app: XCUIApplication, _ field: XCUIElement, _ text: String) {
+        let suggested = app.otherElements["Suggested"]
+        if suggested.exists {
+            suggested.descendants(matching: .any)["Dismiss"].firstMatch.tap()
+        }
+        field.tap()
+        field.typeText(text)
+    }
+
     @MainActor
     private func openTab(_ app: XCUIApplication, _ title: String) {
         let tab = app.tabBars.buttons[title].firstMatch
@@ -512,8 +519,7 @@ final class flyfun_formsUITests: XCTestCase {
     private func pickAirport(_ app: XCUIApplication, _ icao: String) {
         let search = app.textFields["airportSearchField"]
         XCTAssertTrue(search.waitForExistence(timeout: Self.uiTimeout), "the airport picker should open")
-        search.tap()
-        search.typeText(icao)
+        typeInto(app, search, icao)
         let result = element(app, "airportResult-\(icao)")
         XCTAssertTrue(result.waitForExistence(timeout: Self.uiTimeout), "\(icao) should be found")
         result.tap()
