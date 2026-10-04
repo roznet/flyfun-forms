@@ -507,7 +507,17 @@ enum InterchangeTime {
         let (_, base, fraction, zone) = match.output
         guard let whole = wholeSeconds.date(from: String(base) + String(zone)) else { return nil }
         guard let fraction, let digits = Double("0" + fraction) else { return whole }
-        return whole.addingTimeInterval(digits)
+        // Most millisecond fractions have no exact Double: `.706` can land a
+        // hair below, which `format` truncates to `.705`. Nudge up to the first
+        // value inside the millisecond the file names, so an instant writes
+        // back as it was read and is never later than the file says.
+        let millis = Int64(String(fraction.dropFirst().prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0))!
+        let target = Int64(whole.timeIntervalSince1970) * 1000 + millis
+        var date = whole.addingTimeInterval(digits)
+        while Int64((date.timeIntervalSince1970 * 1000).rounded(.down)) < target {
+            date = Date(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate.nextUp)
+        }
+        return date
     }
 
     private static let pattern =

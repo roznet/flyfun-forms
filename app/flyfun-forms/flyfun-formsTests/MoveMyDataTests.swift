@@ -282,6 +282,15 @@ struct InterchangeFormatTests {
         #expect(InterchangeTime.parse("2026-09-18 14:22:03") == nil)
     }
 
+    @Test("A parsed instant writes back exactly as it was read")
+    func instantRoundTrip() throws {
+        for millis in 0..<1000 {
+            let text = String(format: "2026-10-04T01:08:10.%03dZ", millis)
+            let expected = millis == 0 ? "2026-10-04T01:08:10Z" : text
+            #expect(InterchangeTime.format(try #require(InterchangeTime.parse(text))) == expected)
+        }
+    }
+
     /// The document `ios-plain.json` holds, built here so the fixture can be
     /// regenerated from this code.
     static let iosFixture: InterchangeDocument = {
