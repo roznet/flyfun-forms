@@ -1,0 +1,2 @@
+- New Move My Data: export your people, aircraft and flights to a passphrase-protected file and import them on another iPhone, iPad, Mac or Android device
+- Security and privacy improvements
