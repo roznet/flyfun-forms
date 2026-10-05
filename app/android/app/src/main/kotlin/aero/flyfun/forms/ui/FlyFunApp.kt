@@ -1175,9 +1175,11 @@ private fun shareFile(context: Context, file: File) {
 /**
  * Opens a mail app with the form attached, addressed and written.
  *
- * ACTION_SEND so the attachment goes with it, and a `mailto:` selector so only
- * mail apps answer rather than every app that takes a PDF. With no mail app,
- * falls back to the share sheet, as iOS does without a mail account.
+ * ACTION_SEND so the attachment goes with it, addressed to the apps that
+ * answer `mailto:` so only mail apps are offered rather than every app that
+ * takes a PDF. A `mailto:` selector would say the same, but Android 17 no
+ * longer resolves SEND through one. With no mail app, the share sheet gets the
+ * whole message, as iOS falls back without a mail account.
  */
 private fun emailFile(context: Context, email: aero.flyfun.forms.ui.flights.GenerateState.EmailReady) {
     val file = email.file
@@ -1189,15 +1191,25 @@ private fun emailFile(context: Context, email: aero.flyfun.forms.ui.flights.Gene
         putExtra(Intent.EXTRA_SUBJECT, email.subject)
         putExtra(Intent.EXTRA_TEXT, email.body)
         putExtra(Intent.EXTRA_STREAM, uri)
-        // ClipData carries the read grant through the selector to the mail app.
-        clipData = android.content.ClipData.newRawUri(file.name, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        selector = Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:"))
     }
-    try {
-        context.startActivity(intent)
-    } catch (_: android.content.ActivityNotFoundException) {
-        shareFile(context, file)
+    val pm = context.packageManager
+    val mailApps = pm.queryIntentActivities(Intent(Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:")), 0)
+        .map { it.activityInfo.packageName }
+        .toSet()
+    val title = context.getString(R.string.app_share_file, file.name)
+    when (mailApps.size) {
+        0 -> context.startActivity(Intent.createChooser(intent, title))
+        1 -> context.startActivity(intent.setPackage(mailApps.single()))
+        else -> {
+            val others = pm.queryIntentActivities(intent, 0)
+                .filter { it.activityInfo.packageName !in mailApps }
+                .map { android.content.ComponentName(it.activityInfo.packageName, it.activityInfo.name) }
+            context.startActivity(
+                Intent.createChooser(intent, title)
+                    .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, others.toTypedArray()),
+            )
+        }
     }
 }
 
