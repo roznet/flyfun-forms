@@ -32,23 +32,32 @@ data class ResolvableDocument(
  */
 object DocumentResolver {
 
-    private enum class Region { SCHENGEN, UK, OTHER }
+    /** Same regions as iOS `Services/AirportRegion.swift`; change both together. */
+    private enum class Region { SCHENGEN, UK, EU_NON_SCHENGEN, OTHER }
+
+    /** Airports whose territory is outside the region of their country prefix. */
+    private val exactRegions: Map<String, Region> = mapOf(
+        "ENSB" to Region.OTHER, // Svalbard: Norwegian, but outside Schengen
+        "EKVG" to Region.OTHER, // Faroe Islands: Danish, but outside Schengen and the EU
+    )
 
     /** ICAO prefix to region. */
     private val prefixRegions: Map<String, Region> = mapOf(
-        // Schengen / EU
+        // Schengen
         "LF" to Region.SCHENGEN, // France
         "LS" to Region.SCHENGEN, // Switzerland (Schengen associate)
         "ED" to Region.SCHENGEN, // Germany
         "EB" to Region.SCHENGEN, // Belgium
         "EH" to Region.SCHENGEN, // Netherlands
+        "EL" to Region.SCHENGEN, // Luxembourg
         "LE" to Region.SCHENGEN, // Spain
+        "GC" to Region.SCHENGEN, // Canary Islands (Spain)
         "LI" to Region.SCHENGEN, // Italy
-        "LP" to Region.SCHENGEN, // Portugal
+        "LP" to Region.SCHENGEN, // Portugal (incl. Azores, Madeira)
         "LO" to Region.SCHENGEN, // Austria
-        "EL" to Region.SCHENGEN, // Greece (also LG)
         "LG" to Region.SCHENGEN, // Greece
         "LK" to Region.SCHENGEN, // Czech Republic
+        "LZ" to Region.SCHENGEN, // Slovakia
         "EP" to Region.SCHENGEN, // Poland
         "LH" to Region.SCHENGEN, // Hungary
         "LJ" to Region.SCHENGEN, // Slovenia
@@ -64,10 +73,17 @@ object DocumentResolver {
         "LR" to Region.SCHENGEN, // Romania
         "LB" to Region.SCHENGEN, // Bulgaria
         "LD" to Region.SCHENGEN, // Croatia
-        "LC" to Region.SCHENGEN, // Cyprus
-        // UK
+        // EU, not Schengen
+        "EI" to Region.EU_NON_SCHENGEN, // Ireland
+        "LC" to Region.EU_NON_SCHENGEN, // Cyprus
+        // UK (incl. Channel Islands and Isle of Man); Gibraltar (LX) falls to OTHER
         "EG" to Region.UK,
     )
+
+    private fun region(airport: String): Region {
+        val code = airport.trim().uppercase()
+        return exactRegions[code] ?: prefixRegions[code.take(2)] ?: Region.OTHER
+    }
 
     /** ISO alpha-3 codes for EU/Schengen issuing countries. */
     private val schengenCountries: Set<String> = setOf(
@@ -79,7 +95,7 @@ object DocumentResolver {
 
     /**
      * @param documents every document held for the person, active or not
-     * @param airport target airport ICAO; only the first two characters matter
+     * @param airport target airport ICAO; an exact override, else its two-letter prefix, sets the region
      * @param chosenDocNumbers the documents picked by hand for the flight
      *   (iOS `Flight.chosenDocNumbers`); one of this person's active documents
      *   in that set wins over the automatic choice
@@ -97,11 +113,9 @@ object DocumentResolver {
 
         chosen(docs, chosenDocNumbers)?.let { return it }
 
-        val prefix = airport.take(2)
-        val region = prefixRegions[prefix] ?: Region.OTHER
-
-        val regionMatches = when (region) {
-            Region.SCHENGEN -> docs.filter { schengenCountries.contains(it.issuingCountry ?: "") }
+        // EU members outside Schengen prefer the same documents as Schengen.
+        val regionMatches = when (region(airport)) {
+            Region.SCHENGEN, Region.EU_NON_SCHENGEN -> docs.filter { schengenCountries.contains(it.issuingCountry ?: "") }
             Region.UK -> docs.filter { it.issuingCountry == "GBR" }
             Region.OTHER -> emptyList()
         }

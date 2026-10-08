@@ -46,6 +46,8 @@ app/flyfun-forms/flyfun-forms/
     ├── FormService.swift      # API client for /airports, /generate, /prefill, /validate, /email-text; parses 422 into structured errors
     ├── PeopleCSVImporter.swift # CSV parser + SwiftData importer for bulk people entry
     ├── DocumentResolver.swift # Picks best document per person + airport region (active only)
+    ├── AirportRegion.swift    # Shared ICAO → region table (Schengen/UK/EU non-Schengen/other)
+    ├── StayReport.swift       # Days per region from a person's flights (see stay-report.md)
     ├── ValidationFix.swift    # Maps a server validation error path to what to edit on device
     ├── AirportCatalog.swift   # Airport/form discovery with server sync
     └── APITypes.swift         # Codable request/response models
@@ -135,7 +137,7 @@ A person can have multiple travel documents (e.g., French + UK passport). `Docum
 
 0. **Active filter** — only active documents (`isActive == true`) are considered; inactive ones are skipped
 1. **Flight choice** — if the pilot picked a document for this person on this flight, use it. Stored on `Flight.chosenDocNumbers` by document number (stable across launches and devices, syncs via CloudKit, unlike a model identifier), set from the document menu under the person's name in the Crew/Passengers rows, which appears for people with more than one active document. `copyCommon` carries it to duplicated legs.
-2. **Region match** — ICAO prefix → region (Schengen/UK/other), prefer document issued by a matching country
+2. **Region match** — `AirportRegion` (exact ICAO, then prefix) → region; Schengen and EU non-Schengen (Ireland, Cyprus) prefer an EU/Schengen-issued document, UK prefers GBR. Table and its fixes: `stay-report.md`
 3. **Tiebreak** — latest expiry date among matching documents
 4. **Fallback** — single document used directly; no documents → nil
 

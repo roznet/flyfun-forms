@@ -199,6 +199,7 @@ the other FlyFun services.
 - [ ] **Remaining translations** — ~33 strings need real aviation fr/de/es; blocked on a translator (execution plan §2b)
 - [ ] **Real-passport scan test** — needs a physical device; does not block merging PR 2 once photo scan works on the emulator
 - [ ] **Fix validation errors in place** (iOS `7af8d61`, `b5bc3f8`, `Services/ValidationFix.swift`, `Views/ValidationErrorsView.swift`) — found in PR 2's re-sync; Android still lists the server's 422 errors in a dialog. Not blocked, just not in PR 2's scope; a candidate for PR 3
+- [ ] **Travel Days report** (iOS #49, `Services/StayReport.swift`, `Views/StayReportView.swift`, see `designs/stay-report.md`) — port `StayReport.compute` to `:core-logic` with `StayReportTests` as the spec. The region table fix itself is already in `DocumentResolver.kt`; the report will need it public
 - [ ] **Contact fields beyond the name on a real device** — 2e reads phones, e-mails, addresses and birthday through the picked contact's entity URI; the emulator's provider must be checked to honour the picker's grant for it (§8)
 
 ---

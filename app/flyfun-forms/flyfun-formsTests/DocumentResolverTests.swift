@@ -178,6 +178,22 @@ struct DocumentResolverTests {
         }
     }
 
+    @Test("EU airports outside Schengen and newly listed Schengen prefixes prefer an EU document")
+    @MainActor
+    func euNonSchengenAndNewPrefixes() throws {
+        let container = try makeTestContainer()
+        let (person, _) = makePerson(container: container, documents: [
+            (type: "Passport", number: "PP-GBR-001", country: "GBR", expiry: date(2033, 1, 1)),
+            (type: "Passport", number: "PP-FRA-001", country: "FRA", expiry: date(2029, 1, 1)),
+        ])
+
+        // EI (Ireland), LC (Cyprus), LZ (Slovakia), GC (Canary Islands)
+        for airport in ["EIDW", "LCLK", "LZIB", "GCLP"] {
+            let result = DocumentResolver.resolve(person: person, airport: airport)
+            #expect(result?.docNumber == "PP-FRA-001", "Expected FRA doc for \(airport)")
+        }
+    }
+
     @Test("Document chosen for the flight wins over region match")
     @MainActor
     func chosenDocumentWins() throws {
