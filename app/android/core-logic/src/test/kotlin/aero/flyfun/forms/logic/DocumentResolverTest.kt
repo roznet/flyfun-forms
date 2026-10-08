@@ -127,6 +127,31 @@ class DocumentResolverTest {
     // --- Beyond the Swift suite: behaviour the Swift code has but never asserted ---
 
     @Test
+    fun `EU airports outside schengen and newly listed schengen prefixes prefer an EU document`() {
+        val docs = listOf(
+            doc("PP-GBR-001", "GBR", date(2033, 1, 1)),
+            doc("PP-FRA-001", "FRA", date(2029, 1, 1)),
+        )
+        // EI (Ireland), LC (Cyprus), LZ (Slovakia), GC (Canary Islands)
+        for (airport in listOf("EIDW", "LCLK", "LZIB", "GCLP")) {
+            assertEquals("Expected FRA doc for $airport", "PP-FRA-001", DocumentResolver.resolve(docs, airport)?.docNumber)
+        }
+    }
+
+    @Test
+    fun `svalbard and faroe override their country prefix`() {
+        val docs = listOf(
+            doc("PP-FRA-001", "FRA", date(2029, 1, 1)),
+            doc("PP-USA-001", "USA", date(2033, 1, 1)),
+        )
+        // Outside Schengen despite EN / EK: no region match, so latest expiry wins.
+        assertEquals("PP-USA-001", DocumentResolver.resolve(docs, "ENSB")?.docNumber)
+        assertEquals("PP-USA-001", DocumentResolver.resolve(docs, "EKVG")?.docNumber)
+        // The rest of Norway is still Schengen.
+        assertEquals("PP-FRA-001", DocumentResolver.resolve(docs, "ENGM")?.docNumber)
+    }
+
+    @Test
     fun `inactive documents are ignored`() {
         val docs = listOf(
             doc("PP-INACTIVE", "FRA", date(2033, 1, 1), isActive = false),

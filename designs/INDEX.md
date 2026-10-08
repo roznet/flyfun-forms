@@ -28,6 +28,11 @@ How a new flight gets its route, schedule, aircraft and people from somewhere ot
 Key exports: `FlightDraft`, `FlightImportMethod`, `FlightImportContext`, `PeopleSuggestion`, `Flight.nextOccurrence`, `AutorouterImportService`
 → Full doc: flight-import.md
 
+### stay-report
+Per-person "Travel Days" report: days per region (Schengen, UK, EU non-Schengen, other) over the last 180 days, from the flights recorded in the app, with gaps flagged. Pure state machine over flights, computed on device; also owns the shared ICAO → region table.
+Key exports: `AirportRegion`, `StayReport.compute`, `StayLeg`, `StayDay`, `StayReportView`
+→ Full doc: stay-report.md
+
 ### cli
 Command-line client for batch form generation from CSV files. Uses API tokens for auth. Includes `preview` command for generating forms with self-describing dummy data for visual verification.
 Key exports: `cli.py` (generate, trip, preview, airports commands)

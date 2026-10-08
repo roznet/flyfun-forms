@@ -30,6 +30,7 @@ struct PersonEditView: View {
                     personInfoSections
                     crewFlagSection
                     documentsSections
+                    travelSection
                 }
             }
         }
@@ -111,6 +112,7 @@ struct PersonEditView: View {
                 FormColumn {
                     personInfoSections
                     crewFlagSection
+                    travelSection
                 }
                 Divider()
                 FormColumn {
@@ -166,6 +168,19 @@ struct PersonEditView: View {
     private var crewFlagSection: some View {
         Section("Role") {
             Toggle("Usual Crew Member", isOn: $person.isUsualCrew)
+        }
+    }
+
+    /// Days per region on this person's recorded flights.
+    @ViewBuilder
+    private var travelSection: some View {
+        Section("Travel") {
+            NavigationLink {
+                StayReportView(person: person)
+            } label: {
+                Label("Travel Days", systemImage: "calendar")
+            }
+            .accessibilityIdentifier("travelDaysRow")
         }
     }
 

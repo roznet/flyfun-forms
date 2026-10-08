@@ -4844,6 +4844,697 @@
           }
         }
       }
+    },
+    "Travel" : {
+      "comment" : "Section in the person editor",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Reisen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Viajes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Voyages"
+          }
+        }
+      }
+    },
+    "Travel Days" : {
+      "comment" : "Days per region on a person's recorded flights",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Reisetage"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Días de viaje"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jours de voyage"
+          }
+        }
+      }
+    },
+    "From %@ to %@" : {
+      "comment" : "Travel days report: the 180-day window. The arguments are dates.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vom %@ bis %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Del %@ al %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Du %@ au %@"
+          }
+        }
+      }
+    },
+    "Based on %lld flights in this app. Counts only flights recorded in this app; it is not a legal calculation." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basierend auf %lld Flug in dieser App. Zählt nur in dieser App erfasste Flüge; dies ist keine rechtliche Berechnung."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basierend auf %lld Flügen in dieser App. Zählt nur in dieser App erfasste Flüge; dies ist keine rechtliche Berechnung."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Based on %lld flight in this app. Counts only flights recorded in this app; it is not a legal calculation."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Based on %lld flights in this app. Counts only flights recorded in this app; it is not a legal calculation."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basado en %lld vuelo de esta app. Solo cuenta los vuelos registrados en esta app; no es un cálculo legal."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basado en %lld vuelos de esta app. Solo cuenta los vuelos registrados en esta app; no es un cálculo legal."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basé sur %lld vol dans cette app. Ne compte que les vols enregistrés dans cette app ; ce n'est pas un calcul juridique."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Basé sur %lld vols dans cette app. Ne compte que les vols enregistrés dans cette app ; ce n'est pas un calcul juridique."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld days" : {
+      "comment" : "Travel days report: days in a region",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld Tag"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld Tage"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld día"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld días"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld jour"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "%lld jours"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Up to %lld days with gaps" : {
+      "comment" : "Travel days report: Schengen days if every unknown day was in Schengen",
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Bis zu %lld Tag mit Lücken"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Bis zu %lld Tage mit Lücken"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Up to %lld day with gaps"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Up to %lld days with gaps"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Hasta %lld día con huecos"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Hasta %lld días con huecos"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Jusqu'à %lld jour avec les trous"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Jusqu'à %lld jours avec les trous"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Schengen" : {
+      "comment" : "Region in the travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Schengen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Schengen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Schengen"
+          }
+        }
+      }
+    },
+    "UK" : {
+      "comment" : "Region in the travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vereinigtes Königreich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Reino Unido"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Royaume-Uni"
+          }
+        }
+      }
+    },
+    "EU outside Schengen" : {
+      "comment" : "Region in the travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "EU außerhalb Schengen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UE fuera de Schengen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "UE hors Schengen"
+          }
+        }
+      }
+    },
+    "Not subject to 90/180: holds an EU or Schengen document" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nicht der 90/180-Regel unterworfen: besitzt ein EU- oder Schengen-Dokument"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No sujeto a 90/180: tiene un documento UE o Schengen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Non soumis au 90/180 : détient un document UE ou Schengen"
+          }
+        }
+      }
+    },
+    "No EU or Schengen document: 90/180 may apply" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kein EU- oder Schengen-Dokument: 90/180 kann gelten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sin documento UE o Schengen: 90/180 puede aplicarse"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucun document UE ou Schengen : le 90/180 peut s'appliquer"
+          }
+        }
+      }
+    },
+    "No documents: can't tell whether 90/180 applies" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Keine Dokumente: unklar, ob 90/180 gilt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sin documentos: no se sabe si se aplica 90/180"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucun document : impossible de savoir si le 90/180 s'applique"
+          }
+        }
+      }
+    },
+    "Gaps" : {
+      "comment" : "Travel days report: region changes with no flight recorded between",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lücken"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Huecos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Trous"
+          }
+        }
+      }
+    },
+    "The region changes between these flights with no flight recorded in between. Add the missing leg as a flight to complete the count." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Region wechselt zwischen diesen Flügen, ohne dass dazwischen ein Flug erfasst ist. Fügen Sie die fehlende Strecke als Flug hinzu, um die Zählung zu vervollständigen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La región cambia entre estos vuelos sin ningún vuelo registrado entre ellos. Añada el tramo que falta como vuelo para completar el recuento."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La région change entre ces vols sans vol enregistré entre les deux. Ajoutez l'étape manquante comme vol pour compléter le décompte."
+          }
+        }
+      }
+    },
+    "Arrived %@ %@, next departs %@ %@, no flight between" : {
+      "comment" : "Travel days report: a gap. Arguments: arrival ICAO, arrival date, next departure ICAO, departure date.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ankunft %1$@ am %2$@, nächster Abflug %3$@ am %4$@, kein Flug dazwischen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Llegada a %1$@ el %2$@, siguiente salida de %3$@ el %4$@, ningún vuelo entre ambos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Arrivée %1$@ le %2$@, départ suivant de %3$@ le %4$@, aucun vol entre les deux"
+          }
+        }
+      }
+    },
+    "Unknown days: %lld" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Unbekannte Tage: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Días desconocidos: %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jours inconnus : %lld"
+          }
+        }
+      }
+    },
+    "Previous flight" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vorheriger Flug"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelo anterior"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vol précédent"
+          }
+        }
+      }
+    },
+    "Next flight" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nächster Flug"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelo siguiente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vol suivant"
+          }
+        }
+      }
+    },
+    "Notes" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hinweise"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Notas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Remarques"
+          }
+        }
+      }
+    },
+    "Assumed in %@ (%@) since %@, the last recorded flight, and counted up to today." : {
+      "comment" : "Travel days report: open-ended stay. Arguments: airport ICAO, region name, date of the last flight.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Angenommen in %1$@ (%2$@) seit %3$@, dem letzten erfassten Flug, und bis heute gezählt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se supone en %1$@ (%2$@) desde el %3$@, último vuelo registrado, y contado hasta hoy."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supposé à %1$@ (%2$@) depuis le %3$@, dernier vol enregistré, et compté jusqu'à aujourd'hui."
+          }
+        }
+      }
+    },
+    "Flights overlapping in time: %lld. Check their times." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zeitlich überlappende Flüge: %lld. Prüfen Sie ihre Zeiten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelos que se solapan: %lld. Revise sus horas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vols qui se chevauchent : %lld. Vérifiez leurs horaires."
+          }
+        }
+      }
+    },
+    "Flights missing an airport, not counted: %lld" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Flüge ohne Flughafen, nicht gezählt: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelos sin aeropuerto, no contados: %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vols sans aéroport, non comptés : %lld"
+          }
+        }
+      }
+    },
+    "Planned flights, not counted yet: %lld" : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Geplante Flüge, noch nicht gezählt: %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelos previstos, aún no contados: %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vols prévus, pas encore comptés : %lld"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
