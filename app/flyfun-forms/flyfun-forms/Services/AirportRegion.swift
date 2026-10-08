@@ -40,6 +40,7 @@ nonisolated enum AirportRegion: String, CaseIterable, Hashable, Sendable {
         "LF": .schengen,  // France
         "LS": .schengen,  // Switzerland (Schengen associate)
         "ED": .schengen,  // Germany
+        "ET": .schengen,  // Germany (military)
         "EB": .schengen,  // Belgium
         "EH": .schengen,  // Netherlands
         "EL": .schengen,  // Luxembourg
@@ -82,6 +83,6 @@ nonisolated enum AirportRegion: String, CaseIterable, Hashable, Sendable {
         "FRA", "DEU", "BEL", "NLD", "ESP", "ITA", "PRT", "AUT", "LUX",
         "CHE", "GRC", "CZE", "POL", "HUN", "SVN", "LVA", "LTU", "EST",
         "MLT", "ISL", "NOR", "FIN", "SWE", "DNK", "ROU", "BGR", "HRV",
-        "CYP", "SVK", "IRL",
+        "CYP", "SVK", "IRL", "LIE",
     ]
 }

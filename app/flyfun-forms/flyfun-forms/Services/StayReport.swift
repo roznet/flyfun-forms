@@ -139,6 +139,9 @@ nonisolated struct StayReport: Sendable {
     /// Flights walked, oldest first. The whole history, not just the window:
     /// the state on the window's first day comes from earlier flights.
     let flightsUsed: [UUID]
+    /// Flights that shape the window: those arriving inside it, plus the last
+    /// one before it, which sets where the window starts.
+    let flightsInWindow: Int
     /// Flights missing an origin or destination.
     let flightsIgnored: [UUID]
     /// Flights that have not departed yet.
@@ -284,6 +287,9 @@ nonisolated struct StayReport: Sendable {
             openEnded = OpenEnded(airport: last.leg.destination, region: last.to, since: last.arrivalDay)
         }
 
+        let firstInWindow = resolved.firstIndex { $0.arrivalDay >= windowStart } ?? resolved.count
+        let flightsInWindow = resolved.count - max(firstInWindow - 1, 0)
+
         let schengen = seen[.schengen] ?? []
         return StayReport(
             windowStart: windowStart,
@@ -294,6 +300,7 @@ nonisolated struct StayReport: Sendable {
             gaps: gaps,
             openEnded: openEnded,
             flightsUsed: resolved.map(\.leg.flightID),
+            flightsInWindow: flightsInWindow,
             flightsIgnored: ignored,
             flightsFuture: future,
             overlaps: overlaps
@@ -330,9 +337,10 @@ extension StayLeg {
         var flights: [UUID: Flight] = [:]
         for flight in (person.crewFlights ?? []) + (person.passengerFlights ?? []) {
             guard seen.insert(flight.persistentModelID).inserted else { continue }
-            // A flight from before stable identities has no uuid yet; any id
-            // unique to this computation will do.
-            let id = flight.uuid ?? UUID()
+            // A flight from before stable identities has no uuid until
+            // `StableRecords` backfills it; derive one from the model id so
+            // it stays the same from one render to the next.
+            let id = flight.uuid ?? UUID(stableFor: flight.persistentModelID)
             flights[id] = flight
             legs.append(StayLeg(
                 flightID: id,
@@ -347,5 +355,22 @@ extension StayLeg {
             ))
         }
         return (legs, flights)
+    }
+}
+
+private extension UUID {
+    /// A UUID that is the same for the same model id within this run of the
+    /// app. Not persisted, so the hash seed changing between runs is fine.
+    init(stableFor id: PersistentIdentifier) {
+        var high = Hasher()
+        high.combine(id)
+        var low = Hasher()
+        low.combine(id)
+        low.combine(1)
+        let bytes = withUnsafeBytes(of: (high.finalize(), low.finalize())) { Array($0) }
+        self.init(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
 }

@@ -25,7 +25,7 @@ struct StayReportView: View {
             } header: {
                 Text("From \(report.windowStart.date(), format: Self.dayFormat) to \(report.today.date(), format: Self.dayFormat)")
             } footer: {
-                Text("Based on \(report.flightsUsed.count) flights in this app. Counts only flights recorded in this app; it is not a legal calculation.")
+                Text("Based on \(report.flightsInWindow) flights in this app. Counts only flights recorded in this app; it is not a legal calculation.")
             }
 
             if !report.gaps.isEmpty {

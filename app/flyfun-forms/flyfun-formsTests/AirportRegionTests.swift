@@ -20,6 +20,11 @@ struct AirportRegionTests {
         #expect(AirportRegion.region(for: "GCLP") == .schengen)
     }
 
+    @Test("German military airfields (ET) are Schengen")
+    func germanMilitary() {
+        #expect(AirportRegion.region(for: "ETNG") == .schengen)
+    }
+
     @Test("Luxembourg (EL) is Schengen")
     func luxembourg() {
         #expect(AirportRegion.region(for: "ELLX") == .schengen)

@@ -47,6 +47,7 @@ object DocumentResolver {
         "LF" to Region.SCHENGEN, // France
         "LS" to Region.SCHENGEN, // Switzerland (Schengen associate)
         "ED" to Region.SCHENGEN, // Germany
+        "ET" to Region.SCHENGEN, // Germany (military)
         "EB" to Region.SCHENGEN, // Belgium
         "EH" to Region.SCHENGEN, // Netherlands
         "EL" to Region.SCHENGEN, // Luxembourg
@@ -90,7 +91,7 @@ object DocumentResolver {
         "FRA", "DEU", "BEL", "NLD", "ESP", "ITA", "PRT", "AUT", "LUX",
         "CHE", "GRC", "CZE", "POL", "HUN", "SVN", "LVA", "LTU", "EST",
         "MLT", "ISL", "NOR", "FIN", "SWE", "DNK", "ROU", "BGR", "HRV",
-        "CYP", "SVK", "IRL",
+        "CYP", "SVK", "IRL", "LIE",
     )
 
     /**

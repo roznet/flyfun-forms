@@ -226,6 +226,28 @@ struct StayReportWindowTests {
         let r = report([], asOf: at(2026, 6, 30, 22, 30), deviceZone: paris)
         #expect(r.today == day(2026, 7, 1))
     }
+
+    @Test("flights in the window: those arriving in it plus the one before that sets the start")
+    func flightsInWindowCount() {
+        let r = report([
+            leg("EGTF", "LFAC", at(2025, 6, 1, 9)),
+            leg("LFAC", "EGTF", at(2025, 9, 1, 9)),
+            leg("EGTF", "LFAC", at(2026, 3, 1, 9)),
+            leg("LFAC", "EGTF", at(2026, 3, 5, 9)),
+        ], asOf: asOf)
+        #expect(r.flightsUsed.count == 4)
+        #expect(r.flightsInWindow == 3)
+    }
+
+    @Test("only old flights: the last one still shapes the window")
+    func flightsInWindowOnlyOld() {
+        let r = report([
+            leg("EGTF", "LFAC", at(2025, 6, 1, 9)),
+            leg("LFAC", "EGTF", at(2025, 9, 1, 9)),
+        ], asOf: asOf)
+        #expect(r.flightsInWindow == 1)
+        #expect(report([], asOf: asOf).flightsInWindow == 0)
+    }
 }
 
 // MARK: - Time
@@ -423,6 +445,11 @@ struct StayReportRuleStatusTests {
     @Test("a GBR document only is subject")
     func gbrOnly() {
         #expect(StayReport.ruleStatus(issuingCountries: ["GBR"]) == .subject)
+    }
+
+    @Test("a Liechtenstein (LIE) document is not subject")
+    func liechtenstein() {
+        #expect(StayReport.ruleStatus(issuingCountries: ["LIE"]) == .notSubject)
     }
 
     @Test("GBR and FRA documents are not subject")

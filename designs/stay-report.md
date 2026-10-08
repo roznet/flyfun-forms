@@ -52,6 +52,8 @@ passport, where a small error is harmless; for counting days it is not):
 - `LC` Cyprus → `euNonSchengen` (was `schengen`).
 - `EI` Ireland → `euNonSchengen`; `GC` Canary Islands → `schengen`.
 - `EL` comment fixed: Luxembourg, not Greece.
+- `ET` German military airfields → `schengen`; `LIE` Liechtenstein added to the EU/Schengen
+  issuing countries (it has no ICAO prefix of its own: its airfields are under Swiss `LS`).
 - Exact overrides `ENSB` Svalbard, `EKVG` Faroe → `other`.
 
 `DocumentResolver` treats `euNonSchengen` like `schengen` (prefers an EU/Schengen-issued
@@ -107,7 +109,9 @@ integer arithmetic: DST changes and leap days cannot shift a count.
 `seenDays[region]`, `unknownDays`, `schengenUpperBound` (= |Schengen seen ∪ unknown|,
 so a day already seen in Schengen is never counted twice), `gaps` (only those whose next
 flight departs inside the window), `openEnded` (airport, region, since), `flightsUsed`
-(whole history walked), `flightsIgnored`, `flightsFuture`, `overlaps`.
+(whole history walked), `flightsInWindow` (flights arriving in the window plus the last one
+before it, which sets where the window starts; the count shown in the footer),
+`flightsIgnored`, `flightsFuture`, `overlaps`.
 
 ### Who the rule applies to
 
@@ -137,7 +141,8 @@ otherwise any named issuer → `.subject`; none → `.unknown`. A label, never a
 
 - **Adapter** `StayLeg.legs(for: Person)` merges `crewFlights` + `passengerFlights`,
   deduped by `persistentModelID`, and returns a `[UUID: Flight]` lookup so the view can
-  link a gap back to its flights. A flight without a `uuid` gets a throwaway id.
+  link a gap back to its flights. A flight without a `uuid` (not yet backfilled by `StableRecords`) gets an id hashed from
+  its `persistentModelID`, stable across renders within a run.
 - **Timed vs day-only**: a leg is `.instant(departureDateTime)` when it has a time
   (`hasDepartureTime`) or a backfilled `departureInstant`; otherwise `.day`.
 - **Timezones**: the view reads the cache into a plain dictionary on the main actor before

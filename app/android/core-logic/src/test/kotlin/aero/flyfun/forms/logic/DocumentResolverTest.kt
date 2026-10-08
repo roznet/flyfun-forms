@@ -132,8 +132,8 @@ class DocumentResolverTest {
             doc("PP-GBR-001", "GBR", date(2033, 1, 1)),
             doc("PP-FRA-001", "FRA", date(2029, 1, 1)),
         )
-        // EI (Ireland), LC (Cyprus), LZ (Slovakia), GC (Canary Islands)
-        for (airport in listOf("EIDW", "LCLK", "LZIB", "GCLP")) {
+        // EI (Ireland), LC (Cyprus), LZ (Slovakia), GC (Canary Islands), ET (German military)
+        for (airport in listOf("EIDW", "LCLK", "LZIB", "GCLP", "ETNG")) {
             assertEquals("Expected FRA doc for $airport", "PP-FRA-001", DocumentResolver.resolve(docs, airport)?.docNumber)
         }
     }
