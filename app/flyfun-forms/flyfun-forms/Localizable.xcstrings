@@ -5306,25 +5306,370 @@
         }
       }
     },
-    "The region changes between these flights with no flight recorded in between. Add the missing leg as a flight to complete the count." : {
-      "comment" : "Travel days report",
+    "Add Missing Flight" : {
+      "comment" : "Travel days report: button on a gap",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Die Region wechselt zwischen diesen Flügen, ohne dass dazwischen ein Flug erfasst ist. Fügen Sie die fehlende Strecke als Flug hinzu, um die Zählung zu vervollständigen."
+            "value" : "Fehlenden Flug hinzufügen"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "La región cambia entre estos vuelos sin ningún vuelo registrado entre ellos. Añada el tramo que falta como vuelo para completar el recuento."
+            "value" : "Añadir el vuelo que falta"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "La région change entre ces vols sans vol enregistré entre les deux. Ajoutez l'étape manquante comme vol pour compléter le décompte."
+            "value" : "Ajouter le vol manquant"
+          }
+        }
+      }
+    },
+    "Open Flight" : {
+      "comment" : "Travel days report: menu item on a flight next to a gap",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Flug öffnen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir el vuelo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ouvrir le vol"
+          }
+        }
+      }
+    },
+    "Remove %@ from This Flight" : {
+      "comment" : "Travel days report: menu item. Argument: person name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ von diesem Flug entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Quitar a %@ de este vuelo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Retirer %@ de ce vol"
+          }
+        }
+      }
+    },
+    "Delete Flight" : {
+      "comment" : "Button that deletes a flight",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Flug löschen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eliminar el vuelo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer le vol"
+          }
+        }
+      }
+    },
+    "Delete %@?" : {
+      "comment" : "Confirmation title. Argument: flight route",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ löschen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Eliminar %@?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer %@ ?"
+          }
+        }
+      }
+    },
+    "The flight is deleted for everyone on it. If only this person wasn't on it, remove them from the flight instead." : {
+      "comment" : "Travel days report: delete confirmation",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Der Flug wird für alle an Bord gelöscht. Wenn nur diese Person nicht dabei war, entfernen Sie sie stattdessen vom Flug."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El vuelo se elimina para todas las personas a bordo. Si solo esta persona no iba en él, quítela del vuelo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Le vol est supprimé pour toutes les personnes à bord. Si seule cette personne n'y était pas, retirez-la plutôt du vol."
+          }
+        }
+      }
+    },
+    "The region changes between these flights with no flight recorded in between. Add the missing flight, or remove a flight that didn't happen." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Region wechselt zwischen diesen Flügen, ohne dass dazwischen ein Flug erfasst ist. Fügen Sie den fehlenden Flug hinzu oder entfernen Sie einen Flug, der nicht stattgefunden hat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La región cambia entre estos vuelos sin ningún vuelo registrado entre ellos. Añada el vuelo que falta o quite un vuelo que no tuvo lugar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La région change entre ces vols sans aucun vol enregistré entre les deux. Ajoutez le vol manquant ou retirez un vol qui n'a pas eu lieu."
+          }
+        }
+      }
+    },
+    "Missing Flight" : {
+      "comment" : "Travel days report: title of the sheet that adds the flight a gap is missing",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fehlender Flug"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vuelo que falta"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vol manquant"
+          }
+        }
+      }
+    },
+    "Person" : {
+      "comment" : "Travel days report: the person the missing flight is added for",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Person"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Persona"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Personne"
+          }
+        }
+      }
+    },
+    "Day" : {
+      "comment" : "Travel days report: day the missing flight departs",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tag"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Día"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jour"
+          }
+        }
+      }
+    },
+    "Day after arriving" : {
+      "comment" : "Travel days report: quick pick for the missing flight's day",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tag nach der Ankunft"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Día después de llegar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Lendemain de l'arrivée"
+          }
+        }
+      }
+    },
+    "Day before next flight" : {
+      "comment" : "Travel days report: quick pick for the missing flight's day",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tag vor dem nächsten Flug"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Día antes del siguiente vuelo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Veille du vol suivant"
+          }
+        }
+      }
+    },
+    "Set a time" : {
+      "comment" : "Travel days report: toggle to enter the missing flight's time",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Uhrzeit angeben"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Indicar una hora"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Indiquer une heure"
+          }
+        }
+      }
+    },
+    "When" : {
+      "comment" : "Travel days report: section header for the missing flight's day",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wann"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cuándo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Quand"
+          }
+        }
+      }
+    },
+    "Without a time, the flight is placed between the two flights on that day." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ohne Uhrzeit wird der Flug an diesem Tag zwischen die beiden Flüge gelegt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sin hora, el vuelo se sitúa entre los dos vuelos ese día."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sans heure, le vol est placé entre les deux vols ce jour-là."
+          }
+        }
+      }
+    },
+    "Added from Travel Days" : {
+      "comment" : "Observation on a flight added to fill a gap in the travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aus Reisetage hinzugefügt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Añadido desde Días de viaje"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ajouté depuis Jours de voyage"
           }
         }
       }

@@ -437,6 +437,86 @@ struct StayReportGapTests {
     }
 }
 
+// MARK: - Filling a gap
+
+@Suite("StayReport filling a gap")
+struct StayReportFillGapTests {
+
+    private let paris = TimeZone(identifier: "Europe/Paris")!
+
+    /// Out to LFAC on 1 June, next seen leaving EGTF on 10 June.
+    private func gapReport(nextDeparture: Date = at(2026, 6, 10, 9)) -> (StayReport, [StayLeg]) {
+        let legs = [
+            leg("EGTF", "LFAC", at(2026, 6, 1, 9)),
+            leg("EGTF", "LFAC", nextDeparture),
+        ]
+        return (report(legs, asOf: at(2026, 6, 12, 20)), legs)
+    }
+
+    @Test("the missing leg can leave from the arrival day to the next departure day")
+    func missingLegDays() {
+        let gap = gapReport().0.gaps[0]
+        #expect(gap.missingLegDays == day(2026, 6, 1)...day(2026, 6, 10))
+        #expect(gap.dayAfterArriving == day(2026, 6, 2))
+        #expect(gap.dayBeforeNextFlight == day(2026, 6, 9))
+    }
+
+    @Test("on adjacent days the quick picks are the two flight days")
+    func quickPicksOnAdjacentDays() {
+        let gap = gapReport(nextDeparture: at(2026, 6, 2, 8)).0.gaps[0]
+        #expect(gap.dayAfterArriving == day(2026, 6, 2))
+        #expect(gap.dayBeforeNextFlight == day(2026, 6, 1))
+    }
+
+    @Test("on a free day the missing leg leaves at noon at the origin, and the gap closes")
+    func freeDayAtNoon() {
+        let (r, legs) = gapReport()
+        let departure = r.gaps[0].missingLegDeparture(on: day(2026, 6, 5), originZone: paris)
+        #expect(departure == at(2026, 6, 5, 10))  // 12:00 in Paris
+
+        let filled = report(legs + [leg("LFAC", "EGTF", departure, arrival: departure)], asOf: at(2026, 6, 12, 20))
+        #expect(filled.gaps.isEmpty)
+        #expect(filled.unknownDays == 0)
+        // Schengen 1 to 5 June and back 10 to 12; UK 1 June and 5 to 10.
+        #expect(filled.days(in: .schengen) == 8)
+        #expect(filled.days(in: .uk) == 7)
+    }
+
+    @Test("on the arrival day the missing leg leaves after the previous flight lands")
+    func arrivalDayAfterLanding() {
+        let (r, legs) = gapReport(nextDeparture: at(2026, 6, 2, 8))
+        let gap = r.gaps[0]
+        let departure = gap.missingLegDeparture(on: day(2026, 6, 1), originZone: paris)
+        #expect(departure > gap.previousArrival)
+        #expect(StayDay(departure, in: paris) == day(2026, 6, 1))
+
+        let filled = report(legs + [leg("LFAC", "EGTF", departure, arrival: departure)], asOf: at(2026, 6, 12, 20))
+        #expect(filled.gaps.isEmpty)
+        #expect(filled.overlaps.isEmpty)
+    }
+
+    @Test("on the next flight's day the missing leg leaves before it")
+    func departureDayBeforeNextFlight() {
+        let (r, legs) = gapReport(nextDeparture: at(2026, 6, 2, 8))
+        let gap = r.gaps[0]
+        let departure = gap.missingLegDeparture(on: day(2026, 6, 2), originZone: paris)
+        #expect(departure < gap.nextDeparture)
+        #expect(StayDay(departure, in: paris) == day(2026, 6, 2))
+
+        let filled = report(legs + [leg("LFAC", "EGTF", departure, arrival: departure)], asOf: at(2026, 6, 12, 20))
+        #expect(filled.gaps.isEmpty)
+        #expect(filled.overlaps.isEmpty)
+    }
+
+    @Test("a day outside the gap is clamped into it")
+    func dayClamped() {
+        let gap = gapReport().0.gaps[0]
+        let departure = gap.missingLegDeparture(on: day(2026, 7, 1), originZone: paris)
+        #expect(StayDay(departure, in: paris) == day(2026, 6, 10))
+        #expect(departure < gap.nextDeparture)
+    }
+}
+
 // MARK: - Rule status
 
 @Suite("StayReport rule status")
