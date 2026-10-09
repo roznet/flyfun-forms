@@ -26,23 +26,28 @@ struct MissingFlightSheet: View {
         self.gap = gap
         _originICAO = State(initialValue: gap.arrivedAt)
         _destinationICAO = State(initialValue: gap.departsFrom)
-        _day = State(initialValue: gap.dayAfterArriving.date())
+        let zone = AirportTimezoneCache.shared.timezone(for: gap.arrivedAt)
+        _day = State(initialValue: (gap.dayAfterArriving(originZone: zone) ?? gap.arrivalDay).date())
     }
 
-    private var dayRange: ClosedRange<Date> {
-        gap.missingLegDays.lowerBound.date()...gap.missingLegDays.upperBound.date()
+    /// Unresolved means UTC, as the report reads it; observed, so the days
+    /// follow when the zone lands.
+    private var originZone: TimeZone? {
+        AirportTimezoneCache.shared.timezone(for: originICAO)
     }
+
+    private var days: ClosedRange<StayDay>? { gap.missingLegDays(originZone: originZone) }
 
     private var selectedDay: StayDay { StayDay(day, in: .current) }
 
     /// The departure the flight is saved with: the time entered, or one the
-    /// report places between the gap's two flights.
-    private var departure: Date {
-        if setTime { return departureInstant }
-        return gap.missingLegDeparture(
-            on: selectedDay,
-            originZone: AirportTimezoneCache.shared.timezone(for: originICAO)
-        )
+    /// report places between the gap's two flights. nil when it would not
+    /// sort between them, so the gap would stay open.
+    private var departure: Date? {
+        if setTime {
+            return gap.fits(departureInstant) ? departureInstant : nil
+        }
+        return gap.missingLegDeparture(on: selectedDay, originZone: originZone)
     }
 
     var body: some View {
@@ -66,37 +71,48 @@ struct MissingFlightSheet: View {
                 }
 
                 Section {
-                    if setTime {
+                    if days == nil {
+                        Text("These two flights leave no time for a flight between them. Check their dates and times.")
+                            .foregroundStyle(.secondary)
+                    } else if setTime {
                         FlightDateTimeField(
                             end: .departure,
                             instant: $departureInstant,
                             primaryICAO: originICAO,
                             zoneICAOs: [originICAO, destinationICAO]
                         )
-                    } else {
-                        DatePicker("Day", selection: $day, in: dayRange, displayedComponents: .date)
+                    } else if let days {
+                        DatePicker("Day", selection: $day, in: days.lowerBound.date()...days.upperBound.date(), displayedComponents: .date)
                             .accessibilityIdentifier("missingFlightDayPicker")
-                        if gap.dayAfterArriving != gap.dayBeforeNextFlight {
+                        if let after = gap.dayAfterArriving(originZone: originZone),
+                           let before = gap.dayBeforeNextFlight(originZone: originZone),
+                           after != before {
                             HStack {
-                                quickPick("Day after arriving", gap.dayAfterArriving)
+                                quickPick("Day after arriving", after)
                                 Spacer()
-                                quickPick("Day before next flight", gap.dayBeforeNextFlight)
+                                quickPick("Day before next flight", before)
                             }
                         }
                     }
-                    Toggle("Set a time", isOn: $setTime.animation())
-                        .onChange(of: setTime) { _, on in
-                            if on {
-                                departureInstant = gap.missingLegDeparture(
-                                    on: selectedDay,
-                                    originZone: AirportTimezoneCache.shared.timezone(for: originICAO)
-                                )
+                    if days != nil {
+                        Toggle("Set a time", isOn: $setTime.animation())
+                            .onChange(of: setTime) { _, on in
+                                if on, let placed = gap.missingLegDeparture(on: selectedDay, originZone: originZone) {
+                                    departureInstant = placed
+                                }
                             }
-                        }
+                    }
                 } header: {
                     Text("When")
                 } footer: {
-                    Text("Without a time, the flight is placed between the two flights on that day.")
+                    if days != nil {
+                        if departure == nil {
+                            Text("This isn't between the two flights, so it wouldn't fill the gap.")
+                                .foregroundStyle(.red)
+                        } else if !setTime {
+                            Text("Without a time, the flight is placed between the two flights on that day.")
+                        }
+                    }
                 }
             }
             .platformFormStyle()
@@ -110,7 +126,7 @@ struct MissingFlightSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { addFlight() }
-                        .disabled(originICAO.isEmpty || destinationICAO.isEmpty)
+                        .disabled(originICAO.isEmpty || destinationICAO.isEmpty || departure == nil)
                         .accessibilityIdentifier("missingFlightAddButton")
                 }
             }
@@ -119,6 +135,12 @@ struct MissingFlightSheet: View {
             }
             .task(id: originICAO) {
                 AirportTimezoneCache.shared.resolve(icao: originICAO)
+            }
+            .onChange(of: days) { _, days in
+                // The origin's zone resolved or the origin changed: keep the
+                // day inside the days that now fit.
+                guard let days else { return }
+                day = min(max(selectedDay, days.lowerBound), days.upperBound).date()
             }
         }
         #if os(macOS)
@@ -138,10 +160,10 @@ struct MissingFlightSheet: View {
     }
 
     private func addFlight() {
+        guard let instant = departure else { return }
         let flight = Flight()
         flight.originICAO = originICAO
         flight.destinationICAO = destinationICAO
-        let instant = departure
         flight.departureDateTime = instant
         flight.arrivalDateTime = instant
         flight.passengers = [person]

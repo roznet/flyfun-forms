@@ -179,6 +179,9 @@ struct StayReportView: View {
         let id = person.persistentModelID
         flight.crew?.removeAll { $0.persistentModelID == id }
         flight.passengers?.removeAll { $0.persistentModelID == id }
+        if flight.responsiblePerson?.persistentModelID == id {
+            flight.setResponsiblePerson(nil)
+        }
     }
 
     @ViewBuilder

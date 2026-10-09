@@ -5628,6 +5628,52 @@
         }
       }
     },
+    "These two flights leave no time for a flight between them. Check their dates and times." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zwischen diesen beiden Flügen bleibt keine Zeit für einen weiteren Flug. Prüfen Sie Datum und Uhrzeit."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Estos dos vuelos no dejan tiempo para un vuelo entre ellos. Revisa sus fechas y horas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ces deux vols ne laissent pas de temps pour un vol entre eux. Vérifiez leurs dates et heures."
+          }
+        }
+      }
+    },
+    "This isn't between the two flights, so it wouldn't fill the gap." : {
+      "comment" : "Travel days report",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Das liegt nicht zwischen den beiden Flügen und würde die Lücke nicht schließen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No está entre los dos vuelos, así que no cubriría el hueco."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ce n'est pas entre les deux vols : le trou ne serait pas comblé."
+          }
+        }
+      }
+    },
     "Without a time, the flight is placed between the two flights on that day." : {
       "comment" : "Travel days report",
       "localizations" : {

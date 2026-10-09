@@ -336,42 +336,51 @@ nonisolated struct StayReport: Sendable {
 // MARK: - Filling a gap
 
 extension StayReport.Gap {
-    /// The days a missing leg can depart on: from the day the previous flight
-    /// arrived to the day the next one departs.
-    var missingLegDays: ClosedRange<StayDay> {
-        arrivalDay...max(arrivalDay, departureDay)
+    /// Whether a leg leaving at `departure` sorts between the gap's two
+    /// flights, which is what closes the gap.
+    func fits(_ departure: Date) -> Bool {
+        previousArrival < departure && departure < nextDeparture
+    }
+
+    /// The days, local at the origin, that have some time after the previous
+    /// arrival and before the next departure. nil when the two flights leave
+    /// no time between them. With no origin zone, UTC, as the report uses.
+    func missingLegDays(originZone: TimeZone?) -> ClosedRange<StayDay>? {
+        guard previousArrival < nextDeparture else { return nil }
+        let zone = originZone ?? .gmt
+        let first = StayDay(previousArrival, in: zone)
+        var last = StayDay(nextDeparture, in: zone)
+        if last.date(in: zone) >= nextDeparture {
+            // The next flight leaves at midnight: nothing left of its day.
+            last = last.advanced(by: -1)
+        }
+        return first...max(first, last)
     }
 
     /// The day after arriving, or the last possible day if that is sooner.
-    var dayAfterArriving: StayDay {
-        min(arrivalDay.advanced(by: 1), missingLegDays.upperBound)
+    func dayAfterArriving(originZone: TimeZone?) -> StayDay? {
+        missingLegDays(originZone: originZone).map { min($0.lowerBound.advanced(by: 1), $0.upperBound) }
     }
 
     /// The day before the next flight, or the first possible day if that is later.
-    var dayBeforeNextFlight: StayDay {
-        max(missingLegDays.upperBound.advanced(by: -1), arrivalDay)
+    func dayBeforeNextFlight(originZone: TimeZone?) -> StayDay? {
+        missingLegDays(originZone: originZone).map { max($0.upperBound.advanced(by: -1), $0.lowerBound) }
     }
 
-    /// When a missing leg leaving on `day` should depart, so the walk puts it
-    /// between the two flights and the gap closes.
+    /// When a missing leg leaving on `day` should depart so the walk puts it
+    /// between the two flights and the gap closes, or nil when that day has
+    /// no time between them.
     ///
     /// Halfway through the part of that day, local at the origin, that falls
     /// after the previous arrival and before the next departure: noon on a
     /// free day, between the two flights on a day it shares with one. Always
     /// a time, never a day-only leg, whose day can be read differently once
-    /// the app backfills its instant. `day` is clamped to `missingLegDays`.
-    func missingLegDeparture(on day: StayDay, originZone: TimeZone?) -> Date {
-        let day = min(max(day, missingLegDays.lowerBound), missingLegDays.upperBound)
+    /// the app backfills its instant.
+    func missingLegDeparture(on day: StayDay, originZone: TimeZone?) -> Date? {
         let zone = originZone ?? .gmt
-        let dayStart = day.date(in: zone)
-        let dayEnd = day.advanced(by: 1).date(in: zone)
-        var earliest = max(previousArrival, dayStart)
-        var latest = min(nextDeparture, dayEnd)
-        if earliest >= latest {
-            // The two flights leave no room on that day (they overlap): noon.
-            earliest = dayStart
-            latest = dayEnd
-        }
+        let earliest = max(previousArrival, day.date(in: zone))
+        let latest = min(nextDeparture, day.advanced(by: 1).date(in: zone))
+        guard earliest < latest else { return nil }
         return earliest.addingTimeInterval(latest.timeIntervalSince(earliest) / 2)
     }
 }

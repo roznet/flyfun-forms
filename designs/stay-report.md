@@ -163,18 +163,27 @@ soon as the store changes, so a fixed gap disappears on the spot.
 - **Add Missing Flight** opens `MissingFlightSheet`, prefilled from the gap: route from
   `arrivedAt` to `departsFrom` (editable, e.g. for a drive then an airline leg), the person
   as a passenger, no aircraft (usually an airline flight, train or ferry), and a day limited
-  to `Gap.missingLegDays`, with quick picks `dayAfterArriving` / `dayBeforeNextFlight`.
-  The observation "Added from Travel Days" marks it in the Flights list.
+  to `Gap.missingLegDays(originZone:)`, the days local at the origin with some time after
+  the previous arrival and before the next departure, with quick picks
+  `dayAfterArriving` / `dayBeforeNextFlight`. The observation "Added from Travel Days"
+  marks it in the Flights list.
 - Without a time, the departure is `Gap.missingLegDeparture(on:originZone:)`: halfway
   through the part of that day, local at the origin, between the previous arrival and the
   next departure (`Gap.previousArrival` / `nextDeparture`, the walk's own ordering). Noon
-  on a free day; between the two flights on a day it shares with one. Always a time, never
-  a day-only leg: `backfillScheduleInstants` later gives a day-only flight an instant at
-  device-zone midnight, which can read as the previous day at a western airport and undo
-  the fix. Arrival = departure. "Set a time" switches to `FlightDateTimeField`.
+  on a free day; between the two flights on a day it shares with one; nil when the day has
+  no such time (e.g. an untimed next flight sorts at device-zone midnight, leaving nothing
+  of its day). Always a time, never a day-only leg: `backfillScheduleInstants` later gives a
+  day-only flight an instant at device-zone midnight, which can read as the previous day at
+  a western airport and undo the fix. Arrival = departure. "Set a time" switches to
+  `FlightDateTimeField`; Add is disabled unless `Gap.fits` the instant (strictly between
+  the two flights), and when the two flights leave no time at all (they overlap).
+- An origin whose timezone isn't resolved yet is read in UTC, as the report does. The
+  saved instant still sorts between the two flights whatever the zone turns out to be; only
+  the day it is counted on can move.
 - The **Previous flight** / **Next flight** rows are menus: **Open Flight**, **Remove
   <person> from This Flight** (they weren't on it), **Delete Flight** (a test flight or one
   that didn't happen; confirmed, through `deleteRecordingTombstone` like the Flights list).
+  Removing the person also clears them as the flight's responsible person and contact.
 
 - **Strings**: EN/FR/DE/ES in `Localizable.xcstrings`, machine-drafted, `needs_review`;
   `%lld days`, `Up to %lld days…` and `Based on %lld flights…` have plural variants.
