@@ -140,4 +140,8 @@
     <string name="settings_delete_all_data">Eliminar todos los datos</string>
     <string name="settings_save_to_device">Guardar en el dispositivo</string>
     <string name="settings_file_saved">Archivo guardado</string>
+    <string name="people_save_this_person">¿Guardar esta persona?</string>
+    <string name="people_save_your_changes">¿Guardar los cambios?</string>
+    <string name="people_leaving_discards">Si sales ahora, se perderá lo que no hayas guardado.</string>
+    <string name="people_discard">Descartar</string>
 </resources>

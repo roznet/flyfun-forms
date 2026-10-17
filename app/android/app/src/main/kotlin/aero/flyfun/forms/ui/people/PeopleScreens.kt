@@ -1,5 +1,7 @@
 package aero.flyfun.forms.ui.people
 
+import androidx.compose.material3.AlertDialog
+import androidx.activity.compose.BackHandler
 import aero.flyfun.forms.R
 import aero.flyfun.forms.data.PersonEntity
 import aero.flyfun.forms.data.PersonWithDocuments
@@ -364,17 +366,42 @@ fun PersonEditScreen(
         isUsualCrew = usualCrew,
     )
 
+    // The fields as they opened, normalised the way edited() does, so opening
+    // and leaving untouched is not a change. Re-keyed when the stored row
+    // changes (after a document or scan saved it).
+    val opened = remember(existing) { edited() }
+    val hasUnsavedChanges = edited() != opened
+    var confirmDiscard by remember { mutableStateOf(false) }
+
+    // Back with edits asks first, whether it came from the arrow or the system.
+    val leave = { if (hasUnsavedChanges) confirmDiscard = true else onBack() }
+    BackHandler(enabled = hasUnsavedChanges) { confirmDiscard = true }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(if (existing == null) R.string.people_save_this_person else R.string.people_save_your_changes)) },
+            text = { Text(stringResource(R.string.people_leaving_discards)) },
+            confirmButton = {
+                TextButton(onClick = { confirmDiscard = false; onSave(edited()) }) { Text(stringResource(R.string.people_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false; onBack() }) { Text(stringResource(R.string.people_discard)) }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(if (existing == null) R.string.people_new_person else R.string.people_edit_person)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = leave) {
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.people_back))
                     }
                 },
                 actions = {
-                    TextButton(onClick = { onSave(edited()) }) { Text(stringResource(R.string.people_save)) }
+                    TextButton(onClick = { onSave(edited()) }, enabled = hasUnsavedChanges) { Text(stringResource(R.string.people_save)) }
                     onDelete?.let { DeleteOverflowMenu(onDelete = it) }
                 },
             )
