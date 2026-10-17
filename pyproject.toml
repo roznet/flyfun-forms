@@ -24,7 +24,7 @@ dependencies = [
 [project.optional-dependencies]
 # scripts/asc.py (App Store Connect staging) — developer machine only, never
 # installed in the server image
-release = ["pyjwt[crypto]>=2.8", "requests>=2.31", "python-dotenv>=1.0"]
+release = ["pyjwt[crypto]>=2.8", "requests>=2.31", "python-dotenv>=1.0", "google-auth>=2.20"]
 
 [project.scripts]
 flightforms = "flightforms.cli:main"
