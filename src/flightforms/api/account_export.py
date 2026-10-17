@@ -166,7 +166,7 @@ def build_account_export(db: Session, user_id: str) -> dict[str, Any] | None:
 @router.get("/export")
 def export_account(
     user_id: str = Depends(current_user_id),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     export = build_account_export(db, user_id)
     if export is None:

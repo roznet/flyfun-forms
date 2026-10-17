@@ -67,7 +67,7 @@ def generate_form(
     request: GenerateRequest,
     flatten: bool = Query(False),
     user_id: str = Depends(current_user_id),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     enforce_fill_rate(db, user_id)
 

@@ -30,7 +30,7 @@ def configure(registry: MappingRegistry, resolver: AirportResolver):
 def prefill_web_form(
     request: GenerateRequest,
     user_id: str = Depends(current_user_id),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db, scope="function"),
 ):
     """Fill plan for an official web form, from the same body as /generate.
 
