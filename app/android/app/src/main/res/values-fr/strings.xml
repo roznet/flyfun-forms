@@ -140,4 +140,8 @@
     <string name="settings_delete_all_data">Supprimer toutes les données</string>
     <string name="settings_save_to_device">Enregistrer sur l’appareil</string>
     <string name="settings_file_saved">Fichier enregistré</string>
+    <string name="people_save_this_person">Enregistrer cette personne ?</string>
+    <string name="people_save_your_changes">Enregistrer vos modifications ?</string>
+    <string name="people_leaving_discards">Si vous quittez maintenant, les modifications non enregistrées seront perdues.</string>
+    <string name="people_discard">Abandonner</string>
 </resources>

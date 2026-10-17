@@ -3,6 +3,10 @@
     <!-- Shared -->
     <string name="people_back">Back</string>
     <string name="people_save">Save</string>
+    <string name="people_save_this_person">Save this person?</string>
+    <string name="people_save_your_changes">Save your changes?</string>
+    <string name="people_leaving_discards">Leaving now discards what you have not saved.</string>
+    <string name="people_discard">Discard</string>
     <string name="people_cancel">Cancel</string>
     <string name="people_ok">OK</string>
     <string name="people_close">Close</string>
