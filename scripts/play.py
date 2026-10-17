@@ -8,9 +8,9 @@ testing track at its Google Group of testers.
 
 What it cannot do, because the Play Developer API has no endpoint for it:
 create the app, fill in the App content declarations (data safety, content
-rating, target audience, ads, app access), choose the store category, the very
-first bundle upload (which enrols the app in Play App Signing), and applying
+rating, target audience, ads, app access), choose the store category, and apply
 for production access after the closed test. Those stay in the web Console.
+The first bundle can go through the API: 1.0 (1) did, on 2026-10-17.
 
 ## How changes land
 
@@ -251,7 +251,7 @@ def explain(response: requests.Response) -> str:
         "changesNotSentForReview": "Re-run with --no-review, then press Send for review in the Console.",
         "APK specifies a version code that has already been used": "Bump versionCode in build.gradle.kts and rebuild.",
         "The caller does not have permission": "Check the service account's permissions in Play Console → Users and permissions.",
-        "Package not found": "Create the app in Play Console and upload the first bundle there by hand.",
+        "Package not found": "Create the app in Play Console first.",
     }
     extra = [hint for needle, hint in hints.items() if needle in message]
     return message + ("\nhint: " + " ".join(extra) if extra else "")

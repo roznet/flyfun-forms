@@ -107,9 +107,6 @@ If the service account key is missing, this step is unavailable: say so, point
 at the credentials section of `scripts/play.py`, and fall back to uploading
 `app-release.aab` in Play Console → Testing → {track} → Create release.
 
-**The first bundle of a new app must be uploaded in the Console by hand** (it
-enrols the app in Play App Signing); `play.py` takes over from the second.
-
 **Production only when the user asks**, and as a staged rollout:
 ```bash
 venv/bin/python3 scripts/play.py promote --from closed --to production --rollout 0.2 --yes-production

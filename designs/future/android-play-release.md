@@ -127,8 +127,8 @@ and screenshot plan in `listing.md`.
 3. Production, as a staged rollout. The first review takes hours to days.
 4. Release notes: `release-notes/android-<version>.txt`, alongside the iOS ones.
 
-After the first bundle (uploaded by hand in the Console), every release goes
-through `/release-android` and `scripts/play.py`: upload to a track, release
+Every release, the first included (1.0 (1) went up through the API on
+2026-10-17, as a draft on internal testing), goes through `/release-android` and `scripts/play.py`: upload to a track, release
 notes, promotion between tracks, staged rollout, store listing text and images
 (`app/android/play/listing/`), and testers. It authenticates as a service account
 whose key is `~/.googleplaystore/private_keys/play-service-account.json`.
