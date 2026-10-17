@@ -10,6 +10,13 @@ struct StayReportView: View {
     /// Observed, so the report recomputes as airport timezones resolve.
     private var timezones: AirportTimezoneCache { .shared }
 
+    @Environment(\.modelContext) private var modelContext
+
+    /// The gap whose missing flight is being added.
+    @State private var fillingGap: StayReport.Gap?
+    @State private var openedFlight: Flight?
+    @State private var flightToDelete: Flight?
+
     private static let dayFormat = Date.FormatStyle.dateTime.day().month().year()
 
     var body: some View {
@@ -28,15 +35,15 @@ struct StayReportView: View {
                 Text("Based on \(report.flightsInWindow) flights in this app. Counts only flights recorded in this app; it is not a legal calculation.")
             }
 
-            if !report.gaps.isEmpty {
+            ForEach(Array(report.gaps.enumerated()), id: \.offset) { index, gap in
                 Section {
-                    ForEach(Array(report.gaps.enumerated()), id: \.offset) { _, gap in
-                        gapRows(gap, flights: legs.flights)
-                    }
+                    gapRows(gap, flights: legs.flights)
                 } header: {
-                    Text("Gaps")
+                    if index == 0 { Text("Gaps") }
                 } footer: {
-                    Text("The region changes between these flights with no flight recorded in between. Add the missing leg as a flight to complete the count.")
+                    if index == report.gaps.count - 1 {
+                        Text("The region changes between these flights with no flight recorded in between. Add the missing flight, or remove a flight that didn't happen.")
+                    }
                 }
             }
 
@@ -47,6 +54,29 @@ struct StayReportView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .sheet(item: $fillingGap) { gap in
+            MissingFlightSheet(person: person, gap: gap)
+        }
+        .navigationDestination(item: $openedFlight) { flight in
+            FlightEditView(flight: flight)
+                .id(flight.persistentModelID)
+        }
+        .confirmationDialog(
+            "Delete \(flightToDelete?.displayName ?? "")?",
+            isPresented: Binding(
+                get: { flightToDelete != nil },
+                set: { if !$0 { flightToDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: flightToDelete
+        ) { flight in
+            Button("Delete Flight", role: .destructive) {
+                modelContext.deleteRecordingTombstone(flight)
+                flightToDelete = nil
+            }
+        } message: { _ in
+            Text("The flight is deleted for everyone on it. If only this person wasn't on it, remove them from the flight instead.")
+        }
         .task {
             for leg in legs.legs {
                 timezones.resolve(icao: leg.origin)
@@ -102,24 +132,55 @@ struct StayReportView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        Button {
+            fillingGap = gap
+        } label: {
+            Label("Add Missing Flight", systemImage: "plus.circle")
+        }
+        .accessibilityIdentifier("addMissingFlightButton")
         if let flight = flights[gap.previousFlightID] {
-            flightLink(flight, label: "Previous flight")
+            flightMenu(flight, label: "Previous flight")
         }
         if let flight = flights[gap.nextFlightID] {
-            flightLink(flight, label: "Next flight")
+            flightMenu(flight, label: "Next flight")
         }
     }
 
-    private func flightLink(_ flight: Flight, label: LocalizedStringKey) -> some View {
-        NavigationLink {
-            FlightEditView(flight: flight)
-                .id(flight.persistentModelID)
+    /// A flight on either side of a gap, with what fixes a flight that
+    /// shouldn't be there: open it, take this person off it, or delete it.
+    private func flightMenu(_ flight: Flight, label: LocalizedStringKey) -> some View {
+        Menu {
+            Button {
+                openedFlight = flight
+            } label: {
+                Label("Open Flight", systemImage: "airplane")
+            }
+            Button {
+                remove(person, from: flight)
+            } label: {
+                Label("Remove \(person.displayName) from This Flight", systemImage: "person.badge.minus")
+            }
+            Button(role: .destructive) {
+                flightToDelete = flight
+            } label: {
+                Label("Delete Flight", systemImage: "trash")
+            }
         } label: {
             LabeledContent {
                 Text(verbatim: flight.displayName)
             } label: {
                 Text(label)
             }
+            .contentShape(Rectangle())
+        }
+    }
+
+    private func remove(_ person: Person, from flight: Flight) {
+        let id = person.persistentModelID
+        flight.crew?.removeAll { $0.persistentModelID == id }
+        flight.passengers?.removeAll { $0.persistentModelID == id }
+        if flight.responsiblePerson?.persistentModelID == id {
+            flight.setResponsiblePerson(nil)
         }
     }
 
