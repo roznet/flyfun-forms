@@ -161,7 +161,11 @@ enum StableRecords {
     }
 
     private static func backfill<T: StableRecord>(_ type: T.Type, in context: ModelContext) throws -> Int {
-        let missing = try context.fetch(FetchDescriptor<T>(predicate: #Predicate { $0.uuid == nil }))
+        // Filtered in memory, not with `#Predicate { $0.uuid == nil }`: on
+        // iOS 27 an optimised build traps in SwiftData converting a keypath
+        // through the protocol requirement, crashing every launch. The record
+        // counts are small.
+        let missing = try context.fetch(FetchDescriptor<T>()).filter { $0.uuid == nil }
         for record in missing {
             record.uuid = UUID()
         }
