@@ -17,13 +17,15 @@ The first bundle can go through the API: 1.0 (1) did, on 2026-10-17.
 Every write goes through a Play *edit*, a transaction: nothing is visible until
 the edit is committed. That makes `--dry-run` cheap and honest — it opens a
 real edit, makes every change, asks Google to validate it, then deletes the
-edit instead of committing. Only the bundle upload is skipped in a dry run.
+edit instead of committing. An `upload` dry run skips the bundle, so it can
+only check the credentials, the track and the release notes.
 
 ## Production is opt-in
 
 Writing to the production track publishes to users once Google's review
 passes. Every command refuses to touch production without `--yes-production`,
 the counterpart of `asc.py` having no `submit`: the owner types it, on purpose.
+A new production release also needs `--rollout <fraction>` (staged) or `--full`.
 
 Releases on an app that has never been published must be drafts (Google's
 rule); pass `--status draft` until the first production release is out, then
@@ -280,6 +282,10 @@ def load_notes(version_name: str, default_language: str, notes_file: str | None)
 def guard_production(track: str, args: argparse.Namespace) -> None:
     if track == "production" and not args.yes_production:
         _fail("this writes to production, which publishes to users after review. Add --yes-production.")
+    # A new production release is staged unless the owner asks for everyone.
+    if (track == "production" and hasattr(args, "rollout") and getattr(args, "status", None) != "draft"
+            and args.rollout is None and not args.full):
+        _fail("a production release goes out as a staged rollout: add --rollout 0.2 (or --full for 100%).")
 
 
 def release_status(args: argparse.Namespace, rollout: float | None) -> dict:
@@ -455,6 +461,7 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--status", choices=["live", "draft"], default="live",
                        help="draft until the app's first production release (Google's rule)")
         p.add_argument("--rollout", type=float, help="staged rollout fraction, e.g. 0.2 (production)")
+        p.add_argument("--full", action="store_true", help="production: release to everyone at once, not staged")
 
     sub.add_parser("status", help="tracks and their releases")
 
