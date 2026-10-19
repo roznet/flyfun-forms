@@ -146,9 +146,9 @@ fun NewFlightScreen(
                         importSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
                         Text(stringResource(R.string.flights_route), style = MaterialTheme.typography.titleMedium)
+                        // The heading above names the section; the row shows the route itself.
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.flights_route)) },
-                            trailingContent = {
+                            headlineContent = {
                                 Text(
                                     if (flight.originICAO.isBlank() && flight.destinationICAO.isBlank()) stringResource(R.string.flights_tap_to_select)
                                     else "${flight.originICAO.ifBlank { "----" }} → ${flight.destinationICAO.ifBlank { "----" }}",
@@ -163,7 +163,12 @@ fun NewFlightScreen(
                             airportInfo[flight.destinationICAO]?.timeZone,
                         ).distinct()
                         ScheduleField(stringResource(R.string.flights_departure), flight.departureInstant, onSetDeparture, zones, airportInfo[flight.originICAO]?.timeZone)
-                        ScheduleField(stringResource(R.string.flights_arrival), flight.arrivalInstant, onSetArrival, zones, airportInfo[flight.destinationICAO]?.timeZone)
+                        // Until the destination is known, arrival follows departure's
+                        // zone rather than falling back to UTC beside a local time.
+                        ScheduleField(
+                            stringResource(R.string.flights_arrival), flight.arrivalInstant, onSetArrival, zones,
+                            airportInfo[flight.destinationICAO]?.timeZone ?: airportInfo[flight.originICAO]?.timeZone,
+                        )
 
                         Text(stringResource(R.string.flights_aircraft), style = MaterialTheme.typography.titleMedium)
                         ChoiceField(

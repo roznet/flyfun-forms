@@ -1,0 +1,21 @@
+FlyFun Forms fills in the customs, immigration and airport forms that general aviation flights need, from the flight, crew and passengers you already have.
+
+Enter a flight once: route, times, aircraft, who is on board. The app finds the forms each airport asks for and fills them in, ready to email or upload.
+
+• Airport-specific forms: an airport's or authority's own customs and immigration PDFs, such as the French Préavis Douane
+• Upload files: the UK General Aviation Report (GAR) and handling requests as spreadsheets
+• Web forms: for airports that only take an online form, the app opens the page and pre-fills it
+• General Declaration (GenDec) for any airport without a dedicated form
+• Customs email addresses from the AIP, and emails written in the airport's language when you speak it
+
+Fast to set up
+• Scan a passport's machine-readable zone with the camera; the image is never saved
+• Import people from your contacts, and flights from FlyFun Weather
+• Reuse the crew and passengers of a previous flight
+
+Your data stays on your phone
+People, documents, aircraft and flights are stored only on this device, and are not backed up to Google. The server fills in each form and keeps nothing: no names, passport numbers or flight details are stored. Move your data to another phone with an encrypted file only you can open.
+
+Filling forms requires a free FlyFun account (Google or Apple sign-in). Entering data works without one.
+
+Privacy policy: https://forms.flyfun.aero/privacy
