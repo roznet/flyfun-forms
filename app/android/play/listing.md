@@ -1,7 +1,9 @@
 # Play Store listing (draft)
 
-Paste into Play Console → Grow → Store presence → Main store listing. Drafts
-for review; nothing here is published until the owner submits it.
+Drafts for review. The text that `scripts/play.py listing` pushes lives in
+`listing/default/` (title, short and full description); keep it and this file
+in step, or edit those files directly. Images: `listing/default/icon.png`,
+`feature-graphic.png`, `phone/*.png`, `tablet/*.png`.
 
 ## App name (≤30)
 

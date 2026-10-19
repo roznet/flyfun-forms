@@ -38,7 +38,11 @@
   -validity 10000 -alias upload`), keep it and its passwords outside the repo,
   and back it up. A lost upload key can be reset through Play support, but that
   takes days.
-- `app/android/keystore.properties` (gitignored) holds `storeFile`,
+- The upload key lives in `~/.googleplaystore/private_keys/flyfun-forms-upload.jks`
+  (created 2026-10-17, valid to 2054, SHA-256 `64:6A:71:40:…:8A:9F`), beside
+  `~/.appstoreconnect`'s layout.
+- `app/android/keystore.properties` (gitignored, a symlink to
+  `~/.googleplaystore/keystore.properties`) holds `storeFile`,
   `storePassword`, `keyAlias` and `keyPassword`. When it is present,
   `./gradlew :app:bundleRelease` writes a signed
   `app/build/outputs/bundle/release/app-release.aab`; without it the bundle is
@@ -76,7 +80,7 @@ email `privacy@flyfun.aero` from the sign-in address. The URL to give Play is
 
 ## 5. Store listing
 
-Listing assets live in `app/android/play/`: `icon-512.png`, and the draft text
+Listing assets live in `app/android/play/listing/default/` (text, `icon.png`, `feature-graphic.png`, `phone/`, `tablet/`, pushed by `scripts/play.py listing --images`), and the draft text
 and screenshot plan in `listing.md`.
 
 | Item | Spec | Source |
@@ -84,7 +88,7 @@ and screenshot plan in `listing.md`.
 | App name | ≤30 chars | "FlyFun Forms" (as iOS and the launcher) |
 | Short description | ≤80 chars | new |
 | Full description | ≤4000 chars | adapt the App Store text |
-| App icon | 512×512 PNG, 32-bit | `app/android/play/icon-512.png`, the iOS artwork resized; Play applies its own mask |
+| App icon | 512×512 PNG, 32-bit | `app/android/play/listing/default/icon.png`, the iOS artwork resized; Play applies its own mask |
 | Feature graphic | 1024×500 PNG/JPEG | new, required |
 | Phone screenshots | 2–8, 16:9 or 9:16, 320–3840 px | emulator, using fictional data (ZZ- registrations, made-up names) |
 | Tablet screenshots | optional | worth adding: the list-beside-detail layout is a selling point |
@@ -122,6 +126,14 @@ and screenshot plan in `listing.md`.
 2. Closed testing: the 12 testers for 14 days on a personal account.
 3. Production, as a staged rollout. The first review takes hours to days.
 4. Release notes: `release-notes/android-<version>.txt`, alongside the iOS ones.
+
+Every release, the first included (1.0 (1) went up through the API on
+2026-10-17, as a draft on internal testing), goes through `/release-android` and `scripts/play.py`: upload to a track, release
+notes, promotion between tracks, staged rollout, store listing text and images
+(`app/android/play/listing/`), and testers. It authenticates as a service account
+whose key is `~/.googleplaystore/private_keys/play-service-account.json`.
+The Console stays the only way to create the app, fill in App content, set the
+category and apply for production access.
 
 ## 8. Still owed before a public release
 

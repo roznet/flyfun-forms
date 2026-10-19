@@ -1,0 +1,2 @@
+- First release on Google Play: customs, immigration and airport forms for GA flights, filled in from your flight, crew and passengers
+- Scan passports, import flights from FlyFun Weather, and move your data from an iPhone with Move My Data

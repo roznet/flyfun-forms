@@ -52,4 +52,5 @@ The bot posts an ordinary **comment on the PR's conversation tab** — not a Git
 ## Release & deploy
 
 - `/deploy` → forms.flyfun.aero. Only when asked.
+- `/release-android` → signed bundle to a Google Play testing track via `scripts/play.py`; production only with `--yes-production`, when asked. Tags are `android/{versionName}`.
 - `/archive` → iOS/macOS App Store staging; never submits for review. Tags are `ios/{version}` / `macos/{version}` without the build number; release notes go in `release-notes/<platform>-<version>.txt`.

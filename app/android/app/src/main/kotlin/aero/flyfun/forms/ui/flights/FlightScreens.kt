@@ -299,7 +299,8 @@ fun FlightEditScreen(
             )
             ScheduleField(
                 stringResource(R.string.flights_arrival), flight.arrivalInstant, { t -> onEditFlight { it.copy(arrivalInstant = t) } },
-                zones = zones, preferredZone = airportInfo[destination]?.timeZone,
+                // Departure's zone until the destination's is known, not UTC.
+                zones = zones, preferredZone = airportInfo[destination]?.timeZone ?: airportInfo[origin]?.timeZone,
             )
             if (flight.arrivalInstant.isBefore(flight.departureInstant)) {
                 Text(
@@ -485,7 +486,8 @@ private fun DetailLine(label: String, value: String) {
 /**
  * Crew and passengers, each a row: the name, "PIC" on the first crew member
  * (sent as the pilot on every form), and for someone with several active
- * documents a menu to pick the one for this flight. Port of iOS
+ * documents a menu to pick the one for this flight; with one, that document
+ * as a plain label (iOS shows nothing there). Port of iOS
  * `FlightEditView.personLabel` (`1173620`, `20065ae`). Who is on board is
  * chosen in [aero.flyfun.forms.ui.people.PeoplePickerScreen].
  */
@@ -548,6 +550,21 @@ private fun OnBoardRow(
                             DropdownMenuItem(text = { Text(documentLabel(doc)) }, onClick = { open = false; onChoose(doc) })
                         }
                     }
+                }
+            } else if (documents.size == 1) {
+                // Nothing to choose, but still show which document the forms
+                // use, lined up with the menu's label above.
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        documentLabel(documents.single()),
+                        Modifier.padding(start = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
