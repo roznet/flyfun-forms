@@ -253,7 +253,7 @@ def test_every_table_deletion_empties_is_in_the_export(client, engine):
 EXPECTED_COLUMNS = {
     "users": {
         "id", "provider", "provider_sub", "email", "display_name", "approved",
-        "created_at", "last_login_at", "tokens_valid_after",
+        "created_at", "last_login_at", "tokens_valid_after", "last_seen_at",
     },
     "user_preferences": {"user_id", "setup_completed", "encrypted_creds_json", "app_prefs_json"},
     "usage": {"id", "user_id", "endpoint", "airport_icao", "form_id", "timestamp"},
