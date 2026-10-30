@@ -12,6 +12,10 @@ struct PeopleSuggestion {
     let passengers: [Person]
     /// What the suggestion is drawn from, shown on the chip.
     let label: String
+    /// The flight the people were copied from, nil for the usual crew. Taking
+    /// the suggestion also takes its responsible person and document choices,
+    /// which go with the same people and rarely change between trips.
+    var source: Flight? = nil
 
     var isEmpty: Bool { crew.isEmpty && passengers.isEmpty }
 
@@ -45,7 +49,8 @@ struct PeopleSuggestion {
             return PeopleSuggestion(
                 crew: match.crewList,
                 passengers: match.passengerList,
-                label: String(localized: "Same as \(match.displayName)")
+                label: String(localized: "Same as \(match.displayName)"),
+                source: match
             )
         }
 
@@ -53,7 +58,8 @@ struct PeopleSuggestion {
             return PeopleSuggestion(
                 crew: latest.crewList,
                 passengers: latest.passengerList,
-                label: String(localized: "Same as \(latest.displayName)")
+                label: String(localized: "Same as \(latest.displayName)"),
+                source: latest
             )
         }
 
@@ -86,6 +92,25 @@ struct PeopleSuggestion {
                 )
                 return seen.insert(people).inserted
             }
+    }
+
+    /// The responsible person a new flight starts with when nothing chose one:
+    /// the most recent flight's responsible person among those aboard this
+    /// one, else the first crew member. Nil while nobody is aboard.
+    ///
+    /// Only someone on board is reused, so a responsible person from a trip
+    /// with other people does not land on a form they have nothing to do with.
+    static func defaultResponsiblePerson(
+        crew: [Person], passengers: [Person], flights: [Flight]
+    ) -> Person? {
+        let aboard = Set((crew + passengers).map(ObjectIdentifier.init))
+        guard !aboard.isEmpty else { return nil }
+        let recent = flights
+            .sorted { $0.departureDateTime > $1.departureDateTime }
+            .lazy
+            .compactMap(\.responsiblePerson)
+            .first { aboard.contains(ObjectIdentifier($0)) }
+        return recent ?? crew.first ?? passengers.first
     }
 
     /// A short "Anne, Bob and 2 more" for the chip's second line.

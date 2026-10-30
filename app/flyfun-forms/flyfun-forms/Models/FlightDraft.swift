@@ -55,6 +55,8 @@ struct FlightDraft {
     var nature: String?
     var contact: String?
     var observations: String?
+    var reasonForVisit: String?
+    var chosenDocNumbers: [String] = []
 
     var provenance: Provenance
 
@@ -134,6 +136,8 @@ extension FlightDraft {
         self.nature = flight.nature
         self.contact = flight.contact
         self.observations = flight.observations
+        self.reasonForVisit = flight.reasonForVisit
+        self.chosenDocNumbers = flight.chosenDocNumberList
         self.provenance = .previousFlight(
             route: flight.displayName, departure: flight.departureDateTime
         )

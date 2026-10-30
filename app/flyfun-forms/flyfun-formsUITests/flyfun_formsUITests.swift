@@ -180,7 +180,9 @@ final class flyfun_formsUITests: XCTestCase {
         method.tap()
         XCTAssertTrue(element(app, "importSummary").waitForExistence(timeout: Self.uiTimeout))
         element(app, "newFlightNextButton").tap()
-        element(app, "createFlightButton").tap()
+        let create = element(app, "createFlightButton")
+        XCTAssertTrue(create.waitForExistence(timeout: Self.uiTimeout))
+        create.tap()
         XCTAssertTrue(app.navigationBars["LSGS > EGTF"].waitForExistence(timeout: Self.uiTimeout),
                       "creating the flight should open it")
         openTab(app, "Aircraft")

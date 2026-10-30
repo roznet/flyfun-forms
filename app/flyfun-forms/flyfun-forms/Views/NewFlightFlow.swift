@@ -24,13 +24,23 @@ struct NewFlightFlow: View {
     @State private var importedAircraft: Aircraft?
     @State private var selectedCrew: [Person] = []
     @State private var selectedPassengers: [Person] = []
-    @State private var selectedResponsiblePerson: Person?
+    /// Read through `effectiveResponsiblePerson`: while `responsibleSource` is
+    /// `.automatic` this is ignored and the default follows the people aboard.
+    @State private var responsiblePerson: Person?
+    @State private var responsibleSource: ResponsibleSource = .automatic
+    /// The pilot's pick on the people step, "" for none; nil leaves the
+    /// reason to `Flight.defaultReasonForVisit`, then to what was copied.
+    @State private var reasonForVisitChoice: String?
+    /// The reason on the flight an import or the crew copy came from.
+    @State private var copiedReasonForVisit: String?
+    @State private var chosenDocNumbers: [String] = []
     @State private var nature: String?
     @State private var contact: String?
     @State private var observations: String?
     @State private var showAirportPicker = false
     @State private var showPeoplePicker = false
     @State private var showCrewSourcePicker = false
+    @State private var showResponsiblePersonPicker = false
 
     /// The import method whose picker is up, if any. One piece of state for all
     /// of them: only one import can be in flight at a time.
@@ -58,6 +68,12 @@ struct NewFlightFlow: View {
 
     enum Step {
         case route, people
+    }
+
+    /// Who set the responsible person, so a later import replaces only what an
+    /// import wrote — the same rule as `peopleCameFromImport`.
+    enum ResponsibleSource {
+        case automatic, imported, chosen
     }
 
     var body: some View {
@@ -104,9 +120,14 @@ struct NewFlightFlow: View {
                 PeoplePickerView(selectedCrew: $selectedCrew, selectedPassengers: $selectedPassengers)
             }
             .sheet(isPresented: $showCrewSourcePicker) {
-                CrewSourcePickerView { crew, passengers in
-                    applyPeople(crew: crew, passengers: passengers)
+                CrewSourcePickerView { flight in
+                    applyPeople(
+                        crew: flight.crewList, passengers: flight.passengerList, from: flight
+                    )
                 }
+            }
+            .sheet(isPresented: $showResponsiblePersonPicker) {
+                SinglePersonPickerView(selectedPerson: responsiblePersonBinding)
             }
             .sheet(item: $activeImport) { method in
                 importSheet(for: method)
@@ -223,7 +244,10 @@ struct NewFlightFlow: View {
            let suggestion = peopleSuggestion {
             Section {
                 Button {
-                    applyPeople(crew: suggestion.crew, passengers: suggestion.passengers)
+                    applyPeople(
+                        crew: suggestion.crew, passengers: suggestion.passengers,
+                        from: suggestion.source
+                    )
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "person.2.badge.plus")
@@ -281,6 +305,68 @@ struct NewFlightFlow: View {
                 Label("Select People", systemImage: "person.badge.plus")
             }
         }
+
+        // Both rarely change between flights, so they arrive filled — from the
+        // crew copy or the defaults — and are here to check, not to type.
+        Section("Flight Details") {
+            Button {
+                showResponsiblePersonPicker = true
+            } label: {
+                HStack {
+                    Text("Responsible Person")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(effectiveResponsiblePerson?.displayName ?? "—")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityIdentifier("newFlightResponsiblePersonButton")
+
+            Picker("Reason for Visit", selection: reasonForVisitBinding) {
+                Text("—").tag("")
+                ForEach(Flight.reasonForVisitOptions, id: \.self) { reason in
+                    Text(LocalizedStringKey(reason)).tag(reason)
+                }
+            }
+            .accessibilityIdentifier("newFlightReasonForVisitPicker")
+        }
+    }
+
+    /// The pilot's or an import's choice, else the most recent responsible
+    /// person who is on board, else the first crew member.
+    private var effectiveResponsiblePerson: Person? {
+        guard responsibleSource == .automatic else { return responsiblePerson }
+        return PeopleSuggestion.defaultResponsiblePerson(
+            crew: selectedCrew, passengers: selectedPassengers, flights: allFlights
+        )
+    }
+
+    /// The pilot's pick, else "Based" at the aircraft's base and "Short Term
+    /// Visit" elsewhere, else whatever the copied flight had.
+    private var effectiveReasonForVisit: String? {
+        if let reasonForVisitChoice {
+            return reasonForVisitChoice.isEmpty ? nil : reasonForVisitChoice
+        }
+        return Flight.defaultReasonForVisit(
+            destination: destinationICAO, usualBase: selectedAircraft?.usualBase
+        ) ?? copiedReasonForVisit
+    }
+
+    private var responsiblePersonBinding: Binding<Person?> {
+        Binding(
+            get: { effectiveResponsiblePerson },
+            set: {
+                responsiblePerson = $0
+                responsibleSource = .chosen
+            }
+        )
+    }
+
+    private var reasonForVisitBinding: Binding<String> {
+        Binding(
+            get: { effectiveReasonForVisit ?? "" },
+            set: { reasonForVisitChoice = $0 }
+        )
     }
 
     /// Who was on board last time, for the one-tap chip. The people step only
@@ -324,10 +410,20 @@ struct NewFlightFlow: View {
     /// Take a crew the pilot chose — from the suggestion chip or the
     /// copy-from-a-flight picker. Chosen people are not import-owned, so a
     /// later import leaves them alone.
-    private func applyPeople(crew: [Person], passengers: [Person]) {
+    ///
+    /// The details that go with the same people come along from `source`:
+    /// its responsible person, its reason for visit (behind the base rule)
+    /// and the documents picked for them.
+    private func applyPeople(crew: [Person], passengers: [Person], from source: Flight?) {
         selectedCrew = crew
         selectedPassengers = passengers
         peopleCameFromImport = false
+        if let rp = source?.responsiblePerson {
+            responsiblePerson = rp
+            responsibleSource = .chosen
+        }
+        copiedReasonForVisit = source?.reasonForVisit
+        chosenDocNumbers = source?.chosenDocNumberList ?? []
     }
 
     /// Begin an import. The clipboard resolves in place; the others present a
@@ -430,16 +526,31 @@ struct NewFlightFlow: View {
         if draft.hasPeople {
             selectedCrew = draft.crew
             selectedPassengers = draft.passengers
+            chosenDocNumbers = draft.chosenDocNumbers
             peopleCameFromImport = true
         } else if peopleCameFromImport {
             selectedCrew = []
             selectedPassengers = []
+            chosenDocNumbers = []
             peopleCameFromImport = false
         }
 
+        // The responsible person has an editor on the people step, so it
+        // follows the same ownership rule as the people.
+        if let rp = draft.responsiblePerson {
+            responsiblePerson = rp
+            responsibleSource = .imported
+        } else if responsibleSource == .imported {
+            responsiblePerson = nil
+            responsibleSource = .automatic
+        }
+
+        // A pick on the people step still wins; this is only the fallback
+        // when the aircraft has no base to derive the reason from.
+        copiedReasonForVisit = draft.reasonForVisit
+
         // These have no editor in this flow, so an import is their only
         // source and replacing unconditionally cannot discard a pilot's entry.
-        selectedResponsiblePerson = draft.responsiblePerson
         nature = draft.nature
         contact = draft.contact
         observations = draft.observations
@@ -498,9 +609,14 @@ struct NewFlightFlow: View {
         flight.aircraft = selectedAircraft
         flight.crew = selectedCrew.isEmpty ? nil : selectedCrew
         flight.passengers = selectedPassengers.isEmpty ? nil : selectedPassengers
-        flight.responsiblePerson = selectedResponsiblePerson
+        flight.chosenDocNumbers = chosenDocNumbers.isEmpty ? nil : chosenDocNumbers
+        if let rp = effectiveResponsiblePerson {
+            flight.setResponsiblePerson(rp)
+        } else {
+            flight.contact = contact
+        }
+        flight.reasonForVisit = effectiveReasonForVisit
         if let nature { flight.nature = nature }
-        flight.contact = contact
         flight.observations = observations
 
         modelContext.insert(flight)

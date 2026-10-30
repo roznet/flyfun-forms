@@ -121,6 +121,9 @@ struct FlightDraftTests {
         flight.crew = [pilot]
         flight.passengers = [passenger]
         flight.observations = "Weekend trip"
+        flight.reasonForVisit = "Maintenance"
+        flight.chosenDocNumbers = ["TEST-DOC-1"]
+        flight.responsiblePerson = pilot
         context.insert(flight)
 
         let draft = FlightDraft(repeating: flight, now: utc(2026, 9, 16, 9, 0))
@@ -131,6 +134,9 @@ struct FlightDraftTests {
         #expect(draft.crew.count == 1)
         #expect(draft.passengers.count == 1)
         #expect(draft.observations == "Weekend trip")
+        #expect(draft.reasonForVisit == "Maintenance")
+        #expect(draft.chosenDocNumbers == ["TEST-DOC-1"])
+        #expect(draft.responsiblePerson === pilot)
         #expect(draft.hasPeople)
         // 10:00 is past 09:00 today? No — still ahead, so today.
         #expect(draft.route.departureTime == utc(2026, 9, 16, 10, 0))
@@ -384,6 +390,7 @@ struct PeopleSuggestionTests {
             PeopleSuggestion.suggest(from: [newer, older], aircraft: piper, usualCrew: [])
         )
         #expect(suggestion.crew.map(\.displayName) == [ola.displayName])
+        #expect(suggestion.source === older)
     }
 
     @Test("falls back to the most recent flight when the aircraft is unknown")
@@ -421,6 +428,62 @@ struct PeopleSuggestionTests {
             PeopleSuggestion.suggest(from: [empty], aircraft: nil, usualCrew: [zara])
         )
         #expect(suggestion.crew.count == 1)
+    }
+
+    @Test("the usual crew has no flight to copy details from")
+    func usualCrewHasNoSource() throws {
+        let container = try makeContainer()
+        let zara = Person(firstName: "Zara", lastName: "Kowalski")
+        container.mainContext.insert(zara)
+        let suggestion = try #require(
+            PeopleSuggestion.suggest(from: [], aircraft: nil, usualCrew: [zara])
+        )
+        #expect(suggestion.source == nil)
+    }
+
+    @Test("the responsible person is the latest one who is aboard")
+    func responsibleIsLatestAboard() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+
+        let zara = Person(firstName: "Zara", lastName: "Kowalski")
+        let ola = Person(firstName: "Ola", lastName: "Nowak")
+        let owner = Person(firstName: "Ida", lastName: "Owner")
+        [zara, ola, owner].forEach { context.insert($0) }
+
+        let older = makeFlight(
+            context: context, departure: utc(2026, 1, 1, 10, 0),
+            aircraft: nil, crew: [zara], passengers: [ola]
+        )
+        older.responsiblePerson = ola
+        // The most recent one named someone who is not on this flight, so it
+        // is passed over rather than put on a form they have no part in.
+        let newer = makeFlight(
+            context: context, departure: utc(2026, 2, 1, 10, 0),
+            aircraft: nil, crew: [zara]
+        )
+        newer.responsiblePerson = owner
+
+        let rp = PeopleSuggestion.defaultResponsiblePerson(
+            crew: [zara], passengers: [ola], flights: [newer, older]
+        )
+        #expect(rp === ola)
+    }
+
+    @Test("with no history the first crew member is responsible")
+    func responsibleFallsBackToCrew() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let zara = Person(firstName: "Zara", lastName: "Kowalski")
+        let ola = Person(firstName: "Ola", lastName: "Nowak")
+        [zara, ola].forEach { context.insert($0) }
+
+        #expect(PeopleSuggestion.defaultResponsiblePerson(
+            crew: [zara], passengers: [ola], flights: []
+        ) === zara)
+        #expect(PeopleSuggestion.defaultResponsiblePerson(
+            crew: [], passengers: [], flights: []
+        ) == nil)
     }
 
     @Test("suggests nothing at all on a first run")
@@ -479,6 +542,35 @@ struct PeopleSuggestionTests {
 
         #expect(sources.count == 1)
         #expect(sources.first?.departureDateTime == utc(2026, 1, 8, 10, 0))
+    }
+}
+
+// MARK: - Default reason for visit
+
+@Suite("Flight.defaultReasonForVisit")
+struct DefaultReasonForVisitTests {
+
+    @Test("landing at the aircraft's base is Based")
+    func basedAtHome() {
+        #expect(Flight.defaultReasonForVisit(destination: "EGTF", usualBase: "EGTF") == "Based")
+        #expect(Flight.defaultReasonForVisit(destination: "egtf", usualBase: " EGTF ") == "Based")
+    }
+
+    @Test("anywhere else is a short term visit, including leaving the base")
+    func shortTermElsewhere() {
+        // Only the destination counts: inbound to the base is Based, and
+        // outbound from it (EGTF → LFRM) is a short term visit.
+        #expect(
+            Flight.defaultReasonForVisit(destination: "LFRM", usualBase: "EGTF")
+                == "Short Term Visit"
+        )
+    }
+
+    @Test("without a base or a destination there is nothing to go on")
+    func unknown() {
+        #expect(Flight.defaultReasonForVisit(destination: "EGKA", usualBase: nil) == nil)
+        #expect(Flight.defaultReasonForVisit(destination: "EGKA", usualBase: "") == nil)
+        #expect(Flight.defaultReasonForVisit(destination: "", usualBase: "EGTF") == nil)
     }
 }
 
