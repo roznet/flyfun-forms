@@ -14,9 +14,9 @@ struct CrewSourcePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Flight.departureDate, order: .reverse) private var flights: [Flight]
 
-    /// Delivers the crew and passengers of the chosen flight. The sheet
-    /// dismisses itself afterward.
-    var onSelect: (_ crew: [Person], _ passengers: [Person]) -> Void
+    /// Delivers the chosen flight; the caller takes its people and the
+    /// details that go with them. The sheet dismisses itself afterward.
+    var onSelect: (Flight) -> Void
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -56,7 +56,7 @@ struct CrewSourcePickerView: View {
         } else {
             List(candidates) { flight in
                 Button {
-                    onSelect(flight.crewList, flight.passengerList)
+                    onSelect(flight)
                     dismiss()
                 } label: {
                     row(flight)

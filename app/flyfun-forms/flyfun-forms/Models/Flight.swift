@@ -260,6 +260,18 @@ final class Flight {
         "Repair",
     ]
 
+    /// The reason for visit a new flight starts with: "Based" when it lands at
+    /// the aircraft's usual base, "Short Term Visit" anywhere else. Those two
+    /// cover nearly every flight; the rare ones stay a pick away. Nil when the
+    /// aircraft has no base on file or the flight no destination, since there
+    /// is then nothing to tell the two apart.
+    static func defaultReasonForVisit(destination: String, usualBase: String?) -> String? {
+        let destination = destination.trimmingCharacters(in: .whitespaces).uppercased()
+        let base = (usualBase ?? "").trimmingCharacters(in: .whitespaces).uppercased()
+        guard !destination.isEmpty, !base.isEmpty else { return nil }
+        return destination == base ? "Based" : "Short Term Visit"
+    }
+
     /// Sets the responsible person, keeping `contact` in step for older builds
     /// that still read it.
     func setResponsiblePerson(_ person: Person?) {

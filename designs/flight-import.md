@@ -42,10 +42,10 @@ flight's crew in place — on a customs form, the wrong people on the document.
 The replacement is scoped by ownership, tracked in `peopleCameFromImport`: a selection an
 import wrote is replaced or cleared by the next import, and a selection the pilot made by
 hand (through the people picker, the suggestion chip, or copying a flight's crew) survives, so
-re-importing a route to fix a typo does not wipe the crew they just chose. The
-form-level fields (`responsiblePerson`, `nature`, `contact`, `observations`) have no
-editor in this flow, so an import is their only source and they are replaced
-unconditionally.
+re-importing a route to fix a typo does not wipe the crew they just chose. The responsible
+person follows the same rule (`ResponsibleSource`: automatic / imported / chosen), since it
+has an editor on the people step. `nature`, `contact` and `observations` have no editor in
+this flow, so an import is their only source and they are replaced unconditionally.
 
 Route fields keep their `if !isEmpty` guards: an empty departure in a draft is a parse
 defect, not an instruction to clear a good value.
@@ -66,6 +66,8 @@ struct FlightDraft {
     var responsiblePerson: Person?
     var nature: String?
     var observations: String?
+    var reasonForVisit: String?
+    var chosenDocNumbers: [String]
     var provenance: Provenance
 }
 ```
@@ -117,8 +119,8 @@ rather than a wrong flight.
 `applyRoute` historically filled origin/destination/times/aircraft and stopped. The route
 step is four fields; the people step is the slow one. So:
 
-- **Previous flight** copies crew, passengers, responsible person, nature and contact
-  outright (`Flight.copyCommon(to:)` semantics).
+- **Previous flight** copies crew, passengers, responsible person, nature, contact,
+  reason for visit and document choices outright (`Flight.copyCommon(to:)` semantics).
 - **Every other method** offers a one-tap `PeopleSuggestion` on the people step: the crew
   and passengers of the most recent flight flown with the same aircraft, falling back to
   the most recent flight overall, falling back to `isUsualCrew`.
@@ -126,6 +128,28 @@ step is four fields; the people step is the slow one. So:
   the same copy with the choice handed back, for a pilot who flies with different people
   on different trips. Rows are deduplicated by *the people*, not the route, so a weekly
   trip with the same four aboard is one row rather than eight that differ by date.
+- **The chip and the picker carry what goes with those people**: the source flight's
+  responsible person, its document choices, and its reason for visit (as a fallback, see
+  below). `PeopleSuggestion.source` is that flight; nil for the usual-crew fallback.
+
+### Responsible person and reason for visit arrive filled
+
+These rarely change between flights, and the pilot used to set both in the flight editor
+after every creation, because no import path filled them. They now sit on the people step
+as two rows, already filled, so the step is a check rather than an entry.
+
+- **Responsible person**: whatever set it (the chip, the crew picker, a previous-flight
+  import, the pilot), else `PeopleSuggestion.defaultResponsiblePerson`: the most recent
+  flight's responsible person *who is aboard this one*, else the first crew member. Only
+  someone aboard is reused, so a person from an unrelated trip never lands on the form.
+  Computed, not stored, while automatic, so it follows the people as they change.
+- **Reason for visit**: the pilot's pick on the people step, else
+  `Flight.defaultReasonForVisit(destination:usualBase:)` — "Based" when the destination is
+  the aircraft's usual base, "Short Term Visit" anywhere else — else the copied flight's
+  value (only reachable when the aircraft has no base on file). The base rule outranks the
+  copied value on purpose: those two answers cover nearly every flight, and the reason a
+  copied flight had belongs to *its* destination. The rare reasons (maintenance, repair,
+  import) stay one pick away.
 
 ### The aircraft starts filled in
 
