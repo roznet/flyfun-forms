@@ -13,6 +13,10 @@ __pycache__/
 *.pyc
 *.egg-info/
 .env
+# .env.secrets (sops-managed secrets) and any other .env.* file; the samples stay tracked
+.env.*
+!.env.sample
+!.env.secrets.sample
 # App Store Connect keys live in ~/.appstoreconnect/private_keys/; this guards
 # against an accidental `git add` of a downloaded AuthKey_*.p8.
 *.p8
