@@ -815,6 +815,7 @@ def main() -> None:
 
     if load_dotenv is not None:
         load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+        load_dotenv(Path(__file__).resolve().parent.parent / ".env.secrets")  # sops-managed secrets, if present
 
     config = AscConfig.from_env()
     asc = Asc(

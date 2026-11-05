@@ -8,7 +8,11 @@ services:
       # published ports bypass the host firewall, so "8030:8030" would expose
       # plain HTTP (no TLS, no Caddy limits) on the public interface.
       - "127.0.0.1:8030:8030"
-    env_file: .env
+    env_file:
+      - .env
+      # secrets split out of .env (sops-managed on the host); optional until prod has it
+      - path: .env.secrets
+        required: false
     environment:
       - ENVIRONMENT=production
     volumes:
